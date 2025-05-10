@@ -3,6 +3,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useLoader } from '@/hooks/useLoader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,22 +15,36 @@ export const LoginForm: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const { login } = useAuth();
+  const { showLoader, hideLoader } = useLoader();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    const success = await login(username, password);
-    if (!success) {
-      toast({
-        title: "Login Failed",
-        description: "Invalid username or password. (Hint: try 'admin' or 'editor')",
-        variant: "destructive",
-      });
+    setIsSubmitting(true);
+    showLoader("Logging in...");
+    try {
+      const success = await login(username, password);
+      if (!success) {
+        toast({
+          title: "Login Failed",
+          description: "Invalid username or password. (Hint: try 'admin' or 'editor')",
+          variant: "destructive",
+        });
+      }
+      // On success, AuthContext handles redirection
+    } catch (error) {
+        console.error("Login handleSubmit error:", error);
+        toast({
+            title: "Login Error",
+            description: "An unexpected error occurred. Please try again.",
+            variant: "destructive",
+        });
     }
-    // On success, AuthContext handles redirection
-    setIsLoading(false);
+    finally {
+      hideLoader();
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -52,7 +67,7 @@ export const LoginForm: React.FC = () => {
               onChange={(e) => setUsername(e.target.value)}
               placeholder="e.g., editor"
               required
-              disabled={isLoading}
+              disabled={isSubmitting}
             />
           </div>
           <div className="space-y-2">
@@ -64,11 +79,11 @@ export const LoginForm: React.FC = () => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
-              disabled={isLoading}
+              disabled={isSubmitting}
             />
           </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Logging in...' : 'Login'}
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? 'Logging in...' : 'Login'}
           </Button>
         </form>
         <p className="mt-4 text-center text-sm text-muted-foreground">
