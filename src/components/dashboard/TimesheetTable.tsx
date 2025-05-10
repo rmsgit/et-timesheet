@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -50,6 +49,9 @@ export const TimesheetTable: React.FC = () => {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<TimeRecord | undefined>(undefined);
+  // Local submitting state for actions within this table, if TimeRecordForm doesn't cover all.
+  const [isActionSubmitting, setIsActionSubmitting] = useState(false);
+
 
   const isLoading = isAuthLoading || isTimesheetLoading;
 
@@ -59,7 +61,7 @@ export const TimesheetTable: React.FC = () => {
   }, [user, getRecordsForUser, isLoading]);
 
 
-  if (isAuthLoading) { // Initial auth loading
+  if (isAuthLoading) { 
     return (
       <div className="flex h-[calc(100vh-theme(spacing.32))] items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -67,7 +69,7 @@ export const TimesheetTable: React.FC = () => {
     );
   }
 
-  if (!user && !isAuthLoading) { // Should be caught by layout, but as a fallback
+  if (!user && !isAuthLoading) { 
     return <p className="text-center p-8">Loading user data or redirecting...</p>;
   }
   
@@ -82,21 +84,37 @@ export const TimesheetTable: React.FC = () => {
     setIsFormOpen(true);
   };
 
-  const handleDelete = (recordId: string) => {
-    deleteTimeRecord(recordId);
-    toast({ title: "Record Deleted", description: "The time record has been successfully deleted." });
+  const handleDelete = async (recordId: string, projectName: string) => {
+    setIsActionSubmitting(true);
+    try {
+      await deleteTimeRecord(recordId);
+      toast({ title: "Record Deletion Initiated", description: `Attempting to delete record for "${projectName}".` });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to delete record.", variant: "destructive" });
+    } finally {
+      setIsActionSubmitting(false);
+    }
   };
 
-  const handleMarkComplete = (recordId: string) => {
-    markAsComplete(recordId);
-    toast({ title: "Task Completed", description: "The task has been marked as complete." });
+  const handleMarkComplete = async (recordId: string, projectName: string) => {
+    setIsActionSubmitting(true);
+    try {
+      await markAsComplete(recordId);
+      // Toast for notification is handled within markAsComplete now
+      // We can add a toast here for UI feedback if needed.
+      toast({ title: "Completion Initiated", description: `Attempting to mark "${projectName}" as complete.` });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to mark as complete.", variant: "destructive" });
+    } finally {
+      setIsActionSubmitting(false);
+    }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">My Timesheet</h2>
-        <Button onClick={handleAddNew} disabled={isLoading}>
+        <Button onClick={handleAddNew} disabled={isLoading || isActionSubmitting}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add New Record
         </Button>
       </div>
@@ -110,14 +128,14 @@ export const TimesheetTable: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {isTimesheetLoading && !isAuthLoading ? ( // Timesheet data is loading, auth is done
+      {isTimesheetLoading && !isAuthLoading ? ( 
         <TableSkeleton columnCount={6} className="shadow-lg" />
       ) : userRecords.length === 0 ? (
         <div className="text-center py-10 border-2 border-dashed rounded-lg bg-card">
             <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-2 text-xl font-medium">No time records yet</h3>
             <p className="mt-1 text-sm text-muted-foreground">Get started by adding your first time entry.</p>
-            <Button className="mt-6" onClick={handleAddNew}>
+            <Button className="mt-6" onClick={handleAddNew} disabled={isActionSubmitting}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Record
             </Button>
         </div>
@@ -155,28 +173,26 @@ export const TimesheetTable: React.FC = () => {
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
+                          <Button variant="ghost" className="h-8 w-8 p-0" disabled={isActionSubmitting}>
                             <span className="sr-only">Open menu</span>
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {!record.completedAt && (
-                            <DropdownMenuItem onClick={() => handleMarkComplete(record.id)}>
+                            <DropdownMenuItem onClick={() => handleMarkComplete(record.id, record.projectName)} disabled={isActionSubmitting}>
                               <CheckCircle className="mr-2 h-4 w-4" /> Mark as Complete
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem onClick={() => handleEdit(record)}>
+                          <DropdownMenuItem onClick={() => handleEdit(record)} disabled={isActionSubmitting}>
                             <Edit className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>
                            <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                {/* The DropdownMenuItem itself cannot be the direct child for AlertDialogTrigger to get correct styling if it uses asChild from Radix.
-                                    We wrap it or ensure it's a simple button or element.
-                                    Here, DropdownMenuItem is fine as it renders a div/button.
-                                */}
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} 
+                                <DropdownMenuItem 
+                                    onSelect={(e) => e.preventDefault()} 
                                     className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
+                                    disabled={isActionSubmitting}
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
                                   Delete
@@ -192,7 +208,7 @@ export const TimesheetTable: React.FC = () => {
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
-                                    onClick={() => handleDelete(record.id)}
+                                    onClick={() => handleDelete(record.id, record.projectName)}
                                     className={buttonVariants({ variant: "destructive" })}
                                   >
                                     Delete
@@ -213,4 +229,3 @@ export const TimesheetTable: React.FC = () => {
     </div>
   );
 };
-

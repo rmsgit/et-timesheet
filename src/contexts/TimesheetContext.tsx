@@ -1,19 +1,20 @@
 
 "use client";
 
-import type { TimeRecord, User } from '@/lib/types';
+import type { TimeRecord } from '@/lib/types';
 import React, { createContext, ReactNode, useCallback, useState, useEffect } from 'react';
-import useLocalStorage from '@/hooks/useLocalStorage';
-import { LOCAL_STORAGE_TIMESHEET_KEY } from '@/lib/constants';
+import { database } from '@/lib/firebase';
+import { ref, onValue, set, remove, update as firebaseUpdate, push } from 'firebase/database';
+import { FIREBASE_TIMESHEET_PATH } from '@/lib/constants';
 import { useAuth } from '@/hooks/useAuth';
 import { useLoader } from '@/hooks/useLoader';
 
 interface TimesheetContextType {
   timeRecords: TimeRecord[];
-  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => void;
-  updateTimeRecord: (record: TimeRecord) => void;
-  deleteTimeRecord: (recordId: string) => void;
-  markAsComplete: (recordId: string) => void;
+  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => Promise<void>;
+  updateTimeRecord: (record: TimeRecord) => Promise<void>;
+  deleteTimeRecord: (recordId: string) => Promise<void>;
+  markAsComplete: (recordId: string) => Promise<void>;
   getRecordsForUser: (userId: string) => TimeRecord[];
   getRecordsByDateRange: (userId: string, startDate: Date, endDate: Date) => TimeRecord[];
   getAllRecordsByDateRange: (startDate: Date, endDate: Date) => TimeRecord[];
@@ -22,72 +23,114 @@ interface TimesheetContextType {
 
 export const TimesheetContext = createContext<TimesheetContextType | undefined>(undefined);
 
-const TIMESHEET_LOADER_ID = "timesheet_loader";
+const TIMESHEET_LOADER_ID = "firebase_timesheet_loader";
 
 interface TimesheetProviderProps {
   children: ReactNode;
 }
 
-const INITIAL_TIMESHEET_RECORDS: TimeRecord[] = [];
-
 export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }) => {
   const { user } = useAuth();
-  const [timeRecords, setTimeRecords, isTimesheetLoadingLocalStorage] = useLocalStorage<TimeRecord[]>(LOCAL_STORAGE_TIMESHEET_KEY, INITIAL_TIMESHEET_RECORDS);
+  const [timeRecords, setTimeRecordsState] = useState<TimeRecord[]>([]);
+  const [isTimesheetLoading, setIsTimesheetLoading] = useState(true);
   const { showLoader, hideLoader } = useLoader();
 
   useEffect(() => {
-    if (isTimesheetLoadingLocalStorage) {
-      showLoader(TIMESHEET_LOADER_ID, "Loading timesheet data...");
-    } else {
-      hideLoader(TIMESHEET_LOADER_ID);
-    }
-    return () => hideLoader(TIMESHEET_LOADER_ID); 
-  }, [isTimesheetLoadingLocalStorage, showLoader, hideLoader]);
+    showLoader(TIMESHEET_LOADER_ID, "Loading timesheet data...");
+    const dbRef = ref(database, FIREBASE_TIMESHEET_PATH);
 
-  const addTimeRecord = useCallback((recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => {
+    const unsubscribe = onValue(dbRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const recordsObject = snapshot.val();
+        const recordsArray = Object.values(recordsObject) as TimeRecord[];
+        setTimeRecordsState(recordsArray);
+      } else {
+        setTimeRecordsState([]);
+      }
+      setIsTimesheetLoading(false);
+      hideLoader(TIMESHEET_LOADER_ID);
+    }, (error) => {
+      console.error("Firebase read error (timeRecords):", error);
+      setIsTimesheetLoading(false);
+      hideLoader(TIMESHEET_LOADER_ID);
+      setTimeRecordsState([]);
+    });
+
+    return () => {
+      unsubscribe();
+      hideLoader(TIMESHEET_LOADER_ID);
+    };
+  }, [showLoader, hideLoader]);
+  
+  const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => {
     if (!user) return;
+    const newRecordRef = push(ref(database, FIREBASE_TIMESHEET_PATH));
+    const newRecordId = newRecordRef.key;
+    if (!newRecordId) {
+      console.error("Failed to generate new record ID");
+      return;
+    }
+
     const newRecord: TimeRecord = {
       ...recordData,
-      id: crypto.randomUUID(),
+      id: newRecordId,
       userId: user.id,
     };
-    setTimeRecords(prev => [...prev, newRecord]);
-  }, [setTimeRecords, user]);
-
-  const updateTimeRecord = useCallback((updatedRecord: TimeRecord) => {
-    setTimeRecords(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
-  }, [setTimeRecords]);
-
-  const deleteTimeRecord = useCallback((recordId: string) => {
-    setTimeRecords(prev => prev.filter(r => r.id !== recordId));
-  }, [setTimeRecords]);
-
-  const markAsComplete = useCallback((recordId: string) => {
-    let completedRecordName = "Unknown Task";
-    setTimeRecords(prev => prev.map(r => {
-      if (r.id === recordId) {
-        completedRecordName = r.projectName;
-        return { ...r, completedAt: new Date().toISOString() };
-      }
-      return r;
-    }));
     
-    if (typeof window !== "undefined" && "Notification" in window) {
+    try {
+      await set(ref(database, `${FIREBASE_TIMESHEET_PATH}/${newRecordId}`), newRecord);
+      // State will update via onValue listener
+    } catch (error) {
+      console.error("Firebase add time record error:", error);
+    }
+  }, [user]);
+
+  const updateTimeRecord = useCallback(async (updatedRecord: TimeRecord) => {
+    try {
+      await set(ref(database, `${FIREBASE_TIMESHEET_PATH}/${updatedRecord.id}`), updatedRecord);
+      // State will update via onValue listener
+    } catch (error) {
+      console.error("Firebase update time record error:", error);
+    }
+  }, []);
+
+  const deleteTimeRecord = useCallback(async (recordId: string) => {
+    try {
+      await remove(ref(database, `${FIREBASE_TIMESHEET_PATH}/${recordId}`));
+      // State will update via onValue listener
+    } catch (error) {
+      console.error("Firebase delete time record error:", error);
+    }
+  }, []);
+
+  const markAsComplete = useCallback(async (recordId: string) => {
+    const recordToComplete = timeRecords.find(r => r.id === recordId);
+    if (!recordToComplete) return;
+
+    const completedAt = new Date().toISOString();
+    try {
+      await firebaseUpdate(ref(database, `${FIREBASE_TIMESHEET_PATH}/${recordId}`), { completedAt });
+      // State will update via onValue listener
+
+      if (typeof window !== "undefined" && "Notification" in window) {
         if (Notification.permission === "granted") {
             new Notification("Task Completed!", {
-            body: `Project "${completedRecordName}" marked as complete.`,
+            body: `Project "${recordToComplete.projectName}" marked as complete.`,
             });
         } else if (Notification.permission !== "denied") {
             Notification.requestPermission().then(permission => {
                 if (permission === "granted") {
                     new Notification("Task Completed!", {
-                        body: `Project "${completedRecordName}" marked as complete.`,
+                        body: `Project "${recordToComplete.projectName}" marked as complete.`,
                     });
                 }
             });
         }
     }
-  }, [setTimeRecords]);
+    } catch (error) {
+      console.error("Firebase mark as complete error:", error);
+    }
+  }, [timeRecords]);
 
   const getRecordsForUser = useCallback((userId: string) => {
     return timeRecords.filter(r => r.userId === userId);
@@ -130,7 +173,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         getRecordsForUser,
         getRecordsByDateRange,
         getAllRecordsByDateRange,
-        isTimesheetLoading: isTimesheetLoadingLocalStorage
+        isTimesheetLoading
     }}>
       {children}
     </TimesheetContext.Provider>

@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle } from 'lucide-react';
+import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -50,6 +50,7 @@ export const UserManagementTable: React.FC = () => {
   
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
 
 
   const handleOpenAddUserDialog = () => {
@@ -67,11 +68,15 @@ export const UserManagementTable: React.FC = () => {
       });
       return;
     }
-    const result = addUser(newUserName, newUserRole);
-    if (result.success) {
+    setIsSubmittingForm(true);
+    // addUser is now optimistic and doesn't return a promise for success/failure directly for UI
+    // It updates Firebase, and the UI list updates via onValue listener.
+    // We show a toast based on the synchronous checks.
+    const result = addUser(newUserName, newUserRole); 
+    if (result.success && result.user) {
       toast({
-        title: "User Added",
-        description: `User "${result.user?.username}" has been added.`,
+        title: "User Add Initiated",
+        description: `Attempting to add user "${result.user.username}".`,
       });
       setIsAddUserDialogOpen(false);
     } else {
@@ -81,6 +86,7 @@ export const UserManagementTable: React.FC = () => {
         variant: "destructive",
       });
     }
+    setIsSubmittingForm(false);
   };
 
   const openDeleteDialog = (user: User) => {
@@ -90,7 +96,6 @@ export const UserManagementTable: React.FC = () => {
 
   const handleConfirmDeleteUser = () => {
     if (userToDelete) {
-      // Prevent deleting the 'admin' user or the only admin if there's logic for that
       if (userToDelete.username === 'admin' && users.filter(u => u.role === 'admin').length <= 1) {
          toast({
           title: "Cannot Delete Admin",
@@ -102,14 +107,15 @@ export const UserManagementTable: React.FC = () => {
         return;
       }
 
+      // deleteUser is optimistic.
       const result = deleteUser(userToDelete.id);
       if (result.success) {
         toast({
-          title: "User Deleted",
-          description: `User "${userToDelete.username}" has been deleted.`,
+          title: "User Deletion Initiated",
+          description: `Attempting to delete user "${userToDelete.username}".`,
         });
       } else {
-        toast({
+         toast({
           title: "Failed to Delete User",
           description: result.message || "An unexpected error occurred.",
           variant: "destructive",
@@ -123,7 +129,7 @@ export const UserManagementTable: React.FC = () => {
   const handleEditUser = (username: string) => {
      toast({
       title: "Edit User (Mocked)",
-      description: `Editing user "${username}" is mocked for this demo. Future updates could implement a full edit dialog.`,
+      description: `Editing user "${username}" is mocked. Firebase update logic would be here.`,
     });
   }
 
@@ -134,9 +140,9 @@ export const UserManagementTable: React.FC = () => {
           <div className="flex justify-between items-center">
             <div >
               <CardTitle className="text-2xl font-semibold">User Management</CardTitle>
-              <CardDescription>Manage editor and admin accounts.</CardDescription>
+              <CardDescription>Manage editor and admin accounts stored in Firebase.</CardDescription>
             </div>
-            <Button onClick={handleOpenAddUserDialog} disabled={isUsersLoading}>
+            <Button onClick={handleOpenAddUserDialog} disabled={isUsersLoading || isSubmittingForm}>
               <UserPlus className="mr-2 h-4 w-4" /> Add User
             </Button>
           </div>
@@ -145,7 +151,7 @@ export const UserManagementTable: React.FC = () => {
           {isUsersLoading ? (
             <TableSkeleton 
               columnCount={3} 
-              rowCount={users.length > 0 ? users.length : 3} 
+              rowCount={3} 
               showTableHeader={true} 
               headerTexts={["User", "Role", "Actions"]} 
               cellWidths={["w-2/5", "w-2/5", "w-1/5 text-right"]} 
@@ -155,7 +161,7 @@ export const UserManagementTable: React.FC = () => {
                 <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-2 text-xl font-medium">No Users Found</h3>
                 <p className="mt-1 text-sm text-muted-foreground">No users currently in the system. Add one to get started.</p>
-                <Button className="mt-6" onClick={handleOpenAddUserDialog}>
+                <Button className="mt-6" onClick={handleOpenAddUserDialog} disabled={isSubmittingForm}>
                     <UserPlus className="mr-2 h-4 w-4" /> Add User
                 </Button>
             </div>
@@ -189,19 +195,19 @@ export const UserManagementTable: React.FC = () => {
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
+                          <Button variant="ghost" className="h-8 w-8 p-0" disabled={isSubmittingForm}>
                             <span className="sr-only">Open menu</span>
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditUser(user.username)}>
+                          <DropdownMenuItem onClick={() => handleEditUser(user.username)} disabled={isSubmittingForm}>
                             <Edit2 className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => openDeleteDialog(user)} 
                             className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
-                            disabled={user.username === 'admin' && users.filter(u => u.role === 'admin').length <= 1} // Disable delete for the only admin
+                            disabled={(user.username === 'admin' && users.filter(u => u.role === 'admin').length <= 1) || isSubmittingForm}
                           >
                             <Trash2 className="mr-2 h-4 w-4" /> Delete
                           </DropdownMenuItem>
@@ -216,8 +222,7 @@ export const UserManagementTable: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Add User Dialog */}
-      <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
+      <Dialog open={isAddUserDialogOpen} onOpenChange={(open) => { setIsAddUserDialogOpen(open); if (!open) { setNewUserName(''); setNewUserRole('editor');} }}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Add New User</DialogTitle>
@@ -233,13 +238,14 @@ export const UserManagementTable: React.FC = () => {
                 onChange={(e) => setNewUserName(e.target.value)}
                 className="col-span-3"
                 placeholder="Enter username"
+                disabled={isSubmittingForm}
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="new-user-role" className="text-right col-span-1">
                 Role
               </Label>
-              <Select value={newUserRole} onValueChange={(value: 'editor' | 'admin') => setNewUserRole(value)}>
+              <Select value={newUserRole} onValueChange={(value: 'editor' | 'admin') => setNewUserRole(value)} disabled={isSubmittingForm}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
@@ -252,14 +258,16 @@ export const UserManagementTable: React.FC = () => {
           </div>
           <DialogFooter>
             <DialogClose asChild>
-                <Button type="button" variant="outline"><X className="mr-2 h-4 w-4" />Cancel</Button>
+                <Button type="button" variant="outline" disabled={isSubmittingForm}><X className="mr-2 h-4 w-4" />Cancel</Button>
             </DialogClose>
-            <Button type="button" onClick={handleConfirmAddUser}><Save className="mr-2 h-4 w-4" />Add User</Button>
+            <Button type="button" onClick={handleConfirmAddUser} disabled={isSubmittingForm}>
+              {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Add User
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete User Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -283,4 +291,3 @@ export const UserManagementTable: React.FC = () => {
     </>
   );
 };
-

@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, PlusCircle, Trash2, Edit2, Save, X, AlertTriangle } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Trash2, Edit2, Save, X, AlertTriangle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
@@ -40,7 +40,7 @@ import { buttonVariants } from '@/components/ui/button';
 
 export const ProjectTypesManagementTable: React.FC = () => {
   const { projectTypes, addProjectType, updateProjectType, deleteProjectType, isLoadingProjectTypes, isProjectTypeInUse } = useProjectTypes();
-  const { timeRecords: allTimeRecords, isTimesheetLoading } = useTimesheet(); // Get all time records
+  const { timeRecords: allTimeRecords, isTimesheetLoading } = useTimesheet(); 
   const { toast } = useToast();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -48,6 +48,7 @@ export const ProjectTypesManagementTable: React.FC = () => {
   const [currentTypeValue, setCurrentTypeValue] = useState('');
   const [typeToDelete, setTypeToDelete] = useState<string | undefined>(undefined);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
 
   const isLoading = isLoadingProjectTypes || isTimesheetLoading;
 
@@ -63,27 +64,39 @@ export const ProjectTypesManagementTable: React.FC = () => {
     setIsFormOpen(true);
   };
 
-  const handleSubmitForm = (e: React.FormEvent) => {
+  const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    let result;
+    setIsSubmittingForm(true);
+    let resultPromise;
     if (editingType) {
-      result = updateProjectType(editingType, currentTypeValue);
+      resultPromise = updateProjectType(editingType, currentTypeValue);
     } else {
-      result = addProjectType(currentTypeValue);
+      resultPromise = addProjectType(currentTypeValue);
     }
 
-    if (result.success) {
-      toast({
-        title: "Success",
-        description: `Project type ${editingType ? 'updated' : 'added'}.`,
-      });
-      setIsFormOpen(false);
-    } else {
-      toast({
-        title: "Error",
-        description: result.message || "Failed to save project type.",
-        variant: "destructive",
-      });
+    try {
+      const result = await resultPromise;
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: `Project type ${editingType ? 'updated' : 'added'}.`,
+        });
+        setIsFormOpen(false);
+      } else {
+        toast({
+          title: "Error",
+          description: result.message || "Failed to save project type.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+        toast({
+          title: "Error",
+          description: "An unexpected error occurred.",
+          variant: "destructive",
+        });
+    } finally {
+        setIsSubmittingForm(false);
     }
   };
 
@@ -92,7 +105,7 @@ export const ProjectTypesManagementTable: React.FC = () => {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (typeToDelete) {
       if (isProjectTypeInUse(typeToDelete, allTimeRecords)) {
         toast({
@@ -101,18 +114,26 @@ export const ProjectTypesManagementTable: React.FC = () => {
           variant: "destructive",
         });
       } else {
-        const result = deleteProjectType(typeToDelete);
-        if (result.success) {
-          toast({
-            title: "Project Type Deleted",
-            description: `"${typeToDelete}" has been deleted.`,
-          });
-        } else {
+        try {
+          const result = await deleteProjectType(typeToDelete);
+          if (result.success) {
+            toast({
+              title: "Project Type Deleted",
+              description: `"${typeToDelete}" has been deleted.`,
+            });
+          } else {
+             toast({
+              title: "Error",
+              description: result.message || "Failed to delete project type.",
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
            toast({
-            title: "Error",
-            description: result.message || "Failed to delete project type.",
-            variant: "destructive",
-          });
+              title: "Error",
+              description: "An unexpected error occurred during deletion.",
+              variant: "destructive",
+            });
         }
       }
       setIsDeleteDialogOpen(false);
@@ -129,7 +150,7 @@ export const ProjectTypesManagementTable: React.FC = () => {
               <CardTitle className="text-2xl font-semibold">Manage Project Types</CardTitle>
               <CardDescription>Add, edit, or remove project types used in timesheets.</CardDescription>
             </div>
-            <Button onClick={handleAddNew} disabled={isLoading}>
+            <Button onClick={handleAddNew} disabled={isLoading || isSubmittingForm}>
               <PlusCircle className="mr-2 h-4 w-4" /> Add New Type
             </Button>
           </div>
@@ -145,7 +166,7 @@ export const ProjectTypesManagementTable: React.FC = () => {
                 <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-2 text-xl font-medium">No Project Types Defined</h3>
                 <p className="mt-1 text-sm text-muted-foreground">Get started by adding your first project type.</p>
-                <Button className="mt-6" onClick={handleAddNew}>
+                <Button className="mt-6" onClick={handleAddNew} disabled={isSubmittingForm}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add New Type
                 </Button>
             </div>
@@ -164,18 +185,19 @@ export const ProjectTypesManagementTable: React.FC = () => {
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
+                          <Button variant="ghost" className="h-8 w-8 p-0" disabled={isSubmittingForm}>
                             <span className="sr-only">Open menu</span>
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(type)}>
+                          <DropdownMenuItem onClick={() => handleEdit(type)} disabled={isSubmittingForm}>
                             <Edit2 className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => openDeleteDialog(type)}
                             className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
+                            disabled={isSubmittingForm}
                           >
                             <Trash2 className="mr-2 h-4 w-4" /> Delete
                           </DropdownMenuItem>
@@ -190,7 +212,7 @@ export const ProjectTypesManagementTable: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) setEditingType(undefined); }}>
+      <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) {setEditingType(undefined); setCurrentTypeValue('');} }}>
         <DialogContent className="sm:max-w-[425px]">
           <form onSubmit={handleSubmitForm}>
             <DialogHeader>
@@ -208,14 +230,18 @@ export const ProjectTypesManagementTable: React.FC = () => {
                   className="col-span-3"
                   placeholder="e.g., New Feature"
                   required
+                  disabled={isSubmittingForm}
                 />
               </div>
             </div>
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="outline"><X className="mr-2 h-4 w-4" />Cancel</Button>
+                <Button type="button" variant="outline" disabled={isSubmittingForm}><X className="mr-2 h-4 w-4" />Cancel</Button>
               </DialogClose>
-              <Button type="submit"><Save className="mr-2 h-4 w-4" />{editingType ? 'Save Changes' : 'Add Type'}</Button>
+              <Button type="submit" disabled={isSubmittingForm}>
+                {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                {editingType ? 'Save Changes' : 'Add Type'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

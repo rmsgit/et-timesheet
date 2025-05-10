@@ -1,14 +1,13 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react'; // Added useState
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useTimesheet } from '@/hooks/useTimesheet';
-import { useProjectTypes } from '@/hooks/useProjectTypes'; // Import useProjectTypes
+import { useProjectTypes } from '@/hooks/useProjectTypes';
 import type { TimeRecord } from '@/lib/types';
-// import { PROJECT_TYPES } from '@/lib/constants'; // No longer directly used for options
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,16 +31,17 @@ const timeRecordSchema = z.object({
 type TimeRecordFormData = z.infer<typeof timeRecordSchema>;
 
 interface TimeRecordFormProps {
-  record?: TimeRecord; // For editing
+  record?: TimeRecord; 
   onClose: () => void;
 }
 
 export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose }) => {
   const { addTimeRecord, updateTimeRecord } = useTimesheet();
-  const { projectTypes, isLoadingProjectTypes } = useProjectTypes(); // Get dynamic project types
+  const { projectTypes, isLoadingProjectTypes } = useProjectTypes();
   const { toast } = useToast();
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false); // Local submitting state
   
-  const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<TimeRecordFormData>({
+  const { control, handleSubmit, reset, formState: { errors } } = useForm<TimeRecordFormData>({
     resolver: zodResolver(timeRecordSchema),
     defaultValues: record ? {
       date: record.date ? parseISO(record.date) : new Date(),
@@ -52,14 +52,13 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
     } : {
       date: new Date(),
       projectName: '',
-      projectType: '', // Default to empty, user must select
+      projectType: '', 
       durationHours: 1,
       isRevision: false,
     },
   });
 
   useEffect(() => {
-    // Ensure projectType in defaultValues is valid or reset if not in dynamic list
     const defaultVals = record ? {
       date: record.date ? parseISO(record.date) : new Date(),
       projectName: record.projectName,
@@ -73,28 +72,33 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
       durationHours: 1,
       isRevision: false,
     };
-    reset(defaultVals);
-  }, [record, reset, projectTypes]);
+    if (!isLoadingProjectTypes) { // Only reset if project types are loaded
+      reset(defaultVals);
+    }
+  }, [record, reset, projectTypes, isLoadingProjectTypes]);
 
 
-  const onSubmit = (data: TimeRecordFormData) => {
+  const onSubmit = async (data: TimeRecordFormData) => {
+    setIsSubmittingForm(true);
     const recordData = {
       ...data,
-      date: data.date.toISOString(), // Store date as ISO string
+      date: data.date.toISOString(), 
     };
 
     try {
       if (record) {
-        updateTimeRecord({ ...record, ...recordData });
+        await updateTimeRecord({ ...record, ...recordData });
         toast({ title: "Success", description: "Time record updated." });
       } else {
-        addTimeRecord(recordData);
+        await addTimeRecord(recordData);
         toast({ title: "Success", description: "Time record added." });
       }
       onClose();
     } catch (error) {
       toast({ title: "Error", description: "Failed to save record.", variant: "destructive" });
       console.error("Failed to save record:", error);
+    } finally {
+      setIsSubmittingForm(false);
     }
   };
 
@@ -114,6 +118,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
                     "w-full justify-start text-left font-normal",
                     !field.value && "text-muted-foreground"
                   )}
+                  disabled={isSubmittingForm}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
@@ -125,6 +130,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
                   selected={field.value}
                   onSelect={field.onChange}
                   initialFocus
+                  disabled={isSubmittingForm}
                 />
               </PopoverContent>
             </Popover>
@@ -138,7 +144,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
         <Controller
           name="projectName"
           control={control}
-          render={({ field }) => <Input id="projectName" {...field} placeholder="e.g., Feature X Implementation" />}
+          render={({ field }) => <Input id="projectName" {...field} placeholder="e.g., Feature X Implementation" disabled={isSubmittingForm} />}
         />
         {errors.projectName && <p className="text-sm text-destructive mt-1">{errors.projectName.message}</p>}
       </div>
@@ -154,7 +160,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
           name="projectType"
           control={control}
           render={({ field }) => (
-            <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+            <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value} disabled={isSubmittingForm || isLoadingProjectTypes}>
               <SelectTrigger id="projectType">
                 <SelectValue placeholder="Select project type" />
               </SelectTrigger>
@@ -176,7 +182,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
         <Controller
           name="durationHours"
           control={control}
-          render={({ field }) => <Input id="durationHours" type="number" step="0.1" {...field} placeholder="e.g., 2.5" />}
+          render={({ field }) => <Input id="durationHours" type="number" step="0.1" {...field} placeholder="e.g., 2.5" disabled={isSubmittingForm} />}
         />
         {errors.durationHours && <p className="text-sm text-destructive mt-1">{errors.durationHours.message}</p>}
       </div>
@@ -186,18 +192,19 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
             name="isRevision"
             control={control}
             render={({ field }) => (
-                 <Checkbox id="isRevision" checked={field.value} onCheckedChange={field.onChange} />
+                 <Checkbox id="isRevision" checked={field.value} onCheckedChange={field.onChange} disabled={isSubmittingForm} />
             )}
          />
         <Label htmlFor="isRevision" className="font-normal">This is a revision</Label>
       </div>
 
       <div className="flex justify-end space-x-2 pt-4">
-        <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+        <Button type="button" variant="outline" onClick={onClose} disabled={isSubmittingForm}>
           <X className="mr-2 h-4 w-4" /> Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting || isLoadingProjectTypes}>
-          <Save className="mr-2 h-4 w-4" /> {isSubmitting ? "Saving..." : (record ? "Update Record" : "Add Record")}
+        <Button type="submit" disabled={isSubmittingForm || isLoadingProjectTypes}>
+           {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+           {record ? "Update Record" : "Add Record"}
         </Button>
       </div>
     </form>

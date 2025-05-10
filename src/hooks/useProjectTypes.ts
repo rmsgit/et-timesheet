@@ -1,62 +1,91 @@
 
 "use client";
 
-import { useCallback, useEffect } from 'react';
-import useLocalStorage from './useLocalStorage';
-import { PROJECT_TYPES as INITIAL_PROJECT_TYPES, LOCAL_STORAGE_PROJECT_TYPES_KEY } from '@/lib/constants';
+import { useState, useEffect, useCallback } from 'react';
+import { database } from '@/lib/firebase';
+import { ref, onValue, set } from 'firebase/database';
+import { PROJECT_TYPES as INITIAL_PROJECT_TYPES, FIREBASE_PROJECT_TYPES_PATH } from '@/lib/constants';
 import type { TimeRecord } from '@/lib/types';
 import { useLoader } from './useLoader';
 
-const PROJECT_TYPES_LOADER_ID = "project_types_loader";
+const PROJECT_TYPES_LOADER_ID = "firebase_project_types_loader";
 
 export const useProjectTypes = () => {
-  const [projectTypes, setProjectTypes, isLoadingProjectTypesLocalStorage] = useLocalStorage<string[]>(
-    LOCAL_STORAGE_PROJECT_TYPES_KEY,
-    INITIAL_PROJECT_TYPES
-  );
+  const [projectTypes, setProjectTypesState] = useState<string[]>([]);
+  const [isLoadingProjectTypes, setIsLoadingProjectTypes] = useState(true);
   const { showLoader, hideLoader } = useLoader();
 
   useEffect(() => {
-    if (isLoadingProjectTypesLocalStorage) {
-      showLoader(PROJECT_TYPES_LOADER_ID, "Loading project types...");
-    } else {
-      hideLoader(PROJECT_TYPES_LOADER_ID);
-    }
-    return () => hideLoader(PROJECT_TYPES_LOADER_ID); 
-  }, [isLoadingProjectTypesLocalStorage, showLoader, hideLoader]);
+    showLoader(PROJECT_TYPES_LOADER_ID, "Loading project types...");
+    const dbRef = ref(database, FIREBASE_PROJECT_TYPES_PATH);
 
-  const addProjectType = useCallback((newType: string): { success: boolean; message?: string } => {
+    const unsubscribe = onValue(dbRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const types = snapshot.val();
+        setProjectTypesState(Array.isArray(types) ? types : []); // Ensure it's an array
+      } else {
+        set(dbRef, INITIAL_PROJECT_TYPES)
+          .then(() => setProjectTypesState(INITIAL_PROJECT_TYPES))
+          .catch(error => console.error("Firebase seed error (projectTypes):", error));
+      }
+      setIsLoadingProjectTypes(false);
+      hideLoader(PROJECT_TYPES_LOADER_ID);
+    }, (error) => {
+      console.error("Firebase read error (projectTypes):", error);
+      setIsLoadingProjectTypes(false);
+      hideLoader(PROJECT_TYPES_LOADER_ID);
+      setProjectTypesState([]); // Fallback
+    });
+    
+    return () => {
+      unsubscribe();
+      hideLoader(PROJECT_TYPES_LOADER_ID);
+    };
+  }, [showLoader, hideLoader]);
+
+  const updateFirebaseProjectTypes = async (newTypes: string[]) => {
+    const dbRef = ref(database, FIREBASE_PROJECT_TYPES_PATH);
+    try {
+      await set(dbRef, newTypes);
+      // setProjectTypesState will be updated by the onValue listener
+      return { success: true };
+    } catch (error) {
+      console.error("Firebase update project types error:", error);
+      return { success: false, message: "Failed to update project types in database." };
+    }
+  };
+
+  const addProjectType = useCallback(async (newType: string): Promise<{ success: boolean; message?: string }> => {
     if (newType.trim() === "") {
       return { success: false, message: "Project type cannot be empty." };
     }
     if (projectTypes.map(pt => pt.toLowerCase()).includes(newType.toLowerCase())) {
       return { success: false, message: "Project type already exists." };
     }
-    setProjectTypes(prev => [...prev, newType.trim()]);
-    return { success: true };
-  }, [projectTypes, setProjectTypes]);
+    const updatedTypes = [...projectTypes, newType.trim()];
+    return updateFirebaseProjectTypes(updatedTypes);
+  }, [projectTypes]);
 
-  const updateProjectType = useCallback((oldType: string, newType: string): { success: boolean; message?: string } => {
+  const updateProjectType = useCallback(async (oldType: string, newType: string): Promise<{ success: boolean; message?: string }> => {
     if (newType.trim() === "") {
       return { success: false, message: "Project type cannot be empty." };
     }
-    // Check if the new type name (if changed) conflicts with existing types, excluding the oldType itself.
     const lowerNewType = newType.toLowerCase();
     const lowerOldType = oldType.toLowerCase();
     if (lowerOldType !== lowerNewType && projectTypes.some(pt => pt.toLowerCase() === lowerNewType)) {
       return { success: false, message: "New project type name already exists." };
     }
-    setProjectTypes(prev => prev.map(pt => (pt.toLowerCase() === lowerOldType ? newType.trim() : pt)));
-    return { success: true };
-  }, [projectTypes, setProjectTypes]);
+    const updatedTypes = projectTypes.map(pt => (pt.toLowerCase() === lowerOldType ? newType.trim() : pt));
+    return updateFirebaseProjectTypes(updatedTypes);
+  }, [projectTypes]);
 
-  const deleteProjectType = useCallback((typeToDelete: string): { success: boolean; message?: string } => {
-    // The check for isProjectTypeInUse will be done in the component.
-    setProjectTypes(prev => prev.filter(pt => pt.toLowerCase() !== typeToDelete.toLowerCase()));
-    return { success: true };
-  }, [setProjectTypes]);
+  const deleteProjectType = useCallback(async (typeToDelete: string): Promise<{ success: boolean; message?: string }> => {
+    const updatedTypes = projectTypes.filter(pt => pt.toLowerCase() !== typeToDelete.toLowerCase());
+    return updateFirebaseProjectTypes(updatedTypes);
+  }, [projectTypes]);
 
   const isProjectTypeInUse = useCallback((projectType: string, allTimeRecords: TimeRecord[]): boolean => {
+    if (!allTimeRecords) return false;
     return allTimeRecords.some(record => record.projectType.toLowerCase() === projectType.toLowerCase());
   }, []);
 
@@ -65,7 +94,7 @@ export const useProjectTypes = () => {
       addProjectType, 
       updateProjectType, 
       deleteProjectType, 
-      isLoadingProjectTypes: isLoadingProjectTypesLocalStorage, 
+      isLoadingProjectTypes,
       isProjectTypeInUse 
     };
 };
