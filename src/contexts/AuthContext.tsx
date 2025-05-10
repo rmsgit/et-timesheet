@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { User } from '@/lib/types';
@@ -7,11 +6,12 @@ import useLocalStorage from '@/hooks/useLocalStorage';
 import { LOCAL_STORAGE_USER_KEY, MOCK_USERS_DATA } from '@/lib/constants';
 import { useRouter } from 'next/navigation';
 import { useLoader } from '@/hooks/useLoader';
+import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   user: User | null;
   login: (username: string, password?: string) => Promise<boolean>; 
-  logout: () => void;
+  logout: () => Promise<void>; // Changed to Promise<void> as it's now async
   isAuthenticated: boolean;
   isAdmin: boolean;
   isEditor: boolean;
@@ -30,6 +30,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser, isAuthLoadingLocalStorage] = useLocalStorage<User | null>(LOCAL_STORAGE_USER_KEY, null);
   const router = useRouter();
   const { showLoader, hideLoader } = useLoader();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (isAuthLoadingLocalStorage) {
@@ -41,26 +42,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [isAuthLoadingLocalStorage, showLoader, hideLoader]);
   
   const login = useCallback(async (username: string, _password?: string): Promise<boolean> => {
-    // LoginForm already calls showLoader, this is an additional safety or for other login mechanisms
-    // showLoader(AUTH_LOADER_ID, "Logging in..."); // Keep this commented if LoginForm handles it primarily
     const foundUser = MOCK_USERS_DATA.find(u => u.username === username);
     if (foundUser) {
       setUser(foundUser);
       router.push('/dashboard');
-      // hideLoader(AUTH_LOADER_ID); // LoginForm handles its own hideLoader
       return true;
     }
     setUser(null); 
-    // hideLoader(AUTH_LOADER_ID); // LoginForm handles its own hideLoader
     return false;
-  }, [setUser, router, showLoader, hideLoader]);
+  }, [setUser, router]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     showLoader(AUTH_LOADER_ID, "Logging out...");
-    setUser(null);
-    router.push('/login');
-    // The useEffect will handle hiding the loader once isAuthLoadingLocalStorage becomes false after setUser
-  }, [setUser, router, showLoader]);
+    try {
+      setUser(null);
+      // router.push is asynchronous. The loader will hide after navigation is initiated.
+      router.push('/login');
+    } catch (error) {
+        console.error("Logout error:", error);
+        toast({
+            title: "Logout Error",
+            description: "An unexpected error occurred while logging out.",
+            variant: "destructive",
+        });
+    } finally {
+        hideLoader(AUTH_LOADER_ID);
+    }
+  }, [setUser, router, showLoader, hideLoader, toast]);
 
   const isAuthenticated = !!user;
   const isAdmin = isAuthenticated && user.role === 'admin';
