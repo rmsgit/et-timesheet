@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { TimeRecord, User } from '@/lib/types';
@@ -5,6 +6,7 @@ import React, { createContext, ReactNode, useCallback, useState, useEffect } fro
 import useLocalStorage from '@/hooks/useLocalStorage';
 import { LOCAL_STORAGE_TIMESHEET_KEY } from '@/lib/constants';
 import { useAuth } from '@/hooks/useAuth';
+import { useLoader } from '@/hooks/useLoader';
 
 interface TimesheetContextType {
   timeRecords: TimeRecord[];
@@ -15,10 +17,12 @@ interface TimesheetContextType {
   getRecordsForUser: (userId: string) => TimeRecord[];
   getRecordsByDateRange: (userId: string, startDate: Date, endDate: Date) => TimeRecord[];
   getAllRecordsByDateRange: (startDate: Date, endDate: Date) => TimeRecord[];
-  isTimesheetLoading: boolean; // New loading state
+  isTimesheetLoading: boolean; 
 }
 
 export const TimesheetContext = createContext<TimesheetContextType | undefined>(undefined);
+
+const TIMESHEET_LOADER_ID = "timesheet_loader";
 
 interface TimesheetProviderProps {
   children: ReactNode;
@@ -28,7 +32,17 @@ const INITIAL_TIMESHEET_RECORDS: TimeRecord[] = [];
 
 export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }) => {
   const { user } = useAuth();
-  const [timeRecords, setTimeRecords, isTimesheetLoading] = useLocalStorage<TimeRecord[]>(LOCAL_STORAGE_TIMESHEET_KEY, INITIAL_TIMESHEET_RECORDS);
+  const [timeRecords, setTimeRecords, isTimesheetLoadingLocalStorage] = useLocalStorage<TimeRecord[]>(LOCAL_STORAGE_TIMESHEET_KEY, INITIAL_TIMESHEET_RECORDS);
+  const { showLoader, hideLoader } = useLoader();
+
+  useEffect(() => {
+    if (isTimesheetLoadingLocalStorage) {
+      showLoader(TIMESHEET_LOADER_ID, "Loading timesheet data...");
+    } else {
+      hideLoader(TIMESHEET_LOADER_ID);
+    }
+    return () => hideLoader(TIMESHEET_LOADER_ID); 
+  }, [isTimesheetLoadingLocalStorage, showLoader, hideLoader]);
 
   const addTimeRecord = useCallback((recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => {
     if (!user) return;
@@ -36,7 +50,6 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       ...recordData,
       id: crypto.randomUUID(),
       userId: user.id,
-      // completedAt is not set on creation
     };
     setTimeRecords(prev => [...prev, newRecord]);
   }, [setTimeRecords, user]);
@@ -63,14 +76,12 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         if (Notification.permission === "granted") {
             new Notification("Task Completed!", {
             body: `Project "${completedRecordName}" marked as complete.`,
-            // icon: '/logo.svg' // Requires logo.svg in public folder
             });
         } else if (Notification.permission !== "denied") {
             Notification.requestPermission().then(permission => {
                 if (permission === "granted") {
                     new Notification("Task Completed!", {
                         body: `Project "${completedRecordName}" marked as complete.`,
-                        // icon: '/logo.svg'
                     });
                 }
             });
@@ -85,7 +96,6 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
   const getRecordsByDateRange = useCallback((userId: string, startDate: Date, endDate: Date) => {
     return timeRecords.filter(r => {
       const recordDate = new Date(r.date);
-      // Adjust end date to include the whole day
       const inclusiveEndDate = new Date(endDate);
       inclusiveEndDate.setHours(23, 59, 59, 999);
       return r.userId === userId && recordDate >= startDate && recordDate <= inclusiveEndDate;
@@ -110,7 +120,6 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     }
   }, []);
 
-
   return (
     <TimesheetContext.Provider value={{ 
         timeRecords, 
@@ -121,10 +130,9 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         getRecordsForUser,
         getRecordsByDateRange,
         getAllRecordsByDateRange,
-        isTimesheetLoading
+        isTimesheetLoading: isTimesheetLoadingLocalStorage
     }}>
       {children}
     </TimesheetContext.Provider>
   );
 };
-

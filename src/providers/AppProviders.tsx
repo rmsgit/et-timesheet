@@ -15,16 +15,17 @@ interface AppProvidersProps {
 
 export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
   return (
-    <AuthProvider>
-      <TimesheetProvider>
-        <LoaderProvider>
+    <LoaderProvider>
+      <AuthProvider>
+        <TimesheetProvider>
           <TooltipProvider>
             {children}
             <Toaster />
             <GlobalLoader />
           </TooltipProvider>
-        </LoaderProvider>
-      </TimesheetProvider>
-    </AuthProvider>
+        </TimesheetProvider>
+      </AuthProvider>
+    </LoaderProvider>
   );
 };
+

@@ -1,16 +1,29 @@
 
 "use client";
 
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import useLocalStorage from './useLocalStorage';
 import { PROJECT_TYPES as INITIAL_PROJECT_TYPES, LOCAL_STORAGE_PROJECT_TYPES_KEY } from '@/lib/constants';
 import type { TimeRecord } from '@/lib/types';
+import { useLoader } from './useLoader';
+
+const PROJECT_TYPES_LOADER_ID = "project_types_loader";
 
 export const useProjectTypes = () => {
-  const [projectTypes, setProjectTypes, isLoadingProjectTypes] = useLocalStorage<string[]>(
+  const [projectTypes, setProjectTypes, isLoadingProjectTypesLocalStorage] = useLocalStorage<string[]>(
     LOCAL_STORAGE_PROJECT_TYPES_KEY,
     INITIAL_PROJECT_TYPES
   );
+  const { showLoader, hideLoader } = useLoader();
+
+  useEffect(() => {
+    if (isLoadingProjectTypesLocalStorage) {
+      showLoader(PROJECT_TYPES_LOADER_ID, "Loading project types...");
+    } else {
+      hideLoader(PROJECT_TYPES_LOADER_ID);
+    }
+    return () => hideLoader(PROJECT_TYPES_LOADER_ID); 
+  }, [isLoadingProjectTypesLocalStorage, showLoader, hideLoader]);
 
   const addProjectType = useCallback((newType: string): { success: boolean; message?: string } => {
     if (newType.trim() === "") {
@@ -47,5 +60,12 @@ export const useProjectTypes = () => {
     return allTimeRecords.some(record => record.projectType.toLowerCase() === projectType.toLowerCase());
   }, []);
 
-  return { projectTypes, addProjectType, updateProjectType, deleteProjectType, isLoadingProjectTypes, isProjectTypeInUse };
+  return { 
+      projectTypes, 
+      addProjectType, 
+      updateProjectType, 
+      deleteProjectType, 
+      isLoadingProjectTypes: isLoadingProjectTypesLocalStorage, 
+      isProjectTypeInUse 
+    };
 };

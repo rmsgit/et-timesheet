@@ -4,10 +4,23 @@
 import type { User } from '@/lib/types';
 import { LOCAL_STORAGE_USERS_MOCK_KEY, MOCK_USERS_DATA } from '@/lib/constants';
 import useLocalStorage from './useLocalStorage';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
+import { useLoader } from './useLoader';
+
+const USERS_LOADER_ID = "users_loader";
 
 export const useMockUsers = () => {
-  const [users, setUsers, isUsersLoading] = useLocalStorage<User[]>(LOCAL_STORAGE_USERS_MOCK_KEY, MOCK_USERS_DATA);
+  const [users, setUsers, isUsersLoadingLocalStorage] = useLocalStorage<User[]>(LOCAL_STORAGE_USERS_MOCK_KEY, MOCK_USERS_DATA);
+  const { showLoader, hideLoader } = useLoader();
+
+  useEffect(() => {
+    if (isUsersLoadingLocalStorage) {
+      showLoader(USERS_LOADER_ID, "Loading user data...");
+    } else {
+      hideLoader(USERS_LOADER_ID);
+    }
+    return () => hideLoader(USERS_LOADER_ID); 
+  }, [isUsersLoadingLocalStorage, showLoader, hideLoader]);
 
   const addUser = useCallback((username: string, role: 'admin' | 'editor'): { success: boolean, message?: string, user?: User } => {
     if (!username.trim()) {
@@ -38,6 +51,5 @@ export const useMockUsers = () => {
     return { success: true };
   }, [users, setUsers]);
 
-  return { users, addUser, deleteUser, isUsersLoading, setUsers }; // Expose setUsers for more complex scenarios if needed directly
+  return { users, addUser, deleteUser, isUsersLoading: isUsersLoadingLocalStorage, setUsers }; 
 };
-
