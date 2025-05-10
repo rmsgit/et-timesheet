@@ -4,30 +4,33 @@
 import React, { useState, useMemo } from 'react';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { useAuth } from '@/hooks/useAuth';
-import type { TimeRecord } from '@/lib/types';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import type { DateRange } from 'react-day-picker';
-import { addDays, format, parseISO, startOfMonth } from 'date-fns';
+import { format, parseISO, startOfMonth } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { FileText, AlertCircle, Hourglass } from 'lucide-react';
+import { FileText, AlertCircle, Hourglass, Loader2 } from 'lucide-react';
+import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
+import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 
 export default function MyReportPage() {
-  const { user } = useAuth();
-  const { getRecordsByDateRange } = useTimesheet();
+  const { user, isAuthLoading } = useAuth();
+  const { getRecordsByDateRange, isTimesheetLoading } = useTimesheet();
   
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: new Date(),
   });
 
+  const isLoading = isAuthLoading || isTimesheetLoading;
+
   const filteredRecords = useMemo(() => {
-    if (!user || !dateRange?.from || !dateRange?.to) return [];
+    if (isLoading || !user || !dateRange?.from || !dateRange?.to) return [];
     return getRecordsByDateRange(user.id, dateRange.from, dateRange.to)
       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [user, dateRange, getRecordsByDateRange]);
+  }, [user, dateRange, getRecordsByDateRange, isLoading]);
 
   const totalHours = useMemo(() => {
     return filteredRecords.reduce((sum, record) => sum + record.durationHours, 0);
@@ -41,8 +44,19 @@ export default function MyReportPage() {
     return filteredRecords.filter(record => record.completedAt).length;
   }, [filteredRecords]);
 
+  // This top-level loading covers auth. Individual sections will handle timesheet loading.
+  if (isAuthLoading) {
+    return (
+      <div className="flex h-[calc(100vh-theme(spacing.32))] items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  if (!user && !isAuthLoading) { // Should be redirected by layout, but as a fallback
+      return <p className="text-center text-muted-foreground p-8">User not found. Redirecting...</p>;
+  }
 
-  if (!user) return <p>Loading...</p>;
 
   return (
     <div className="space-y-6">
@@ -50,49 +64,59 @@ export default function MyReportPage() {
         <h1 className="text-3xl font-bold tracking-tight flex items-center">
           <FileText className="mr-3 h-8 w-8 text-primary" /> My Time Report
         </h1>
-        <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} />
+        <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} disabled={isLoading} />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Hours Logged</CardTitle>
-            <Hourglass className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalHours.toFixed(1)} hrs</div>
-            <p className="text-xs text-muted-foreground">
-              Across {filteredRecords.length} entries
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Projects Worked On</CardTitle>
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-muted-foreground lucide lucide-briefcase"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalProjects}</div>
-             <p className="text-xs text-muted-foreground">
-              Unique projects
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tasks Completed</CardTitle>
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-muted-foreground lucide lucide-check-circle-2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalCompletedTasks}</div>
-             <p className="text-xs text-muted-foreground">
-              Marked as complete
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {isLoading && !isAuthLoading ? ( // Show skeletons if only timesheet is loading (auth is done)
+        <div className="grid gap-6 md:grid-cols-3">
+          <CardSkeleton className="shadow-md" />
+          <CardSkeleton className="shadow-md" />
+          <CardSkeleton className="shadow-md" />
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-3">
+          <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Hours Logged</CardTitle>
+              <Hourglass className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalHours.toFixed(1)} hrs</div>
+              <p className="text-xs text-muted-foreground">
+                Across {filteredRecords.length} entries
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Projects Worked On</CardTitle>
+               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-muted-foreground lucide lucide-briefcase"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalProjects}</div>
+               <p className="text-xs text-muted-foreground">
+                Unique projects
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Tasks Completed</CardTitle>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-muted-foreground lucide lucide-check-circle-2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalCompletedTasks}</div>
+               <p className="text-xs text-muted-foreground">
+                Marked as complete
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      {filteredRecords.length > 0 ? (
+      {isLoading && !isAuthLoading ? (
+        <TableSkeleton columnCount={5} className="shadow-lg h-[480px]" />
+      ) : filteredRecords.length > 0 ? (
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>Detailed Log</CardTitle>

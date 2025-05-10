@@ -1,13 +1,12 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
 import type { User } from '@/lib/types';
 import { LOCAL_STORAGE_USERS_MOCK_KEY, MOCK_USERS_DATA } from '@/lib/constants';
 import useLocalStorage from './useLocalStorage';
 
 export const useMockUsers = () => {
-  const [users, setUsers] = useLocalStorage<User[]>(LOCAL_STORAGE_USERS_MOCK_KEY, MOCK_USERS_DATA);
+  const [users, setUsers, isUsersLoading] = useLocalStorage<User[]>(LOCAL_STORAGE_USERS_MOCK_KEY, MOCK_USERS_DATA);
 
   // Note: In a real app, these functions would interact with a backend API.
   // For this mock, we just show a toast and don't actually modify the list permanently beyond session storage,
@@ -27,5 +26,5 @@ export const useMockUsers = () => {
     console.log("Mock delete user:", userId);
   };
 
-  return { users, addUser, deleteUser };
+  return { users, addUser, deleteUser, isUsersLoading };
 };

@@ -14,6 +14,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isEditor: boolean;
+  isAuthLoading: boolean; // New loading state
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,20 +24,17 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useLocalStorage<User | null>(LOCAL_STORAGE_USER_KEY, null);
+  const [user, setUser, isAuthLoading] = useLocalStorage<User | null>(LOCAL_STORAGE_USER_KEY, null);
   const router = useRouter();
 
   const login = useCallback(async (username: string, _password?: string): Promise<boolean> => {
-    // Mock authentication: find user in MOCK_USERS_DATA
     const foundUser = MOCK_USERS_DATA.find(u => u.username === username);
     if (foundUser) {
-      // In a real app, you'd validate the password here
-      // For this mock, any password for a known username is fine
       setUser(foundUser);
       router.push('/dashboard');
       return true;
     }
-    setUser(null);
+    setUser(null); // Ensure user is null if login fails
     return false;
   }, [setUser, router]);
 
@@ -50,7 +48,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const isEditor = isAuthenticated && user.role === 'editor';
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated, isAdmin, isEditor }}>
+    <AuthContext.Provider value={{ user, login, logout, isAuthenticated, isAdmin, isEditor, isAuthLoading }}>
       {children}
     </AuthContext.Provider>
   );

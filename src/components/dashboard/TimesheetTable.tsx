@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { useAuth } from '@/hooks/useAuth';
 import type { TimeRecord } from '@/lib/types';
@@ -20,9 +20,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { TimeRecordForm } from './TimeRecordForm';
-import { CheckCircle, Edit, MoreHorizontal, Trash2, XCircle, PlusCircle, CalendarClock } from 'lucide-react';
+import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -34,23 +34,41 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
+import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
+
 
 export const TimesheetTable: React.FC = () => {
-  const { user } = useAuth();
-  const { getRecordsForUser, deleteTimeRecord, markAsComplete } = useTimesheet();
+  const { user, isAuthLoading } = useAuth();
+  const { getRecordsForUser, deleteTimeRecord, markAsComplete, isTimesheetLoading } = useTimesheet();
   const { toast } = useToast();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<TimeRecord | undefined>(undefined);
 
-  if (!user) return <p>Loading user data...</p>;
+  const isLoading = isAuthLoading || isTimesheetLoading;
 
-  const userRecords = getRecordsForUser(user.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const userRecords = useMemo(() => {
+    if (isLoading || !user) return [];
+    return getRecordsForUser(user.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [user, getRecordsForUser, isLoading]);
+
+
+  if (isAuthLoading) { // Initial auth loading
+    return (
+      <div className="flex h-[calc(100vh-theme(spacing.32))] items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user && !isAuthLoading) { // Should be caught by layout, but as a fallback
+    return <p className="text-center p-8">Loading user data or redirecting...</p>;
+  }
+  
 
   const handleAddNew = () => {
     setEditingRecord(undefined);
@@ -76,7 +94,7 @@ export const TimesheetTable: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">My Timesheet</h2>
-        <Button onClick={handleAddNew}>
+        <Button onClick={handleAddNew} disabled={isLoading}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add New Record
         </Button>
       </div>
@@ -90,8 +108,10 @@ export const TimesheetTable: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {userRecords.length === 0 ? (
-        <div className="text-center py-10 border-2 border-dashed rounded-lg">
+      {isTimesheetLoading && !isAuthLoading ? ( // Timesheet data is loading, auth is done
+        <TableSkeleton columnCount={6} className="shadow-lg" />
+      ) : userRecords.length === 0 ? (
+        <div className="text-center py-10 border-2 border-dashed rounded-lg bg-card">
             <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-2 text-xl font-medium">No time records yet</h3>
             <p className="mt-1 text-sm text-muted-foreground">Get started by adding your first time entry.</p>
@@ -149,9 +169,15 @@ export const TimesheetTable: React.FC = () => {
                           </DropdownMenuItem>
                            <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <DropdownMenuItem>
-                                  <Trash2 className="mr-2 h-4 w-4 text-destructive" />
-                                  <span className="text-destructive">Delete</span>
+                                {/* The DropdownMenuItem itself cannot be the direct child for AlertDialogTrigger to get correct styling if it uses asChild from Radix.
+                                    We wrap it or ensure it's a simple button or element.
+                                    Here, DropdownMenuItem is fine as it renders a div/button.
+                                */}
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} 
+                                    className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
                                 </DropdownMenuItem>
                               </AlertDialogTrigger>
                               <AlertDialogContent>

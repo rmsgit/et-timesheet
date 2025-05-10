@@ -9,13 +9,14 @@ import { useAuth } from '@/hooks/useAuth';
 
 interface TimesheetContextType {
   timeRecords: TimeRecord[];
-  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId'>) => void;
+  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => void;
   updateTimeRecord: (record: TimeRecord) => void;
   deleteTimeRecord: (recordId: string) => void;
   markAsComplete: (recordId: string) => void;
   getRecordsForUser: (userId: string) => TimeRecord[];
   getRecordsByDateRange: (userId: string, startDate: Date, endDate: Date) => TimeRecord[];
   getAllRecordsByDateRange: (startDate: Date, endDate: Date) => TimeRecord[];
+  isTimesheetLoading: boolean; // New loading state
 }
 
 export const TimesheetContext = createContext<TimesheetContextType | undefined>(undefined);
@@ -26,14 +27,15 @@ interface TimesheetProviderProps {
 
 export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }) => {
   const { user } = useAuth();
-  const [timeRecords, setTimeRecords] = useLocalStorage<TimeRecord[]>(LOCAL_STORAGE_TIMESHEET_KEY, []);
+  const [timeRecords, setTimeRecords, isTimesheetLoading] = useLocalStorage<TimeRecord[]>(LOCAL_STORAGE_TIMESHEET_KEY, []);
 
-  const addTimeRecord = useCallback((recordData: Omit<TimeRecord, 'id' | 'userId'>) => {
+  const addTimeRecord = useCallback((recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => {
     if (!user) return;
     const newRecord: TimeRecord = {
       ...recordData,
       id: crypto.randomUUID(),
       userId: user.id,
+      // completedAt is not set on creation
     };
     setTimeRecords(prev => [...prev, newRecord]);
   }, [setTimeRecords, user]);
@@ -47,30 +49,33 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
   }, [setTimeRecords]);
 
   const markAsComplete = useCallback((recordId: string) => {
-    setTimeRecords(prev => prev.map(r => r.id === recordId ? { ...r, completedAt: new Date().toISOString() } : r));
-    // Notification logic will be handled in a separate hook/component that consumes this context or action.
-    if (Notification.permission === "granted") {
-      const record = timeRecords.find(r => r.id === recordId);
-      if (record) {
-        new Notification("Task Completed!", {
-          body: `Project "${record.projectName}" marked as complete.`,
-          icon: '/logo.svg' // Placeholder icon
-        });
+    let completedRecordName = "Unknown Task";
+    setTimeRecords(prev => prev.map(r => {
+      if (r.id === recordId) {
+        completedRecordName = r.projectName;
+        return { ...r, completedAt: new Date().toISOString() };
       }
-    } else if (Notification.permission !== "denied") {
-      Notification.requestPermission().then(permission => {
-        if (permission === "granted") {
-          const record = timeRecords.find(r => r.id === recordId);
-          if (record) {
-             new Notification("Task Completed!", {
-                body: `Project "${record.projectName}" marked as complete.`,
-                icon: '/logo.svg' // Placeholder icon
+      return r;
+    }));
+    
+    if (typeof window !== "undefined" && "Notification" in window) {
+        if (Notification.permission === "granted") {
+            new Notification("Task Completed!", {
+            body: `Project "${completedRecordName}" marked as complete.`,
+            // icon: '/logo.svg' // Requires logo.svg in public folder
             });
-          }
+        } else if (Notification.permission !== "denied") {
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+                    new Notification("Task Completed!", {
+                        body: `Project "${completedRecordName}" marked as complete.`,
+                        // icon: '/logo.svg'
+                    });
+                }
+            });
         }
-      });
     }
-  }, [setTimeRecords, timeRecords]);
+  }, [setTimeRecords]);
 
   const getRecordsForUser = useCallback((userId: string) => {
     return timeRecords.filter(r => r.userId === userId);
@@ -79,20 +84,24 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
   const getRecordsByDateRange = useCallback((userId: string, startDate: Date, endDate: Date) => {
     return timeRecords.filter(r => {
       const recordDate = new Date(r.date);
-      return r.userId === userId && recordDate >= startDate && recordDate <= endDate;
+      // Adjust end date to include the whole day
+      const inclusiveEndDate = new Date(endDate);
+      inclusiveEndDate.setHours(23, 59, 59, 999);
+      return r.userId === userId && recordDate >= startDate && recordDate <= inclusiveEndDate;
     });
   }, [timeRecords]);
 
   const getAllRecordsByDateRange = useCallback((startDate: Date, endDate: Date) => {
     return timeRecords.filter(r => {
       const recordDate = new Date(r.date);
-      return recordDate >= startDate && recordDate <= endDate;
+      const inclusiveEndDate = new Date(endDate);
+      inclusiveEndDate.setHours(23, 59, 59, 999);
+      return recordDate >= startDate && recordDate <= inclusiveEndDate;
     });
   }, [timeRecords]);
 
 
   useEffect(() => {
-    // Request notification permission when component mounts if not already granted or denied
     if (typeof window !== "undefined" && "Notification" in window) {
         if (Notification.permission !== "granted" && Notification.permission !== "denied") {
             Notification.requestPermission();
@@ -110,7 +119,8 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         markAsComplete, 
         getRecordsForUser,
         getRecordsByDateRange,
-        getAllRecordsByDateRange
+        getAllRecordsByDateRange,
+        isTimesheetLoading
     }}>
       {children}
     </TimesheetContext.Provider>

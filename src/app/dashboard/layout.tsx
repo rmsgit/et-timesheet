@@ -24,28 +24,46 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isAuthLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-     if (user === undefined) return; // Still loading
+    if (isAuthLoading) return; // Still loading auth state
+
     if (!isAuthenticated) {
       router.replace('/login');
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, isAuthLoading, router]);
 
-  if (user === undefined || !isAuthenticated) {
+  if (isAuthLoading || !isAuthenticated) { // Check isAuthLoading first
     // Show loading skeleton or redirect
     return (
-      <div className="flex h-screen w-screen items-center justify-center">
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center space-y-4">
-          <Skeleton className="h-12 w-12 rounded-full" />
-          <Skeleton className="h-4 w-[250px]" />
-          <Skeleton className="h-4 w-[200px]" />
+          <Skeleton className="h-12 w-12 rounded-full bg-muted" />
+          <Skeleton className="h-4 w-[250px] bg-muted" />
+          <Skeleton className="h-4 w-[200px] bg-muted" />
         </div>
       </div>
     );
   }
+  
+  // If !isAuthenticated and not loading, useEffect would have redirected.
+  // But as a safeguard, especially if redirection is slow or there are race conditions:
+  if (!user) { 
+    // This case should ideally be covered by the above, but good for robustness
+    // router.replace('/login') already called, this state might be transient
+    return (
+       <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center space-y-4">
+          <Skeleton className="h-12 w-12 rounded-full bg-muted" />
+          <Skeleton className="h-4 w-[250px] bg-muted" />
+          <p className="text-muted-foreground">Redirecting...</p>
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <SidebarProvider defaultOpen>

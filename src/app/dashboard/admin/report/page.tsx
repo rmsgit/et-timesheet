@@ -3,34 +3,38 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useTimesheet } from '@/hooks/useTimesheet';
-import type { TimeRecord } from '@/lib/types';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import type { DateRange } from 'react-day-picker';
-import { addDays, format, parseISO, startOfMonth } from 'date-fns';
+import { format, parseISO, startOfMonth } from 'date-fns';
 import { AdminTimesheetChart } from '@/components/admin/AdminTimesheetChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, AlertCircle, Users, Clock } from 'lucide-react';
+import { BarChart3, AlertCircle, Users, Clock, Loader2 } from 'lucide-react';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
+import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 
 export default function AdminReportPage() {
-  const { getAllRecordsByDateRange, timeRecords: allTimeRecords } = useTimesheet(); // Use allTimeRecords for notifications
-  const { users: mockUsers } = useMockUsers(); // To map userId to username
+  const { getAllRecordsByDateRange, timeRecords: allTimeRecords, isTimesheetLoading } = useTimesheet();
+  const { users: mockUsers, isUsersLoading } = useMockUsers(); 
   
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: new Date(),
   });
 
+  const isLoading = isTimesheetLoading || isUsersLoading;
+
   const filteredRecords = useMemo(() => {
-    if (!dateRange?.from || !dateRange?.to) return [];
+    if (isLoading || !dateRange?.from || !dateRange?.to || !allTimeRecords || !mockUsers) return [];
     return getAllRecordsByDateRange(dateRange.from, dateRange.to)
       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [dateRange, getAllRecordsByDateRange]);
+  }, [dateRange, getAllRecordsByDateRange, isLoading, allTimeRecords, mockUsers]);
 
   const getUsernameById = (userId: string) => {
+    if (isLoading || !mockUsers) return 'Loading...';
     return mockUsers.find(u => u.id === userId)?.username || 'Unknown User';
   };
   
@@ -38,16 +42,7 @@ export default function AdminReportPage() {
   const uniqueEditors = useMemo(() => new Set(filteredRecords.map(r => r.userId)).size, [filteredRecords]);
   const uniqueProjects = useMemo(() => new Set(filteredRecords.map(r => r.projectName)).size, [filteredRecords]);
 
-
-  // Simple notification check for new completed tasks
-  // This is a basic example; real-time cross-user notifications are complex client-side.
-  // This simulates admin being notified if they are currently on this page.
-  useEffect(() => {
-    // Logic for notifications upon task completion is now in TimesheetContext.
-    // This effect could be used for more specific admin-only notifications or polling if needed.
-    // For this app, the TimesheetContext handles generic "Task Completed" notification.
-  }, [allTimeRecords]);
-
+  // Removed useEffect for notifications as it's handled in context or not the focus here.
 
   return (
     <div className="space-y-6">
@@ -55,45 +50,55 @@ export default function AdminReportPage() {
         <h1 className="text-3xl font-bold tracking-tight flex items-center">
           <BarChart3 className="mr-3 h-8 w-8 text-primary" /> Admin Time Report
         </h1>
-        <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} />
+        <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} disabled={isLoading} />
       </div>
       
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Hours (All Editors)</CardTitle>
-            <Clock className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalHours.toFixed(1)} hrs</div>
-            <p className="text-xs text-muted-foreground">Across {filteredRecords.length} entries</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Editors</CardTitle>
-            <Users className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{uniqueEditors}</div>
-            <p className="text-xs text-muted-foreground">Editors with logged time</p>
-          </CardContent>
-        </Card>
-         <Card className="shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-muted-foreground lucide lucide-layout-grid"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 12h18"/><path d="M12 3v18"/></svg>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{uniqueProjects}</div>
-            <p className="text-xs text-muted-foreground">Unique projects worked on</p>
-          </CardContent>
-        </Card>
-      </div>
+      {isLoading ? (
+        <div className="grid gap-6 md:grid-cols-3">
+          <CardSkeleton className="shadow-md" />
+          <CardSkeleton className="shadow-md" />
+          <CardSkeleton className="shadow-md" />
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-3">
+          <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Hours (All Editors)</CardTitle>
+              <Clock className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalHours.toFixed(1)} hrs</div>
+              <p className="text-xs text-muted-foreground">Across {filteredRecords.length} entries</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Editors</CardTitle>
+              <Users className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{uniqueEditors}</div>
+              <p className="text-xs text-muted-foreground">Editors with logged time</p>
+            </CardContent>
+          </Card>
+           <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-muted-foreground lucide lucide-layout-grid"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 12h18"/><path d="M12 3v18"/></svg>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{uniqueProjects}</div>
+              <p className="text-xs text-muted-foreground">Unique projects worked on</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <AdminTimesheetChart records={filteredRecords} />
 
-      {filteredRecords.length > 0 ? (
+      {isLoading ? (
+        <TableSkeleton columnCount={6} className="shadow-lg mt-6 h-[480px]" />
+      ) : filteredRecords.length > 0 ? (
         <Card className="shadow-lg mt-6">
           <CardHeader>
             <CardTitle>All Time Entries</CardTitle>
