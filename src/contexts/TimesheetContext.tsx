@@ -3,7 +3,7 @@
 
 import type { TimeRecord } from '@/lib/types';
 import React, { createContext, ReactNode, useCallback, useState, useEffect } from 'react';
-import { database } from '@/lib/firebase';
+import { database } from '@/lib/firebase'; // This might be undefined
 import { ref, onValue, set, remove, update as firebaseUpdate, push } from 'firebase/database';
 import { FIREBASE_TIMESHEET_PATH } from '@/lib/constants';
 import { useAuth } from '@/hooks/useAuth';
@@ -37,8 +37,16 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
 
   useEffect(() => {
     showLoader(TIMESHEET_LOADER_ID, "Loading timesheet data...");
-    const dbRef = ref(database, FIREBASE_TIMESHEET_PATH);
 
+    if (!database) {
+      console.warn("TimesheetContext: Firebase Database not initialized. Timesheet data will not be loaded.");
+      setIsTimesheetLoading(false);
+      hideLoader(TIMESHEET_LOADER_ID);
+      setTimeRecordsState([]);
+      return;
+    }
+
+    const dbRef = ref(database, FIREBASE_TIMESHEET_PATH);
     const unsubscribe = onValue(dbRef, (snapshot) => {
       if (snapshot.exists()) {
         const recordsObject = snapshot.val();
@@ -63,7 +71,10 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
   }, [showLoader, hideLoader]);
   
   const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => {
-    if (!user) return;
+    if (!user || !database) {
+        console.warn("AddTimeRecord: User not logged in or Firebase DB not initialized.");
+        return;
+    }
     const newRecordRef = push(ref(database, FIREBASE_TIMESHEET_PATH));
     const newRecordId = newRecordRef.key;
     if (!newRecordId) {
@@ -79,38 +90,46 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     
     try {
       await set(ref(database, `${FIREBASE_TIMESHEET_PATH}/${newRecordId}`), newRecord);
-      // State will update via onValue listener
     } catch (error) {
       console.error("Firebase add time record error:", error);
     }
   }, [user]);
 
   const updateTimeRecord = useCallback(async (updatedRecord: TimeRecord) => {
+    if (!database) {
+        console.warn("UpdateTimeRecord: Firebase DB not initialized.");
+        return;
+    }
     try {
       await set(ref(database, `${FIREBASE_TIMESHEET_PATH}/${updatedRecord.id}`), updatedRecord);
-      // State will update via onValue listener
     } catch (error) {
       console.error("Firebase update time record error:", error);
     }
   }, []);
 
   const deleteTimeRecord = useCallback(async (recordId: string) => {
+    if (!database) {
+        console.warn("DeleteTimeRecord: Firebase DB not initialized.");
+        return;
+    }
     try {
       await remove(ref(database, `${FIREBASE_TIMESHEET_PATH}/${recordId}`));
-      // State will update via onValue listener
     } catch (error) {
       console.error("Firebase delete time record error:", error);
     }
   }, []);
 
   const markAsComplete = useCallback(async (recordId: string) => {
+    if (!database) {
+        console.warn("MarkAsComplete: Firebase DB not initialized.");
+        return;
+    }
     const recordToComplete = timeRecords.find(r => r.id === recordId);
     if (!recordToComplete) return;
 
     const completedAt = new Date().toISOString();
     try {
       await firebaseUpdate(ref(database, `${FIREBASE_TIMESHEET_PATH}/${recordId}`), { completedAt });
-      // State will update via onValue listener
 
       if (typeof window !== "undefined" && "Notification" in window) {
         if (Notification.permission === "granted") {
@@ -130,7 +149,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     } catch (error) {
       console.error("Firebase mark as complete error:", error);
     }
-  }, [timeRecords]);
+  }, [timeRecords]); // database dependency is implicitly handled as operations won't run if it's undefined
 
   const getRecordsForUser = useCallback((userId: string) => {
     return timeRecords.filter(r => r.userId === userId);
