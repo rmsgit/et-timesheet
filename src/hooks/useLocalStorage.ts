@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, Dispatch, SetStateAction, useCallback } from 'react';
@@ -8,13 +7,10 @@ type SetValue<T> = Dispatch<SetStateAction<T>>;
 function useLocalStorage<T>(key: string, initialValue: T): [T, SetValue<T>, boolean] {
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize state with a function. This function will be executed only on the initial render.
   const [storedValue, setStoredValue] = useState<T>(() => {
-    // For SSR, return initialValue as window is not available.
     if (typeof window === 'undefined') {
       return initialValue;
     }
-    // On client, try to read from localStorage.
     try {
       const item = window.localStorage.getItem(key);
       return item ? (JSON.parse(item) as T) : initialValue;
@@ -24,31 +20,12 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, SetValue<T>, bool
     }
   });
 
-  // Effect to handle client-side hydration and set isLoading to false.
-  // This runs after the component mounts.
+  // This useEffect runs once on the client after the component mounts.
+  // Its purpose is to set isLoading to false, as by this point,
+  // the useState initializer has attempted to read from localStorage.
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const item = window.localStorage.getItem(key);
-        if (item) {
-          setStoredValue(JSON.parse(item) as T);
-        } else {
-          // If no item in localStorage, ensure state is initialValue
-          // And optionally persist initialValue to localStorage if it wasn't there
-          setStoredValue(initialValue);
-          // window.localStorage.setItem(key, JSON.stringify(initialValue)); // Uncomment if initialValue should be stored if not present
-        }
-      } catch (error) {
-        console.warn(`Error reading localStorage key “${key}” in useEffect:`, error);
-        setStoredValue(initialValue); // Fallback to initialValue on error
-      } finally {
-        setIsLoading(false); // Finished loading attempt
-      }
-    } else {
-        // For SSR or environments without window, assume not loading or handle as per requirements
-        setIsLoading(false);
-    }
-  }, [key, initialValue]);
+    setIsLoading(false);
+  }, []);
 
   const setValue: SetValue<T> = useCallback(
     (value) => {
@@ -56,12 +33,13 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, SetValue<T>, bool
         console.warn(
           `Tried setting localStorage key “${key}” even though environment is not a client`
         );
-        // Update state directly if window is not available (e.g., SSR context)
+        // Update state directly if window is not available
         setStoredValue(prev => value instanceof Function ? value(prev) : value);
         return;
       }
 
       try {
+        // Allow value to be a function so we have the same API as useState
         const valueToStore = value instanceof Function ? value(storedValue) : value;
         setStoredValue(valueToStore);
         window.localStorage.setItem(key, JSON.stringify(valueToStore));
@@ -69,7 +47,7 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, SetValue<T>, bool
         console.warn(`Error setting localStorage key “${key}”:`, error);
       }
     },
-    [key, storedValue]
+    [key, storedValue] // storedValue is needed if `value` is a function: `value(storedValue)`
   );
 
   return [storedValue, setValue, isLoading];
