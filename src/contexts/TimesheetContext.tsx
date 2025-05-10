@@ -1,9 +1,8 @@
-
 "use client";
 
 import type { TimeRecord } from '@/lib/types';
 import React, { createContext, ReactNode, useCallback, useState, useEffect } from 'react';
-import { database } from '@/lib/firebase'; // This might be undefined
+import { database } from '@/lib/firebase';
 import { ref, onValue, set, remove, update as firebaseUpdate, push } from 'firebase/database';
 import { FIREBASE_TIMESHEET_PATH } from '@/lib/constants';
 import { useAuth } from '@/hooks/useAuth';
@@ -37,6 +36,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
 
   useEffect(() => {
     showLoader(TIMESHEET_LOADER_ID, "Loading timesheet data...");
+    setIsTimesheetLoading(true); // Explicitly set true at the start of fetching attempt
 
     if (!database) {
       console.warn("TimesheetContext: Firebase Database not initialized. Timesheet data will not be loaded.");
@@ -46,29 +46,39 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       return;
     }
 
-    const dbRef = ref(database, FIREBASE_TIMESHEET_PATH);
-    const unsubscribe = onValue(dbRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const recordsObject = snapshot.val();
-        const recordsArray = Object.values(recordsObject) as TimeRecord[];
-        setTimeRecordsState(recordsArray);
-      } else {
+    let unsubscribe = () => {}; // Initialize unsubscribe to a no-op
+
+    try {
+      const dbRef = ref(database, FIREBASE_TIMESHEET_PATH);
+      unsubscribe = onValue(dbRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const recordsObject = snapshot.val();
+          // Ensure recordsObject is not null before calling Object.values
+          const recordsArray = recordsObject ? Object.values(recordsObject) as TimeRecord[] : [];
+          setTimeRecordsState(recordsArray);
+        } else {
+          setTimeRecordsState([]);
+        }
+        setIsTimesheetLoading(false);
+        hideLoader(TIMESHEET_LOADER_ID);
+      }, (error) => {
+        console.error("Firebase read error (timeRecords):", error);
+        setIsTimesheetLoading(false);
+        hideLoader(TIMESHEET_LOADER_ID);
         setTimeRecordsState([]);
-      }
-      setIsTimesheetLoading(false);
-      hideLoader(TIMESHEET_LOADER_ID);
-    }, (error) => {
-      console.error("Firebase read error (timeRecords):", error);
+      });
+    } catch (error) {
+      console.error("Error setting up Firebase listener for timesheet:", error);
       setIsTimesheetLoading(false);
       hideLoader(TIMESHEET_LOADER_ID);
       setTimeRecordsState([]);
-    });
-
+    }
+    
     return () => {
-      unsubscribe();
-      hideLoader(TIMESHEET_LOADER_ID);
+      unsubscribe(); // Call the potentially real unsubscribe function
+      hideLoader(TIMESHEET_LOADER_ID); // Ensure loader is hidden on cleanup
     };
-  }, [showLoader, hideLoader]);
+  }, [showLoader, hideLoader, database]); // Added database to dependency array
   
   const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => {
     if (!user || !database) {
@@ -93,7 +103,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     } catch (error) {
       console.error("Firebase add time record error:", error);
     }
-  }, [user]);
+  }, [user, database]);
 
   const updateTimeRecord = useCallback(async (updatedRecord: TimeRecord) => {
     if (!database) {
@@ -105,7 +115,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     } catch (error) {
       console.error("Firebase update time record error:", error);
     }
-  }, []);
+  }, [database]);
 
   const deleteTimeRecord = useCallback(async (recordId: string) => {
     if (!database) {
@@ -117,7 +127,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     } catch (error) {
       console.error("Firebase delete time record error:", error);
     }
-  }, []);
+  }, [database]);
 
   const markAsComplete = useCallback(async (recordId: string) => {
     if (!database) {
@@ -149,7 +159,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     } catch (error) {
       console.error("Firebase mark as complete error:", error);
     }
-  }, [timeRecords]); // database dependency is implicitly handled as operations won't run if it's undefined
+  }, [timeRecords, database]); 
 
   const getRecordsForUser = useCallback((userId: string) => {
     return timeRecords.filter(r => r.userId === userId);
