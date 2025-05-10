@@ -37,6 +37,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent } from '@/components/ui/card';
+import { buttonVariants } from '@/components/ui/button';
 
 export const TimesheetTable: React.FC = () => {
   const { user } = useAuth();
@@ -147,7 +149,7 @@ export const TimesheetTable: React.FC = () => {
                           </DropdownMenuItem>
                            <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                <DropdownMenuItem>
                                   <Trash2 className="mr-2 h-4 w-4 text-destructive" />
                                   <span className="text-destructive">Delete</span>
                                 </DropdownMenuItem>
@@ -183,6 +185,3 @@ export const TimesheetTable: React.FC = () => {
     </div>
   );
 };
-// Added Card and CardContent from ShadCN for better styling
-import { Card, CardContent } from '@/components/ui/card';
-import { buttonVariants } from '@/components/ui/button';
