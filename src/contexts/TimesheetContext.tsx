@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { TimeRecord, User } from '@/lib/types';
@@ -25,9 +24,11 @@ interface TimesheetProviderProps {
   children: ReactNode;
 }
 
+const INITIAL_TIMESHEET_RECORDS: TimeRecord[] = [];
+
 export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }) => {
   const { user } = useAuth();
-  const [timeRecords, setTimeRecords, isTimesheetLoading] = useLocalStorage<TimeRecord[]>(LOCAL_STORAGE_TIMESHEET_KEY, []);
+  const [timeRecords, setTimeRecords, isTimesheetLoading] = useLocalStorage<TimeRecord[]>(LOCAL_STORAGE_TIMESHEET_KEY, INITIAL_TIMESHEET_RECORDS);
 
   const addTimeRecord = useCallback((recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => {
     if (!user) return;
@@ -126,3 +127,4 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     </TimesheetContext.Provider>
   );
 };
+
