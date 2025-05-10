@@ -6,8 +6,9 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useTimesheet } from '@/hooks/useTimesheet';
+import { useProjectTypes } from '@/hooks/useProjectTypes'; // Import useProjectTypes
 import type { TimeRecord } from '@/lib/types';
-import { PROJECT_TYPES } from '@/lib/constants';
+// import { PROJECT_TYPES } from '@/lib/constants'; // No longer directly used for options
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,7 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, Save, X } from 'lucide-react';
+import { CalendarIcon, Save, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -37,6 +38,7 @@ interface TimeRecordFormProps {
 
 export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose }) => {
   const { addTimeRecord, updateTimeRecord } = useTimesheet();
+  const { projectTypes, isLoadingProjectTypes } = useProjectTypes(); // Get dynamic project types
   const { toast } = useToast();
   
   const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<TimeRecordFormData>({
@@ -50,11 +52,30 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
     } : {
       date: new Date(),
       projectName: '',
-      projectType: '',
+      projectType: '', // Default to empty, user must select
       durationHours: 1,
       isRevision: false,
     },
   });
+
+  useEffect(() => {
+    // Ensure projectType in defaultValues is valid or reset if not in dynamic list
+    const defaultVals = record ? {
+      date: record.date ? parseISO(record.date) : new Date(),
+      projectName: record.projectName,
+      projectType: projectTypes.includes(record.projectType) ? record.projectType : (projectTypes.length > 0 ? projectTypes[0] : ''),
+      durationHours: record.durationHours,
+      isRevision: record.isRevision,
+    } : {
+      date: new Date(),
+      projectName: '',
+      projectType: projectTypes.length > 0 ? projectTypes[0] : '',
+      durationHours: 1,
+      isRevision: false,
+    };
+    reset(defaultVals);
+  }, [record, reset, projectTypes]);
+
 
   const onSubmit = (data: TimeRecordFormData) => {
     const recordData = {
@@ -76,27 +97,6 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
       console.error("Failed to save record:", error);
     }
   };
-
-  useEffect(() => {
-    if (record) {
-      reset({
-        date: record.date ? parseISO(record.date) : new Date(),
-        projectName: record.projectName,
-        projectType: record.projectType,
-        durationHours: record.durationHours,
-        isRevision: record.isRevision,
-      });
-    } else {
-       reset({
-        date: new Date(),
-        projectName: '',
-        projectType: '',
-        durationHours: 1,
-        isRevision: false,
-      });
-    }
-  }, [record, reset]);
-
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 p-1">
@@ -145,22 +145,29 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
 
       <div>
         <Label htmlFor="projectType">Project Type</Label>
+        {isLoadingProjectTypes ? (
+          <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> 
+          </div>
+        ) : (
         <Controller
           name="projectType"
           control={control}
           render={({ field }) => (
-            <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
               <SelectTrigger id="projectType">
                 <SelectValue placeholder="Select project type" />
               </SelectTrigger>
               <SelectContent>
-                {PROJECT_TYPES.map((type) => (
+                {projectTypes.map((type) => (
                   <SelectItem key={type} value={type}>{type}</SelectItem>
                 ))}
+                 {projectTypes.length === 0 && <SelectItem value="" disabled>No project types available</SelectItem>}
               </SelectContent>
             </Select>
           )}
         />
+        )}
         {errors.projectType && <p className="text-sm text-destructive mt-1">{errors.projectType.message}</p>}
       </div>
 
@@ -189,7 +196,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
           <X className="mr-2 h-4 w-4" /> Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting || isLoadingProjectTypes}>
           <Save className="mr-2 h-4 w-4" /> {isSubmitting ? "Saving..." : (record ? "Update Record" : "Add Record")}
         </Button>
       </div>
