@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { TimeRecord } from '@/lib/types';
@@ -36,7 +37,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
 
   useEffect(() => {
     showLoader(TIMESHEET_LOADER_ID, "Loading timesheet data...");
-    setIsTimesheetLoading(true); // Explicitly set true at the start of fetching attempt
+    setIsTimesheetLoading(true); 
 
     if (!database) {
       console.warn("TimesheetContext: Firebase Database not initialized. Timesheet data will not be loaded.");
@@ -46,21 +47,33 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       return;
     }
 
-    let unsubscribe = () => {}; // Initialize unsubscribe to a no-op
+    let unsubscribe = () => {}; 
 
     try {
       const dbRef = ref(database, FIREBASE_TIMESHEET_PATH);
       unsubscribe = onValue(dbRef, (snapshot) => {
-        if (snapshot.exists()) {
-          const recordsObject = snapshot.val();
-          // Ensure recordsObject is not null before calling Object.values
-          const recordsArray = recordsObject ? Object.values(recordsObject) as TimeRecord[] : [];
-          setTimeRecordsState(recordsArray);
-        } else {
-          setTimeRecordsState([]);
+        try {
+          if (snapshot.exists()) {
+            const recordsObject = snapshot.val();
+            if (recordsObject && typeof recordsObject === 'object' && !Array.isArray(recordsObject)) {
+              const recordsArray = Object.values(recordsObject) as TimeRecord[];
+              setTimeRecordsState(recordsArray);
+            } else {
+              if (recordsObject && !(typeof recordsObject === 'object' && !Array.isArray(recordsObject))) {
+                 console.warn("Timesheet data from Firebase is not a non-array object:", recordsObject);
+              }
+              setTimeRecordsState([]);
+            }
+          } else {
+            setTimeRecordsState([]);
+          }
+        } catch (processingError) {
+          console.error("Error processing timesheet snapshot value:", processingError);
+          setTimeRecordsState([]); 
+        } finally {
+          setIsTimesheetLoading(false);
+          hideLoader(TIMESHEET_LOADER_ID);
         }
-        setIsTimesheetLoading(false);
-        hideLoader(TIMESHEET_LOADER_ID);
       }, (error) => {
         console.error("Firebase read error (timeRecords):", error);
         setIsTimesheetLoading(false);
@@ -75,10 +88,10 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     }
     
     return () => {
-      unsubscribe(); // Call the potentially real unsubscribe function
-      hideLoader(TIMESHEET_LOADER_ID); // Ensure loader is hidden on cleanup
+      unsubscribe(); 
+      hideLoader(TIMESHEET_LOADER_ID); 
     };
-  }, [showLoader, hideLoader, database]); // Added database to dependency array
+  }, [showLoader, hideLoader, database]); 
   
   const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => {
     if (!user || !database) {
@@ -208,3 +221,5 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     </TimesheetContext.Provider>
   );
 };
+
+    
