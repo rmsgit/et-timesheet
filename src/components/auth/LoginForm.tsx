@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -9,7 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { LogIn } from 'lucide-react';
+import { LogIn, Loader2 } from 'lucide-react';
+
+const LOGIN_FORM_LOADER_ID = "login_form_loader";
 
 export const LoginForm: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -22,7 +23,7 @@ export const LoginForm: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    showLoader("Logging in...");
+    showLoader(LOGIN_FORM_LOADER_ID, "Logging in...");
     try {
       const success = await login(username, password);
       if (!success) {
@@ -42,7 +43,7 @@ export const LoginForm: React.FC = () => {
         });
     }
     finally {
-      hideLoader();
+      hideLoader(LOGIN_FORM_LOADER_ID);
       setIsSubmitting(false);
     }
   };
@@ -83,7 +84,14 @@ export const LoginForm: React.FC = () => {
             />
           </div>
           <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? 'Logging in...' : 'Login'}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Logging in...
+              </>
+            ) : (
+              'Login'
+            )}
           </Button>
         </form>
         <p className="mt-4 text-center text-sm text-muted-foreground">
