@@ -2,7 +2,7 @@
 import { initializeApp, getApp, getApps, type FirebaseApp, type FirebaseOptions } from 'firebase/app';
 import { getDatabase, type Database } from 'firebase/database';
 
-// Define placeholder values for Firebase config
+// Define placeholder values for Firebase config as per user request
 const PLACEHOLDER_PROJECT_ID = "test-4b9fb";
 const PLACEHOLDER_API_KEY = "AIzaSyDO1vxm6vVZwF3HoUp_nj3q0hlkbEkYtWE";
 const PLACEHOLDER_SENDER_ID = "525338072425";
@@ -17,7 +17,7 @@ const firebaseConfigValues = {
   databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || (effectiveProjectId !== PLACEHOLDER_PROJECT_ID ? `https://${effectiveProjectId}.firebaseio.com` : undefined),
   projectId: effectiveProjectId,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${effectiveProjectId}.appspot.com`,
-  F: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || PLACEHOLDER_SENDER_ID,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || PLACEHOLDER_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || PLACEHOLDER_APP_ID,
 };
 
@@ -25,20 +25,32 @@ const firebaseConfigValues = {
 if (process.env.NODE_ENV === 'development') {
   if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || effectiveProjectId === PLACEHOLDER_PROJECT_ID) {
     console.warn(
-      "Firebase Configuration Warning: 'projectId' is missing or using a placeholder. " +
-      "Firebase will not be initialized. Please ensure NEXT_PUBLIC_FIREBASE_PROJECT_ID is set in your environment variables for proper Firebase functionality."
+      "Firebase Configuration Warning: 'projectId' is using a placeholder. " +
+      "Firebase might not be initialized correctly. Please ensure NEXT_PUBLIC_FIREBASE_PROJECT_ID is set in your environment variables for proper Firebase functionality."
     );
   }
-  if (!firebaseConfigValues.databaseURL) {
+  if (!firebaseConfigValues.databaseURL && effectiveProjectId !== PLACEHOLDER_PROJECT_ID) { 
     console.warn(
-      "Firebase Configuration Warning: 'databaseURL' could not be determined or is missing. " +
-      "Firebase Realtime Database functionality will be affected. Ensure NEXT_PUBLIC_FIREBASE_DATABASE_URL or a valid NEXT_PUBLIC_FIREBASE_PROJECT_ID is set."
+      "Firebase Configuration Warning: 'databaseURL' could not be determined but a non-placeholder 'projectId' was found. "+
+      "Firebase Realtime Database functionality will be affected. Ensure NEXT_PUBLIC_FIREBASE_DATABASE_URL is set or your project supports the default database URL format."
     );
   }
-  if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY || firebaseConfigValues.apiKey === PLACEHOLDER_API_KEY) {
+   if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY || firebaseConfigValues.apiKey === PLACEHOLDER_API_KEY) {
     console.warn(
-      "Firebase Configuration Warning: 'apiKey' is missing or using a placeholder. " +
+      "Firebase Configuration Warning: 'apiKey' is using a placeholder. " +
       "Certain Firebase services might not function correctly. Please ensure NEXT_PUBLIC_FIREBASE_API_KEY is set."
+    );
+  }
+  if (!process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || firebaseConfigValues.messagingSenderId === PLACEHOLDER_SENDER_ID) {
+    console.warn(
+      "Firebase Configuration Warning: 'messagingSenderId' is using a placeholder. " +
+      "Firebase Cloud Messaging might not function correctly. Please ensure NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID is set."
+    );
+  }
+  if (!process.env.NEXT_PUBLIC_FIREBASE_APP_ID || firebaseConfigValues.appId === PLACEHOLDER_APP_ID) {
+    console.warn(
+      "Firebase Configuration Warning: 'appId' is using a placeholder. " +
+      "Firebase Analytics or other services relying on App ID might not function correctly. Please ensure NEXT_PUBLIC_FIREBASE_APP_ID is set."
     );
   }
 }
@@ -72,11 +84,13 @@ if (firebaseConfig.projectId && firebaseConfig.projectId !== PLACEHOLDER_PROJECT
   }
 } else {
     if (process.env.NODE_ENV === 'development' && (!firebaseConfig.projectId || firebaseConfig.projectId === PLACEHOLDER_PROJECT_ID)) {
-        // Warning for projectId is already logged above.
+        // Warning for projectId is already logged by the earlier check.
     }
     if (process.env.NODE_ENV === 'development' && !firebaseConfig.databaseURL) {
+         // This condition will be true if projectId is a placeholder (due to databaseURL logic)
+         // or if NEXT_PUBLIC_FIREBASE_DATABASE_URL is explicitly missing even with a real projectId.
          console.warn(
-            "Firebase Database will not be initialized because databaseURL is missing or invalid."
+            "Firebase Database will not be initialized because crucial configuration (projectId or databaseURL) is missing or using placeholders."
          );
     }
 }
