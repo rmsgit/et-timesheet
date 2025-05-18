@@ -13,8 +13,7 @@ const effectiveProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || PLACEH
 const firebaseConfigValues = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || PLACEHOLDER_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || `${effectiveProjectId}.firebaseapp.com`,
-  // Ensure databaseURL is explicitly undefined if using placeholder projectId, to prevent Firebase SDK errors
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || (effectiveProjectId !== PLACEHOLDER_PROJECT_ID ? `https://${effectiveProjectId}.firebaseio.com` : undefined),
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || (effectiveProjectId !== PLACEHOLDER_PROJECT_ID ? `https://${effectiveProjectId}-default-rtdb.firebaseio.com` : undefined), // Adjusted to common default RTDB pattern
   projectId: effectiveProjectId,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${effectiveProjectId}.appspot.com`,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || PLACEHOLDER_SENDER_ID,
@@ -43,7 +42,12 @@ if (process.env.NODE_ENV === 'development') {
       "Certain Firebase services might not function correctly. Please ensure NEXT_PUBLIC_FIREBASE_API_KEY is set."
     );
   }
-  // Add similar warnings for other placeholder values if they become critical for other services
+  if (firebaseConfigValues.messagingSenderId === PLACEHOLDER_SENDER_ID) {
+    console.warn("Firebase Configuration Warning: 'messagingSenderId' is using a placeholder. Ensure NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID is set if you use FCM.");
+  }
+  if (firebaseConfigValues.appId === PLACEHOLDER_APP_ID) {
+    console.warn("Firebase Configuration Warning: 'appId' is using a placeholder. Ensure NEXT_PUBLIC_FIREBASE_APP_ID is set for full Firebase integration.");
+  }
 }
 
 const firebaseConfig = firebaseConfigValues as FirebaseOptions;
@@ -51,10 +55,6 @@ const firebaseConfig = firebaseConfigValues as FirebaseOptions;
 let app: FirebaseApp | undefined = undefined;
 let database: Database | undefined = undefined;
 
-// Conditions for attempting Firebase initialization:
-// 1. projectId must be present.
-// 2. projectId must NOT be the placeholder.
-// 3. databaseURL must be present (either from env var or derived if projectId is real).
 const canInitializeFirebase = firebaseConfig.projectId &&
                               firebaseConfig.projectId !== PLACEHOLDER_PROJECT_ID &&
                               firebaseConfig.databaseURL;
@@ -66,7 +66,7 @@ if (canInitializeFirebase) {
       console.info("Firebase app initialized successfully with projectId:", firebaseConfig.projectId);
     } catch (e) {
       console.error("Firebase app initialization failed:", e);
-      // app remains undefined
+      app = undefined; 
     }
   } else {
     app = getApp();
@@ -79,11 +79,10 @@ if (canInitializeFirebase) {
       console.info("Firebase Realtime Database instance obtained successfully for URL:", firebaseConfig.databaseURL);
     } catch (e) {
       console.error("Failed to get Firebase Realtime Database instance:", e, "Ensure databaseURL is correct:", firebaseConfig.databaseURL);
-      // database remains undefined
+      database = undefined;
     }
   }
 } else {
-  // This block is executed if Firebase cannot be initialized due to missing/placeholder config.
   let reason = "";
   if (!firebaseConfig.projectId || firebaseConfig.projectId === PLACEHOLDER_PROJECT_ID) {
     reason = `Firebase 'projectId' is missing or using the placeholder ('${PLACEHOLDER_PROJECT_ID}').`;
@@ -94,13 +93,12 @@ if (canInitializeFirebase) {
   }
   
   if (process.env.NODE_ENV === 'development') {
-    console.error(
+    console.warn( // Changed from console.error to console.warn
       `FIREBASE_INIT_SKIPPED: Firebase app and database instances will NOT be initialized. ${reason} ` +
       `Consequently, data operations (read/write) with Firebase will not function. ` +
       `Please ensure NEXT_PUBLIC_FIREBASE_PROJECT_ID is set to your actual project ID, and NEXT_PUBLIC_FIREBASE_DATABASE_URL is correctly set (if not using the default database for your project, or if projectId is a placeholder), in your .env file. Then, restart your Next.js development server.`
     );
   }
-  // app and database will remain undefined, which is critical for other parts of the app to know Firebase isn't ready.
 }
 
 export { app, database };
