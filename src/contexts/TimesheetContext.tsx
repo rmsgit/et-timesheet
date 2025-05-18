@@ -104,10 +104,10 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         return;
     }
     if (!database) {
-        console.warn("ADD_TIME_RECORD_DEBUG: Firebase database object is NOT initialized. Toasting user."); // Specific console log
+        // Removed console.error/warn here to prevent Next.js error overlay
         toast({ 
-          title: "Firebase Not Ready", // Distinct title
-          description: "Cannot save: Firebase Database is not configured or connected. Please check setup.", // Distinct message
+          title: "Firebase Not Ready", 
+          description: "Cannot save: Firebase Database is not configured or connected. Please check setup.", 
           variant: "destructive" 
         });
         return;
@@ -250,4 +250,5 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     </TimesheetContext.Provider>
   );
 };
+
 
