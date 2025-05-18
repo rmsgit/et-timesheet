@@ -1,14 +1,14 @@
 
 export interface User {
-  id: string;
-  username: string;
-  role: 'admin' | 'editor';
-  // password will not be stored or directly handled in client-side app beyond login form
+  id: string; // Firebase UID
+  email: string | null; // From Firebase Auth
+  username: string; // From RTDB (can be email as fallback if not in RTDB)
+  role: 'admin' | 'editor' | null; // From RTDB
 }
 
 export interface TimeRecord {
   id: string;
-  userId: string; // To associate record with an editor
+  userId: string; // To associate record with an editor (Firebase UID)
   date: string; // ISO string format for date
   projectName: string;
   projectType: string;
