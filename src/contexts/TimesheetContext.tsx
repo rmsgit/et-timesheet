@@ -42,10 +42,10 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     setIsTimesheetLoading(true); 
 
     if (!database) {
-      console.warn("TimesheetContext: Firebase Database not initialized or not configured with a real Project ID. Timesheet data will not be loaded from Firebase, and operations will not persist.");
+      console.warn("TimesheetContext (useEffect): Firebase Database not initialized or not configured with a real Project ID. Timesheet data will not be loaded from Firebase, and operations will not persist.");
       setIsTimesheetLoading(false);
       hideLoader(TIMESHEET_LOADER_ID);
-      setTimeRecordsState([]); // Use empty or mock data if desired
+      setTimeRecordsState([]); 
       return;
     }
 
@@ -81,19 +81,21 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         setIsTimesheetLoading(false);
         hideLoader(TIMESHEET_LOADER_ID);
         setTimeRecordsState([]);
+        toast({ title: "Timesheet Load Error", description: "Could not load timesheet data from Firebase.", variant: "destructive"});
       });
     } catch (error) {
       console.error("Error setting up Firebase listener for timesheet:", error);
       setIsTimesheetLoading(false);
       hideLoader(TIMESHEET_LOADER_ID);
       setTimeRecordsState([]);
+       toast({ title: "Listener Setup Error", description: "Failed to set up Firebase listener for timesheets.", variant: "destructive"});
     }
     
     return () => {
       unsubscribe(); 
       hideLoader(TIMESHEET_LOADER_ID); 
     };
-  }, [showLoader, hideLoader, toast]); // Removed 'database' from deps as it's stable or its absence is handled
+  }, [showLoader, hideLoader, toast]);
   
   const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => {
     if (!user) {
@@ -102,8 +104,12 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         return;
     }
     if (!database) {
-        console.warn("AddTimeRecord: Firebase DB not initialized or not configured correctly. Record will NOT be saved to Firebase.");
-        toast({ title: "Configuration Error", description: "Firebase is not connected. Record not saved.", variant: "destructive" });
+        console.error("ADD_TIME_RECORD_DEBUG: Firebase database object is NOT initialized. Toasting user."); // Specific console log
+        toast({ 
+          title: "Firebase Not Ready", // Distinct title
+          description: "Cannot save: Firebase Database is not configured or connected. Please check setup.", // Distinct message
+          variant: "destructive" 
+        });
         return;
     }
     const newRecordRef = push(ref(database, FIREBASE_TIMESHEET_PATH));
@@ -125,9 +131,9 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       toast({ title: "Success", description: "Time record added." });
     } catch (error) {
       console.error("Firebase add time record error:", error);
-      toast({ title: "Firebase Error", description: "Failed to add record to Firebase.", variant: "destructive" });
+      toast({ title: "Firebase Error", description: "Failed to add record to Firebase. Check console for details.", variant: "destructive" });
     }
-  }, [user, toast]); // Removed 'database' from deps
+  }, [user, toast]); 
 
   const updateTimeRecord = useCallback(async (updatedRecord: TimeRecord) => {
     if (!database) {
@@ -140,9 +146,9 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       toast({ title: "Success", description: "Time record updated." });
     } catch (error) {
       console.error("Firebase update time record error:", error);
-      toast({ title: "Firebase Error", description: "Failed to update record in Firebase.", variant: "destructive" });
+      toast({ title: "Firebase Error", description: "Failed to update record in Firebase. Check console for details.", variant: "destructive" });
     }
-  }, [toast]); // Removed 'database' from deps
+  }, [toast]); 
 
   const deleteTimeRecord = useCallback(async (recordId: string) => {
     if (!database) {
@@ -155,9 +161,9 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       toast({ title: "Success", description: "Time record deleted." });
     } catch (error) {
       console.error("Firebase delete time record error:", error);
-      toast({ title: "Firebase Error", description: "Failed to delete record from Firebase.", variant: "destructive" });
+      toast({ title: "Firebase Error", description: "Failed to delete record from Firebase. Check console for details.", variant: "destructive" });
     }
-  }, [toast]); // Removed 'database' from deps
+  }, [toast]);
 
   const markAsComplete = useCallback(async (recordId: string) => {
     if (!database) {
@@ -193,28 +199,28 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     }
     } catch (error) {
       console.error("Firebase mark as complete error:", error);
-      toast({ title: "Firebase Error", description: "Failed to mark record as complete in Firebase.", variant: "destructive" });
+      toast({ title: "Firebase Error", description: "Failed to mark record as complete in Firebase. Check console for details.", variant: "destructive" });
     }
-  }, [timeRecords, toast]); // Removed 'database' from deps
+  }, [timeRecords, toast]); 
 
   const getRecordsForUser = useCallback((userId: string) => {
     return timeRecords.filter(r => r.userId === userId);
   }, [timeRecords]);
   
   const getRecordsByDateRange = useCallback((userId: string, startDate: Date, endDate: Date) => {
+    const inclusiveEndDate = new Date(endDate);
+    inclusiveEndDate.setHours(23, 59, 59, 999);
     return timeRecords.filter(r => {
       const recordDate = new Date(r.date);
-      const inclusiveEndDate = new Date(endDate);
-      inclusiveEndDate.setHours(23, 59, 59, 999);
       return r.userId === userId && recordDate >= startDate && recordDate <= inclusiveEndDate;
     });
   }, [timeRecords]);
 
   const getAllRecordsByDateRange = useCallback((startDate: Date, endDate: Date) => {
+     const inclusiveEndDate = new Date(endDate);
+    inclusiveEndDate.setHours(23, 59, 59, 999);
     return timeRecords.filter(r => {
       const recordDate = new Date(r.date);
-      const inclusiveEndDate = new Date(endDate);
-      inclusiveEndDate.setHours(23, 59, 59, 999);
       return recordDate >= startDate && recordDate <= inclusiveEndDate;
     });
   }, [timeRecords]);
@@ -244,3 +250,4 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     </TimesheetContext.Provider>
   );
 };
+
