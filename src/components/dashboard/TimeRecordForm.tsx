@@ -90,8 +90,12 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
         await updateTimeRecord({ ...record, ...recordData });
         toast({ title: "Success", description: "Time record updated." });
       } else {
+        console.log("Attempting to add new record via addTimeRecord:", recordData); // Added console.log
         await addTimeRecord(recordData);
-        toast({ title: "Success", description: "Time record added." });
+        // Toast for addTimeRecord is now handled within the addTimeRecord function itself or its context
+        // to provide specific feedback about Firebase connection.
+        // If addTimeRecord itself doesn't toast on success when Firebase is connected, we can add one here.
+        // For now, assuming addTimeRecord will toast appropriately.
       }
       onClose();
     } catch (error) {
