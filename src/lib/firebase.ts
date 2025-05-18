@@ -3,10 +3,11 @@ import { initializeApp, getApp, getApps, type FirebaseApp, type FirebaseOptions 
 import { getDatabase, type Database } from 'firebase/database';
 
 // Define placeholder values for Firebase config
-const PLACEHOLDER_PROJECT_ID = "your-project-id-placeholder";
-const PLACEHOLDER_API_KEY = "your-api-key-placeholder";
-const PLACEHOLDER_SENDER_ID = "your-sender-id-placeholder";
-const PLACEHOLDER_APP_ID = "your-app-id-placeholder";
+const PLACEHOLDER_PROJECT_ID = "test-4b9fb";
+const PLACEHOLDER_API_KEY = "AIzaSyDO1vxm6vVZwF3HoUp_nj3q0hlkbEkYtWE";
+const PLACEHOLDER_SENDER_ID = "525338072425";
+const PLACEHOLDER_APP_ID = "1:525338072425:web:17807784e360c16bff59f8";
+
 
 const effectiveProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || PLACEHOLDER_PROJECT_ID;
 
@@ -16,7 +17,7 @@ const firebaseConfigValues = {
   databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || (effectiveProjectId !== PLACEHOLDER_PROJECT_ID ? `https://${effectiveProjectId}.firebaseio.com` : undefined),
   projectId: effectiveProjectId,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${effectiveProjectId}.appspot.com`,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || PLACEHOLDER_SENDER_ID,
+  F: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || PLACEHOLDER_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || PLACEHOLDER_APP_ID,
 };
 
