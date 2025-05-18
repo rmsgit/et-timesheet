@@ -104,7 +104,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         return;
     }
     if (!database) {
-        console.error("ADD_TIME_RECORD_DEBUG: Firebase database object is NOT initialized. Toasting user."); // Specific console log
+        console.warn("ADD_TIME_RECORD_DEBUG: Firebase database object is NOT initialized. Toasting user."); // Specific console log
         toast({ 
           title: "Firebase Not Ready", // Distinct title
           description: "Cannot save: Firebase Database is not configured or connected. Please check setup.", // Distinct message
