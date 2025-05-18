@@ -8,6 +8,7 @@ import { ref, onValue, set, remove, update as firebaseUpdate, push } from 'fireb
 import { FIREBASE_TIMESHEET_PATH } from '@/lib/constants';
 import { useAuth } from '@/hooks/useAuth';
 import { useLoader } from '@/hooks/useLoader';
+import { useToast } from '@/hooks/use-toast';
 
 interface TimesheetContextType {
   timeRecords: TimeRecord[];
@@ -34,16 +35,17 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
   const [timeRecords, setTimeRecordsState] = useState<TimeRecord[]>([]);
   const [isTimesheetLoading, setIsTimesheetLoading] = useState(true);
   const { showLoader, hideLoader } = useLoader();
+  const { toast } = useToast();
 
   useEffect(() => {
     showLoader(TIMESHEET_LOADER_ID, "Loading timesheet data...");
     setIsTimesheetLoading(true); 
 
     if (!database) {
-      console.warn("TimesheetContext: Firebase Database not initialized. Timesheet data will not be loaded.");
+      console.warn("TimesheetContext: Firebase Database not initialized or not configured with a real Project ID. Timesheet data will not be loaded from Firebase, and operations will not persist.");
       setIsTimesheetLoading(false);
       hideLoader(TIMESHEET_LOADER_ID);
-      setTimeRecordsState([]);
+      setTimeRecordsState([]); // Use empty or mock data if desired
       return;
     }
 
@@ -91,17 +93,24 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       unsubscribe(); 
       hideLoader(TIMESHEET_LOADER_ID); 
     };
-  }, [showLoader, hideLoader, database]); 
+  }, [showLoader, hideLoader, toast]); // Removed 'database' from deps as it's stable or its absence is handled
   
   const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => {
-    if (!user || !database) {
-        console.warn("AddTimeRecord: User not logged in or Firebase DB not initialized.");
+    if (!user) {
+        console.warn("AddTimeRecord: User not logged in. Operation aborted.");
+        toast({ title: "Authentication Error", description: "User not logged in.", variant: "destructive" });
+        return;
+    }
+    if (!database) {
+        console.warn("AddTimeRecord: Firebase DB not initialized or not configured correctly. Record will NOT be saved to Firebase.");
+        toast({ title: "Configuration Error", description: "Firebase is not connected. Record not saved.", variant: "destructive" });
         return;
     }
     const newRecordRef = push(ref(database, FIREBASE_TIMESHEET_PATH));
     const newRecordId = newRecordRef.key;
     if (!newRecordId) {
       console.error("Failed to generate new record ID");
+      toast({ title: "Error", description: "Could not create record ID.", variant: "destructive" });
       return;
     }
 
@@ -113,46 +122,59 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     
     try {
       await set(ref(database, `${FIREBASE_TIMESHEET_PATH}/${newRecordId}`), newRecord);
+      toast({ title: "Success", description: "Time record added." });
     } catch (error) {
       console.error("Firebase add time record error:", error);
+      toast({ title: "Firebase Error", description: "Failed to add record to Firebase.", variant: "destructive" });
     }
-  }, [user, database]);
+  }, [user, toast]); // Removed 'database' from deps
 
   const updateTimeRecord = useCallback(async (updatedRecord: TimeRecord) => {
     if (!database) {
-        console.warn("UpdateTimeRecord: Firebase DB not initialized.");
+        console.warn("UpdateTimeRecord: Firebase DB not initialized or not configured correctly. Record will NOT be updated in Firebase.");
+        toast({ title: "Configuration Error", description: "Firebase is not connected. Record not updated.", variant: "destructive" });
         return;
     }
     try {
       await set(ref(database, `${FIREBASE_TIMESHEET_PATH}/${updatedRecord.id}`), updatedRecord);
+      toast({ title: "Success", description: "Time record updated." });
     } catch (error) {
       console.error("Firebase update time record error:", error);
+      toast({ title: "Firebase Error", description: "Failed to update record in Firebase.", variant: "destructive" });
     }
-  }, [database]);
+  }, [toast]); // Removed 'database' from deps
 
   const deleteTimeRecord = useCallback(async (recordId: string) => {
     if (!database) {
-        console.warn("DeleteTimeRecord: Firebase DB not initialized.");
+        console.warn("DeleteTimeRecord: Firebase DB not initialized or not configured correctly. Record will NOT be deleted from Firebase.");
+        toast({ title: "Configuration Error", description: "Firebase is not connected. Record not deleted.", variant: "destructive" });
         return;
     }
     try {
       await remove(ref(database, `${FIREBASE_TIMESHEET_PATH}/${recordId}`));
+      toast({ title: "Success", description: "Time record deleted." });
     } catch (error) {
       console.error("Firebase delete time record error:", error);
+      toast({ title: "Firebase Error", description: "Failed to delete record from Firebase.", variant: "destructive" });
     }
-  }, [database]);
+  }, [toast]); // Removed 'database' from deps
 
   const markAsComplete = useCallback(async (recordId: string) => {
     if (!database) {
-        console.warn("MarkAsComplete: Firebase DB not initialized.");
+        console.warn("MarkAsComplete: Firebase DB not initialized or not configured correctly. Record status will NOT be updated in Firebase.");
+        toast({ title: "Configuration Error", description: "Firebase is not connected. Record status not updated.", variant: "destructive" });
         return;
     }
     const recordToComplete = timeRecords.find(r => r.id === recordId);
-    if (!recordToComplete) return;
+    if (!recordToComplete) {
+      toast({ title: "Error", description: "Record not found.", variant: "destructive" });
+      return;
+    }
 
     const completedAt = new Date().toISOString();
     try {
       await firebaseUpdate(ref(database, `${FIREBASE_TIMESHEET_PATH}/${recordId}`), { completedAt });
+      toast({ title: "Success", description: `Project "${recordToComplete.projectName}" marked as complete.`});
 
       if (typeof window !== "undefined" && "Notification" in window) {
         if (Notification.permission === "granted") {
@@ -171,8 +193,9 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     }
     } catch (error) {
       console.error("Firebase mark as complete error:", error);
+      toast({ title: "Firebase Error", description: "Failed to mark record as complete in Firebase.", variant: "destructive" });
     }
-  }, [timeRecords, database]); 
+  }, [timeRecords, toast]); // Removed 'database' from deps
 
   const getRecordsForUser = useCallback((userId: string) => {
     return timeRecords.filter(r => r.userId === userId);
@@ -221,5 +244,3 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     </TimesheetContext.Provider>
   );
 };
-
-    
