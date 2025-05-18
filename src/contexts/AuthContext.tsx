@@ -23,7 +23,7 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_LOADER_ID = "auth_module_loader"; // Renamed to avoid conflict
+const AUTH_LOADER_ID = "auth_module_loader"; 
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -38,16 +38,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     if (!auth) {
+      console.warn("AuthContext: Firebase Auth service (auth object) is not initialized. Authentication will not work. This usually means Firebase app initialization failed in firebase.ts, likely due to missing or incorrect .env configuration for PROJECT_ID or API_KEY.");
+      toast({
+        title: "CRITICAL: Firebase Auth Unavailable",
+        description: "Firebase Authentication service could not be initialized. Please ensure NEXT_PUBLIC_FIREBASE_PROJECT_ID and NEXT_PUBLIC_FIREBASE_API_KEY are correctly set in your .env file and that you have RESTARTED your development server. Login will not function.",
+        variant: "destructive",
+        duration: Infinity, // Make this toast very sticky
+      });
       setIsAuthLoading(false);
-      if (process.env.NODE_ENV === 'development') {
-        console.warn("AuthContext: Firebase Auth is not initialized. Authentication will not work.");
-        toast({
-          title: "Auth Service Unavailable",
-          description: "Firebase Auth is not configured. Please check Firebase setup.",
-          variant: "destructive"
-        });
-      }
-      return;
+      return; // Stop further auth processing
     }
     
     showLoader(AUTH_LOADER_ID, "Authenticating...");
@@ -55,33 +54,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        // User is signed in with Firebase Auth, now fetch their role and username from RTDB
         if (database) {
           try {
             const userRef = ref(database, `${FIREBASE_USERS_PATH}/${firebaseUser.uid}`);
             const snapshot = await get(userRef);
             if (snapshot.exists()) {
-              const dbUser = snapshot.val() as Omit<User, 'id' | 'email'>; // RTDB stores username and role
+              const dbUser = snapshot.val() as Omit<User, 'id' | 'email'>; 
               setUser({
                 id: firebaseUser.uid,
                 email: firebaseUser.email,
-                username: dbUser.username || firebaseUser.email || 'User', // Fallback for username
-                role: dbUser.role || null, // Default to null role if not found
+                username: dbUser.username || firebaseUser.email || 'User', 
+                role: dbUser.role || null, 
               });
             } else {
-              // User exists in Auth but not in our RTDB users table.
-              // They are authenticated but have no specific app role or username.
               setUser({
                 id: firebaseUser.uid,
                 email: firebaseUser.email,
-                username: firebaseUser.email || 'User', // Use email as username
-                role: null, // No role assigned in the app's system
+                username: firebaseUser.email || 'User', 
+                role: null, 
               });
               console.warn(`User ${firebaseUser.uid} authenticated with Firebase but not found in Realtime Database at ${FIREBASE_USERS_PATH}. No app-specific role assigned.`);
             }
           } catch (error) {
             console.error("Error fetching user data from RTDB:", error);
-            setUser({ // Fallback if RTDB fetch fails
+            setUser({ 
               id: firebaseUser.uid,
               email: firebaseUser.email,
               username: firebaseUser.email || 'User',
@@ -90,18 +86,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             toast({ title: "Role Fetch Error", description: "Could not retrieve user role.", variant: "destructive" });
           }
         } else {
-          // Database not available, user is authenticated but we can't get role
            setUser({
             id: firebaseUser.uid,
             email: firebaseUser.email,
             username: firebaseUser.email || 'User',
-            role: null, // Cannot determine role
+            role: null, 
           });
           console.warn("AuthContext: Firebase Database not available. Cannot fetch user role.");
            toast({ title: "Database Unavailable", description: "Cannot fetch user role, Firebase DB not configured.", variant: "destructive" });
         }
       } else {
-        // User is signed out
         setUser(null);
       }
       setIsAuthLoading(false);
@@ -112,14 +106,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       unsubscribe();
       hideLoader(AUTH_LOADER_ID);
     }
-  }, [showLoader, hideLoader, toast, router]); // router removed as push is inside login/logout
+  }, [showLoader, hideLoader, toast]); 
   
   const login = useCallback(async (email: string, password?: string): Promise<boolean> => {
     if (!auth) {
-      toast({ title: "Auth Not Ready", description: "Firebase Auth is not initialized.", variant: "destructive" });
+      toast({ 
+        title: "CRITICAL: Firebase Auth Unavailable", 
+        description: "Cannot login: Firebase Auth is not initialized. Check .env configuration (PROJECT_ID, API_KEY) and restart your server.", 
+        variant: "destructive",
+        duration: Infinity 
+      });
       return false;
     }
-    if (!password) { // Ensure password is provided
+    if (!password) { 
       toast({ title: "Login Error", description: "Password is required.", variant: "destructive" });
       return false;
     }
@@ -128,9 +127,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     showLoader(AUTH_LOADER_ID, "Logging in...");
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle setting user and navigating.
-      // It will also fetch user role from RTDB.
-      // router.push('/dashboard') will be implicitly handled by layout/page logic based on isAuthenticated
       toast({ title: "Login Successful", description: "Welcome back!"});
       return true;
     } catch (error: any) {
@@ -152,14 +148,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = useCallback(async () => {
     if (!auth) {
-      toast({ title: "Auth Not Ready", description: "Firebase Auth is not initialized.", variant: "destructive" });
+      toast({ 
+        title: "CRITICAL: Firebase Auth Unavailable", 
+        description: "Cannot logout: Firebase Auth is not initialized. Check .env configuration and restart server.", 
+        variant: "destructive",
+        duration: Infinity 
+      });
       return;
     }
     setIsAuthLoading(true);
     showLoader(AUTH_LOADER_ID, "Logging out...");
     try {
       await signOut(auth);
-      // onAuthStateChanged will set user to null
       router.push('/login'); 
       toast({ title: "Logged Out", description: "You have been successfully logged out." });
     } catch (error) {
@@ -175,7 +175,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [toast, router, showLoader, hideLoader]);
 
-  const isAuthenticated = !!user && !isAuthLoading; // User is authenticated only if not loading and user object exists
+  const isAuthenticated = !!user && !isAuthLoading; 
   const isAdmin = isAuthenticated && user?.role === 'admin';
   const isEditor = isAuthenticated && user?.role === 'editor';
 
