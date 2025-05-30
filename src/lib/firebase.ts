@@ -31,34 +31,48 @@ let auth: Auth | undefined = undefined;
 let database: Database | undefined = undefined;
 
 const isProjectIdPlaceholder = effectiveProjectId === PLACEHOLDER_PROJECT_ID;
-const isApiKeyPlaceholder = effectiveApiKey === PLACEHOLDER_API_KEY;
+const isApiKeyPlaceholder = !effectiveApiKey || effectiveApiKey === PLACEHOLDER_API_KEY;
+
+
+if (process.env.NODE_ENV === 'development') {
+  console.log(
+    "DEBUG FIREBASE CONFIG (src/lib/firebase.ts):\n" +
+    `- Raw NEXT_PUBLIC_FIREBASE_PROJECT_ID from process.env: "${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}"\n` +
+    `- Raw NEXT_PUBLIC_FIREBASE_API_KEY from process.env: "${process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? process.env.NEXT_PUBLIC_FIREBASE_API_KEY.substring(0,4) + '...' : 'NOT SET'}"\n` +
+    `--------------------------------------------------\n` +
+    `- Effective Project ID being used: "${effectiveProjectId}" (Is placeholder: ${isProjectIdPlaceholder})\n` +
+    `- Effective API Key being used: "${effectiveApiKey ? effectiveApiKey.substring(0, 4) + '...' + effectiveApiKey.substring(effectiveApiKey.length - 4) : 'NOT SET'}" (Is placeholder/missing: ${isApiKeyPlaceholder})\n` +
+    `- Effective Database URL: "${firebaseConfig.databaseURL || 'NOT SET OR AUTO-DERIVED'}"\n` +
+    `- Effective Auth Domain: "${firebaseConfig.authDomain}"`
+  );
+}
+
+
+const canInitializeApp = effectiveProjectId && !isProjectIdPlaceholder && effectiveApiKey && !isApiKeyPlaceholder;
 
 if (process.env.NODE_ENV === 'development' && (isProjectIdPlaceholder || isApiKeyPlaceholder)) {
   console.warn(
     "====================================================================================\n" +
-    "🔴 CRITICAL FIREBASE CONFIGURATION ISSUE 🔴\n" +
+    "🔴 CRITICAL FIREBASE CONFIGURATION ISSUE (src/lib/firebase.ts) 🔴\n" +
     "====================================================================================\n" +
-    "Firebase is using PLACEHOLDER values because essential environment variables are missing or incorrect:\n" +
-    (isProjectIdPlaceholder ? `\n[!] NEXT_PUBLIC_FIREBASE_PROJECT_ID is effectively: '${PLACEHOLDER_PROJECT_ID}' (Placeholder).` : "") +
-    (isApiKeyPlaceholder ? `\n[!] NEXT_PUBLIC_FIREBASE_API_KEY is effectively using a placeholder.` : "") +
-    "\n\n" +
+    "Firebase is using PLACEHOLDER or MISSING values because essential environment variables are not correctly set or the server was not restarted after .env changes:\n\n" +
+    `[!] NEXT_PUBLIC_FIREBASE_PROJECT_ID is effectively: '${effectiveProjectId}' ${isProjectIdPlaceholder ? '\n    👉 THIS IS A PLACEHOLDER! Firebase will not work correctly.' : '(This appears to be a custom value.)'}\n` +
+    `[!] NEXT_PUBLIC_FIREBASE_API_KEY is effectively: '${effectiveApiKey ? effectiveApiKey.substring(0,4) + '...' + effectiveApiKey.substring(effectiveApiKey.length -4) : 'NOT SET'}' ${isApiKeyPlaceholder ? '\n    👉 THIS IS A PLACEHOLDER OR MISSING! Firebase Auth will not work.' : '(This appears to be a custom value.)'}\n\n` +
     "CONSEQUENCES:\n" +
     "- Firebase App, Authentication, and Realtime Database WILL NOT initialize correctly.\n" +
     "- Login, data saving, and other Firebase-dependent features will NOT work with your actual project.\n" +
     "\n" +
     "👉 TO FIX THIS:\n" +
-    "1. Create or open the `.env` file in the root directory of your project.\n" +
-    "2. Ensure the following variables are set with your ACTUAL Firebase project credentials:\n" +
+    "1. Ensure you have a file named `.env` in the ROOT DIRECTORY of your project.\n" +
+    "2. In `.env`, set the following variables with your ACTUAL Firebase project credentials:\n" +
     "   - NEXT_PUBLIC_FIREBASE_PROJECT_ID=\"YOUR_REAL_PROJECT_ID\"\n" +
     "   - NEXT_PUBLIC_FIREBASE_API_KEY=\"YOUR_REAL_API_KEY\"\n" +
     "   - NEXT_PUBLIC_FIREBASE_DATABASE_URL=\"YOUR_REAL_DATABASE_URL\" (e.g., https://your-project-id-default-rtdb.firebaseio.com)\n" +
-    "   (And other Firebase config variables like AUTH_DOMAIN, STORAGE_BUCKET, etc.)\n" +
-    "3. IMPORTANT: After saving changes to your `.env` file, you MUST RESTART your Next.js development server.\n" +
+    "   (And other NEXT_PUBLIC_FIREBASE_... config variables as needed, like AUTH_DOMAIN, STORAGE_BUCKET, etc.)\n" +
+    "3. CRITICAL: After saving changes to your `.env` file, you MUST FULLY RESTART your Next.js development server.\n" +
     "===================================================================================="
   );
 }
-
-const canInitializeApp = effectiveProjectId && !isProjectIdPlaceholder && effectiveApiKey && !isApiKeyPlaceholder;
 
 if (canInitializeApp) {
   if (!getApps().length) {
@@ -68,7 +82,7 @@ if (canInitializeApp) {
         console.info("Firebase app initialized successfully with projectId:", firebaseConfig.projectId);
       }
     } catch (e) {
-      console.error("Firebase app initialization failed:", e);
+      console.error("Firebase app initialization FAILED:", e);
       app = undefined; 
     }
   } else {
@@ -105,22 +119,45 @@ if (canInitializeApp) {
         console.warn(
           `FIREBASE_DB_INIT_SKIPPED: Firebase Realtime Database will NOT be initialized. ` +
           `'databaseURL' is missing or invalid in firebaseConfig. ` +
-          `This might be because NEXT_PUBLIC_FIREBASE_PROJECT_ID is a placeholder, or NEXT_PUBLIC_FIREBASE_DATABASE_URL is not explicitly set or is incorrect. ` +
+          `This might be because NEXT_PUBLIC_FIREBASE_PROJECT_ID is a placeholder ('${PLACEHOLDER_PROJECT_ID}'), or NEXT_PUBLIC_FIREBASE_DATABASE_URL is not explicitly set or is incorrect. ` +
           `Database operations will fail.`
         );
       }
     }
   }
 } else {
-  if (process.env.NODE_ENV === 'development' && !(isProjectIdPlaceholder || isApiKeyPlaceholder)) {
-    // This case implies that canInitializeApp is false for some other reason than placeholders, which is unlikely with current logic but good to cover.
-    console.warn(
-      `FIREBASE_APP_INIT_SKIPPED: Firebase app, Auth, and Database instances will NOT be initialized due to an unexpected configuration state. Please verify all NEXT_PUBLIC_FIREBASE_... variables in your .env file and restart your server.`
+  // App cannot be initialized
+  app = undefined;
+  auth = undefined;
+  database = undefined;
+
+  let reasonMessage = "";
+  if (isProjectIdPlaceholder) {
+    reasonMessage += `Firebase 'projectId' is using the placeholder ('${PLACEHOLDER_PROJECT_ID}'). `;
+  } else if (!effectiveProjectId) {
+    reasonMessage += `Firebase 'projectId' is missing. `;
+  }
+
+  if (isApiKeyPlaceholder) {
+    // Check if it's missing or if it's the placeholder
+    if (!effectiveApiKey) {
+      reasonMessage += `Firebase 'apiKey' is MISSING. `;
+    } else {
+      reasonMessage += `Firebase 'apiKey' is using a placeholder. `;
+    }
+  }
+  
+  if (!reasonMessage) { 
+    reasonMessage = "An unexpected configuration state (neither projectId nor apiKey seems to be the direct issue, check other effective... values or .env loading). ";
+  }
+  
+  if (process.env.NODE_ENV === 'development') {
+    console.warn( // Changed from error to warn
+      `FIREBASE_APP_INIT_SKIPPED: Firebase app, Auth, and Database instances will NOT be initialized. Reason: ${reasonMessage}` +
+      `Consequently, data operations (read/write) with Firebase will not function. ` +
+      `Please ensure NEXT_PUBLIC_FIREBASE_PROJECT_ID and NEXT_PUBLIC_FIREBASE_API_KEY are correctly set with your REAL project credentials in your .env file, and that you have RESTARTED your Next.js development server.`
     );
   }
-  // The detailed placeholder warning above already covers the main scenario for !canInitializeApp
 }
 
 export { app, auth, database };
-
-    
