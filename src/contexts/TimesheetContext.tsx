@@ -19,7 +19,7 @@ interface TimesheetContextType {
   getRecordsForUser: (userId: string) => TimeRecord[];
   getRecordsByDateRange: (userId: string, startDate: Date, endDate: Date) => TimeRecord[];
   getAllRecordsByDateRange: (startDate: Date, endDate: Date) => TimeRecord[];
-  isTimesheetLoading: boolean; 
+  isTimesheetLoading: boolean;
 }
 
 export const TimesheetContext = createContext<TimesheetContextType | undefined>(undefined);
@@ -38,84 +38,94 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log("DEBUG_TIMESHEET: useEffect triggered. Initial isTimesheetLoading:", isTimesheetLoading);
     showLoader(TIMESHEET_LOADER_ID, "Loading timesheet data...");
-    setIsTimesheetLoading(true); 
+    setIsTimesheetLoading(true);
 
     if (!database) {
-      console.warn("TimesheetContext (useEffect): Firebase Database not initialized or not configured with a real Project ID. Timesheet data will not be loaded from Firebase, and operations will not persist.");
+      console.warn("DEBUG_TIMESHEET: Firebase Database object is NOT initialized. Timesheet data will not be loaded from Firebase, and operations will not persist.");
       setIsTimesheetLoading(false);
       hideLoader(TIMESHEET_LOADER_ID);
-      setTimeRecordsState([]); 
+      setTimeRecordsState([]);
+      toast({
+        title: "Timesheet Data Unavailable",
+        description: "Cannot connect to Firebase Realtime Database. Please check your project's DATABASE_URL configuration in .env and restart the server.",
+        variant: "destructive",
+        duration: 10000,
+      });
       return;
     }
 
-    let unsubscribe = () => {}; 
+    console.log("DEBUG_TIMESHEET: Firebase Database object IS available. Setting up listener for path:", FIREBASE_TIMESHEET_PATH);
+    let unsubscribe = () => {};
 
     try {
       const dbRef = ref(database, FIREBASE_TIMESHEET_PATH);
       unsubscribe = onValue(dbRef, (snapshot) => {
+        console.log("DEBUG_TIMESHEET: Firebase onValue data callback invoked.");
         try {
           if (snapshot.exists()) {
             const recordsObject = snapshot.val();
+            console.log("DEBUG_TIMESHEET: Snapshot exists. Value:", recordsObject);
             if (recordsObject && typeof recordsObject === 'object' && !Array.isArray(recordsObject)) {
               const recordsArray = Object.values(recordsObject) as TimeRecord[];
               setTimeRecordsState(recordsArray);
             } else {
               if (recordsObject && !(typeof recordsObject === 'object' && !Array.isArray(recordsObject))) {
-                 console.warn("Timesheet data from Firebase is not a non-array object:", recordsObject);
+                 console.warn("DEBUG_TIMESHEET: Timesheet data from Firebase is not a non-array object:", recordsObject);
               }
               setTimeRecordsState([]);
             }
           } else {
+            console.log("DEBUG_TIMESHEET: Snapshot does not exist. Setting timeRecords to empty array.");
             setTimeRecordsState([]);
           }
         } catch (processingError) {
-          console.error("Error processing timesheet snapshot value:", processingError);
-          setTimeRecordsState([]); 
+          console.error("DEBUG_TIMESHEET: Error processing timesheet snapshot value:", processingError);
+          setTimeRecordsState([]);
         } finally {
+          console.log("DEBUG_TIMESHEET: Data processing finished. Setting isTimesheetLoading to false and hiding loader.");
           setIsTimesheetLoading(false);
           hideLoader(TIMESHEET_LOADER_ID);
         }
       }, (error) => {
-        console.error("Firebase read error (timeRecords):", error);
+        console.error("DEBUG_TIMESHEET: Firebase read error (timeRecords):", error);
         setIsTimesheetLoading(false);
         hideLoader(TIMESHEET_LOADER_ID);
         setTimeRecordsState([]);
-        toast({ title: "Timesheet Load Error", description: "Could not load timesheet data from Firebase.", variant: "destructive"});
+        toast({ title: "Timesheet Load Error", description: "Could not load timesheet data from Firebase. Check console for details.", variant: "destructive"});
       });
     } catch (error) {
-      console.error("Error setting up Firebase listener for timesheet:", error);
+      console.error("DEBUG_TIMESHEET: Error setting up Firebase listener for timesheet:", error);
       setIsTimesheetLoading(false);
       hideLoader(TIMESHEET_LOADER_ID);
       setTimeRecordsState([]);
-       toast({ title: "Listener Setup Error", description: "Failed to set up Firebase listener for timesheets.", variant: "destructive"});
+       toast({ title: "Listener Setup Error", description: "Failed to set up Firebase listener for timesheets. Check console for details.", variant: "destructive"});
     }
-    
+
     return () => {
-      unsubscribe(); 
-      hideLoader(TIMESHEET_LOADER_ID); 
+      console.log("DEBUG_TIMESHEET: useEffect cleanup. Unsubscribing from Firebase listener and hiding loader.");
+      unsubscribe();
+      hideLoader(TIMESHEET_LOADER_ID);
     };
-  }, [showLoader, hideLoader, toast]);
-  
+  }, [showLoader, hideLoader, toast]); // `database` is stable, no need to list as dep
+
   const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => {
     if (!user) {
-        console.warn("AddTimeRecord: User not logged in. Operation aborted.");
-        toast({ title: "Authentication Error", description: "User not logged in.", variant: "destructive" });
+        toast({ title: "Authentication Error", description: "User not logged in. Cannot add record.", variant: "destructive" });
         return;
     }
     if (!database) {
-        // Removed console.error/warn here to prevent Next.js error overlay
-        toast({ 
-          title: "Firebase Not Ready", 
-          description: "Cannot save: Firebase Database is not configured or connected. Please check setup.", 
-          variant: "destructive" 
+        toast({
+          title: "Firebase Not Ready",
+          description: "Cannot save: Firebase Database is not configured or connected. Please check setup.",
+          variant: "destructive"
         });
         return;
     }
     const newRecordRef = push(ref(database, FIREBASE_TIMESHEET_PATH));
     const newRecordId = newRecordRef.key;
     if (!newRecordId) {
-      console.error("Failed to generate new record ID");
       toast({ title: "Error", description: "Could not create record ID.", variant: "destructive" });
       return;
     }
@@ -125,7 +135,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       id: newRecordId,
       userId: user.id,
     };
-    
+
     try {
       await set(ref(database, `${FIREBASE_TIMESHEET_PATH}/${newRecordId}`), newRecord);
       toast({ title: "Success", description: "Time record added." });
@@ -133,11 +143,10 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       console.error("Firebase add time record error:", error);
       toast({ title: "Firebase Error", description: "Failed to add record to Firebase. Check console for details.", variant: "destructive" });
     }
-  }, [user, toast]); 
+  }, [user, toast]); // `database` is stable
 
   const updateTimeRecord = useCallback(async (updatedRecord: TimeRecord) => {
     if (!database) {
-        console.warn("UpdateTimeRecord: Firebase DB not initialized or not configured correctly. Record will NOT be updated in Firebase.");
         toast({ title: "Configuration Error", description: "Firebase is not connected. Record not updated.", variant: "destructive" });
         return;
     }
@@ -148,11 +157,10 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       console.error("Firebase update time record error:", error);
       toast({ title: "Firebase Error", description: "Failed to update record in Firebase. Check console for details.", variant: "destructive" });
     }
-  }, [toast]); 
+  }, [toast]); // `database` is stable
 
   const deleteTimeRecord = useCallback(async (recordId: string) => {
     if (!database) {
-        console.warn("DeleteTimeRecord: Firebase DB not initialized or not configured correctly. Record will NOT be deleted from Firebase.");
         toast({ title: "Configuration Error", description: "Firebase is not connected. Record not deleted.", variant: "destructive" });
         return;
     }
@@ -163,11 +171,10 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       console.error("Firebase delete time record error:", error);
       toast({ title: "Firebase Error", description: "Failed to delete record from Firebase. Check console for details.", variant: "destructive" });
     }
-  }, [toast]);
+  }, [toast]); // `database` is stable
 
   const markAsComplete = useCallback(async (recordId: string) => {
     if (!database) {
-        console.warn("MarkAsComplete: Firebase DB not initialized or not configured correctly. Record status will NOT be updated in Firebase.");
         toast({ title: "Configuration Error", description: "Firebase is not connected. Record status not updated.", variant: "destructive" });
         return;
     }
@@ -201,12 +208,12 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       console.error("Firebase mark as complete error:", error);
       toast({ title: "Firebase Error", description: "Failed to mark record as complete in Firebase. Check console for details.", variant: "destructive" });
     }
-  }, [timeRecords, toast]); 
+  }, [timeRecords, toast]); // `database` is stable
 
   const getRecordsForUser = useCallback((userId: string) => {
     return timeRecords.filter(r => r.userId === userId);
   }, [timeRecords]);
-  
+
   const getRecordsByDateRange = useCallback((userId: string, startDate: Date, endDate: Date) => {
     const inclusiveEndDate = new Date(endDate);
     inclusiveEndDate.setHours(23, 59, 59, 999);
@@ -235,12 +242,12 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
   }, []);
 
   return (
-    <TimesheetContext.Provider value={{ 
-        timeRecords, 
-        addTimeRecord, 
-        updateTimeRecord, 
-        deleteTimeRecord, 
-        markAsComplete, 
+    <TimesheetContext.Provider value={{
+        timeRecords,
+        addTimeRecord,
+        updateTimeRecord,
+        deleteTimeRecord,
+        markAsComplete,
         getRecordsForUser,
         getRecordsByDateRange,
         getAllRecordsByDateRange,
@@ -250,5 +257,3 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     </TimesheetContext.Provider>
   );
 };
-
-
