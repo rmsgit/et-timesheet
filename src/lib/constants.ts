@@ -10,24 +10,34 @@ export const PROJECT_TYPES: ProjectType[] = [
   'Testing',
 ];
 
-// LOCAL_STORAGE_USER_KEY is no longer used for storing the authenticated user with Firebase Auth.
-// Firebase Auth SDK handles session persistence.
-// export const LOCAL_STORAGE_USER_KEY = 'editors_timesheet_user'; 
-
-export const FIREBASE_USERS_PATH = 'users'; // Stores user profiles (username, role) keyed by Firebase UID
+// Firebase Realtime Database Paths
+export const FIREBASE_USERS_PATH = 'users'; // Stores user profiles (username, role, email) keyed by Firebase Auth UID
 export const FIREBASE_PROJECT_TYPES_PATH = 'projectTypes';
 export const FIREBASE_TIMESHEET_PATH = 'timeRecords';
 
 
-// MOCK_USERS_DATA is now primarily for seeding the Realtime Database path FIREBASE_USERS_PATH
-// if it's empty. These users also need to exist in Firebase Authentication to be able to log in.
-// Their `id` here MUST match their Firebase Auth UID.
+// MOCK_USERS_DATA: Example User Structures
+// -----------------------------------------
+// This array provides examples of what user profile data looks like in the Realtime Database.
+// IT IS NOT USED TO AUTOMATICALLY CREATE OR SEED USERS.
+//
+// To add test users to your application:
+// 1. First Admin User (Manual Setup if none exist):
+//    a. In Firebase Console > Authentication: Create a user (e.g., admin@example.com). Note their UID.
+//    b. In Firebase Console > Realtime Database: Under the `users` path, create a node named with the UID from step (a).
+//       Inside this UID node, add: { "email": "admin@example.com", "username": "admin", "role": "admin" }
+// 2. Subsequent Test Users (Via App's Admin Panel):
+//    a. Log in to the application as the admin user created above.
+//    b. Navigate to Dashboard > Admin Tools > User Profiles & Roles.
+//    c. Click "Add User" and fill in the details. This will create both the Firebase Auth user
+//       and their profile in the Realtime Database correctly.
+//
+// The `id` field in these examples (e.g., 'example_admin_uid') is a placeholder. In your actual
+// Realtime Database, the key for each user object under the `users` path will be their
+// actual Firebase Authentication User ID (UID).
 export const MOCK_USERS_DATA: User[] = [
-  // Ensure these IDs would match potential Firebase UIDs if you want these to be auto-linked
-  // For a fresh setup, admins would create users in Firebase Auth console, 
-  // then their profiles (with roles) in the app's admin user management (which writes to RTDB).
-  { id: 'firebase_uid_for_admin', email: 'admin@example.com', username: 'admin', role: 'admin' as const },
-  { id: 'firebase_uid_for_editor', email: 'editor@example.com', username: 'editor', role: 'editor' as const },
-  { id: 'firebase_uid_for_alice', email: 'alice@example.com', username: 'alice', role: 'editor' as const },
-  { id: 'firebase_uid_for_bob', email: 'bob@example.com', username: 'bob', role: 'editor' as const },
+  { id: 'example_admin_uid', email: 'admin@example.com', username: 'admin', role: 'admin' as const },
+  { id: 'example_editor_uid_1', email: 'editor1@example.com', username: 'editorOne', role: 'editor' as const },
+  { id: 'example_editor_uid_2', email: 'alice@example.com', username: 'alice', role: 'editor' as const },
+  { id: 'example_editor_uid_3', email: 'bob@example.com', username: 'bob', role: 'editor' as const },
 ];
