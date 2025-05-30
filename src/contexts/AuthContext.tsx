@@ -43,10 +43,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         title: "CRITICAL: Firebase Auth Unavailable",
         description: "Firebase Authentication service could not be initialized. Please ensure NEXT_PUBLIC_FIREBASE_PROJECT_ID and NEXT_PUBLIC_FIREBASE_API_KEY are correctly set in your .env file and that you have RESTARTED your development server. Login will not function.",
         variant: "destructive",
-        duration: Infinity, // Make this toast very sticky
+        duration: Infinity, 
       });
       setIsAuthLoading(false);
-      return; // Stop further auth processing
+      return; 
     }
     
     showLoader(AUTH_LOADER_ID, "Authenticating...");
@@ -131,14 +131,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return true;
     } catch (error: any) {
       console.error("Firebase login error:", error);
-      let message = "Login failed. Please check your credentials.";
+      let title = "Login Failed";
+      let message = "An unexpected error occurred. Please try again.";
+
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        message = "Invalid email or password.";
+        message = "Invalid email or password. Please check your credentials.";
       } else if (error.code === 'auth/invalid-email') {
-        message = "Please enter a valid email address.";
+        message = "The email address is not valid. Please enter a valid email format.";
+      } else if (error.code === 'auth/operation-not-allowed') {
+        title = "Sign-in Method Disabled";
+        message = "Email/Password sign-in is not enabled for this Firebase project. Please contact the administrator or enable it in the Firebase console (Authentication > Sign-in method).";
+      } else if (error.code === 'auth/too-many-requests') {
+        message = "Access to this account has been temporarily disabled due to many failed login attempts. You can try again later or reset your password.";
+      } else if (error.code === 'auth/network-request-failed') {
+        message = "A network error occurred while trying to sign in. Please check your internet connection and try again.";
       }
-      toast({ title: "Login Failed", description: message, variant: "destructive" });
-      setUser(null);
+      
+      toast({ title: title, description: message, variant: "destructive" });
+      setUser(null); // Ensure user state is cleared on login failure
       return false;
     } finally {
       setIsAuthLoading(false);
