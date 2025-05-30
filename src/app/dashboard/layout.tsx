@@ -8,12 +8,12 @@ import { AppLogo } from '@/components/dashboard/AppLogo';
 import { UserNav } from '@/components/dashboard/UserNav';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  SidebarProvider, 
-  Sidebar, 
-  SidebarHeader, 
-  SidebarContent, 
-  SidebarFooter, 
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
   SidebarInset,
   SidebarTrigger,
   SidebarRail
@@ -28,40 +28,70 @@ export default function DashboardLayout({
   const router = useRouter();
 
   useEffect(() => {
-    if (isAuthLoading) return; // Still loading auth state
+    // Log the state at the beginning of the effect
+    console.log(`DashboardLayout Effect: isAuthLoading=${isAuthLoading}, isAuthenticated=${isAuthenticated}, user:`, user ? { id: user.id, username: user.username, role: user.role } : null);
+
+    if (isAuthLoading) {
+      console.log("DashboardLayout Effect: Auth state still loading, returning skeleton/loader placeholder.");
+      return; // Still loading auth state, Dashboard will show its own loading state or skeleton
+    }
 
     if (!isAuthenticated) {
+      console.log("DashboardLayout Effect: User is NOT authenticated. Redirecting to /login.");
       router.replace('/login');
+    } else {
+      console.log("DashboardLayout Effect: User IS authenticated. Proceeding with dashboard render.");
+      // Additional check: if user exists but has no role, perhaps a redirect to a 'profile setup' or error page?
+      // For now, just ensuring they are authenticated.
+      if (user && user.role === null) {
+        console.warn("DashboardLayout Effect: User is authenticated but has no role assigned in RTDB profile.");
+        // Potentially redirect to a page explaining the role issue or a default non-functional dashboard.
+        // For now, we allow access if authenticated.
+      }
     }
-  }, [isAuthenticated, isAuthLoading, router]);
+  }, [isAuthenticated, isAuthLoading, user, router]); // Added 'user' to dependency array
 
-  if (isAuthLoading || !isAuthenticated) { // Check isAuthLoading first
-    // Show loading skeleton or redirect
+  if (isAuthLoading) {
+    // This skeleton is for when auth state is genuinely loading (e.g., initial app load)
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center space-y-4">
           <Skeleton className="h-12 w-12 rounded-full bg-muted" />
           <Skeleton className="h-4 w-[250px] bg-muted" />
           <Skeleton className="h-4 w-[200px] bg-muted" />
+          <p className="text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
     );
   }
-  
-  // If !isAuthenticated and not loading, useEffect would have redirected.
-  // But as a safeguard, especially if redirection is slow or there are race conditions:
-  if (!user) { 
-    // This case should ideally be covered by the above, but good for robustness
-    // router.replace('/login') already called, this state might be transient
+
+  // If !isAuthenticated AND !isAuthLoading, the useEffect above would have already initiated a redirect.
+  // This additional check acts as a safeguard or handles cases where the redirect might be slow
+  // or if the component attempts to render children before the redirect effect fully processes.
+  if (!isAuthenticated) {
+    // This state means isAuthLoading is false, and isAuthenticated is false.
+    // The useEffect should have redirected. This is a fallback.
     return (
        <div className="flex h-screen w-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center space-y-4">
           <Skeleton className="h-12 w-12 rounded-full bg-muted" />
           <Skeleton className="h-4 w-[250px] bg-muted" />
-          <p className="text-muted-foreground">Redirecting...</p>
+          <p className="text-muted-foreground">Redirecting to login...</p>
         </div>
       </div>
     );
+  }
+
+  // At this point, isAuthLoading is false, and isAuthenticated is true. User should be valid.
+  if (!user) {
+      // This case should ideally not be reached if isAuthenticated is true because isAuthenticated = !!user && !isAuthLoading.
+      // However, as a very defensive measure:
+      console.error("DashboardLayout: Inconsistent state - isAuthenticated is true but user is null. This should not happen.");
+      return (
+        <div className="flex h-screen w-screen items-center justify-center bg-background">
+          <p className="text-destructive">Authentication state error. Please try refreshing.</p>
+        </div>
+      );
   }
 
 

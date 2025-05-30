@@ -8,52 +8,59 @@ import { useLoader } from '@/hooks/useLoader';
 import { useToast } from '@/hooks/use-toast';
 import { auth, database } from '@/lib/firebase'; // Import auth and database
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User as FirebaseUser } from 'firebase/auth';
-import { ref, get } from 'firebase/database'; // Removed 'child' as it's not used directly here
+import { ref, get } from 'firebase/database';
 import { FIREBASE_USERS_PATH } from '@/lib/constants';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password?: string) => Promise<boolean>; 
+  login: (email: string, password?: string) => Promise<boolean>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   isAdmin: boolean;
   isEditor: boolean;
-  isAuthLoading: boolean; 
+  isAuthLoading: boolean;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_LOADER_ID = "auth_module_loader"; 
+const AUTH_LOADER_ID = "auth_module_loader";
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [userState, _setUserState] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const router = useRouter();
   const { showLoader, hideLoader } = useLoader();
   const { toast } = useToast();
 
+  // Wrapper for setUserState to log changes
+  const setUser = useCallback((newUser: User | null) => {
+    console.log("AuthContext: setUser called with:", newUser);
+    _setUserState(newUser);
+  }, []);
+
   useEffect(() => {
+    setIsAuthLoading(true); // Ensure loading is true when listener setup starts
     showLoader(AUTH_LOADER_ID, "Authenticating...");
-    setIsAuthLoading(true); // Managed by this effect
+    console.log("AuthContext: useEffect for onAuthStateChanged - setting up listener.");
 
     if (!auth) {
-      console.warn("AuthContext: Firebase Auth service (auth object) is not initialized. This usually means Firebase app initialization failed in firebase.ts, likely due to missing or incorrect .env configuration for PROJECT_ID or API_KEY.");
+      console.warn("AuthContext: Firebase Auth service (auth object) is not initialized. This usually means Firebase app initialization failed, likely due to missing or incorrect .env configuration for PROJECT_ID or API_KEY.");
       toast({
         title: "CRITICAL: Firebase Auth Unavailable",
         description: "Firebase Authentication service could not be initialized. Please ensure NEXT_PUBLIC_FIREBASE_PROJECT_ID and NEXT_PUBLIC_FIREBASE_API_KEY are correctly set in your .env file and that you have RESTARTED your development server. Login will not function.",
         variant: "destructive",
-        duration: Infinity, 
+        duration: Infinity,
       });
       setIsAuthLoading(false);
       hideLoader(AUTH_LOADER_ID);
-      return; 
+      setUser(null); // Ensure user is null if auth is not available
+      return;
     }
-    
-    console.log("AuthContext: Setting up onAuthStateChanged listener.");
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       console.log('AuthContext: onAuthStateChanged triggered. FirebaseUser UID:', firebaseUser ? firebaseUser.uid : null);
       if (firebaseUser) {
@@ -63,52 +70,50 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const userRef = ref(database, `${FIREBASE_USERS_PATH}/${firebaseUser.uid}`);
             const snapshot = await get(userRef);
             if (snapshot.exists()) {
-              const dbUser = snapshot.val() as Omit<User, 'id' | 'email'>; 
-              const appUser = {
+              const dbUser = snapshot.val() as Omit<User, 'id' | 'email'>;
+              const appUser: User = {
                 id: firebaseUser.uid,
-                email: firebaseUser.email, // email from Firebase Auth
-                username: dbUser.username || firebaseUser.email || 'User', 
-                role: dbUser.role || null, 
+                email: firebaseUser.email,
+                username: dbUser.username || firebaseUser.email || 'User',
+                role: dbUser.role || null,
               };
               console.log('AuthContext: RTDB profile fetched. Calling setUser with:', appUser);
               setUser(appUser);
             } else {
-              // User authenticated with Firebase, but no profile in RTDB
-              const appUser = {
+              const appUser: User = {
                 id: firebaseUser.uid,
                 email: firebaseUser.email,
-                username: firebaseUser.email || 'User', // Fallback username
-                role: null, // No role defined in app's database
+                username: firebaseUser.email || 'User',
+                role: null,
               };
               console.warn(`AuthContext: User ${firebaseUser.uid} has no profile in RTDB. Calling setUser with basic details:`, appUser);
               setUser(appUser);
             }
           } catch (error) {
             console.error("AuthContext: Error fetching user data from RTDB:", error);
-            const appUser = { 
+            const appUser: User = {
               id: firebaseUser.uid,
               email: firebaseUser.email,
               username: firebaseUser.email || 'User',
-              role: null, // Error fetching role
+              role: null,
             };
             console.log('AuthContext: RTDB fetch error. Calling setUser with basic details and null role:', appUser);
             setUser(appUser);
             toast({ title: "Role Fetch Error", description: "Could not retrieve user role.", variant: "destructive" });
           }
         } else {
-           // Database not available, but user is authenticated by Firebase
-           const appUser = {
+           const appUser: User = {
             id: firebaseUser.uid,
             email: firebaseUser.email,
             username: firebaseUser.email || 'User',
-            role: null, 
+            role: null,
           };
           console.warn("AuthContext: Firebase Database not available. Cannot fetch user role. Calling setUser with basic details:", appUser);
           setUser(appUser);
           toast({ title: "Database Unavailable", description: "Cannot fetch user role, Firebase DB not configured.", variant: "destructive" });
         }
       } else {
-        console.log('AuthContext: No FirebaseUser. Calling setUser(null).');
+        console.log('AuthContext: No FirebaseUser in onAuthStateChanged. Calling setUser(null).');
         setUser(null);
       }
       console.log('AuthContext: Calling setIsAuthLoading(false) from onAuthStateChanged.');
@@ -119,27 +124,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       console.log("AuthContext: Cleaning up onAuthStateChanged listener.");
       unsubscribe();
-      hideLoader(AUTH_LOADER_ID); // Ensure loader is hidden on cleanup
+      hideLoader(AUTH_LOADER_ID);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Removed toast, showLoader, hideLoader from deps as they are stable from their hooks
-  
+  }, [showLoader, hideLoader, toast, setUser]); // setUser is now stable from useCallback
+
   const login = useCallback(async (email: string, password?: string): Promise<boolean> => {
     if (!auth) {
-      toast({ 
-        title: "CRITICAL: Firebase Auth Unavailable", 
-        description: "Cannot login: Firebase Auth is not initialized. Check .env configuration (PROJECT_ID, API_KEY) and restart your server.", 
+      toast({
+        title: "CRITICAL: Firebase Auth Unavailable",
+        description: "Cannot login: Firebase Auth is not initialized. Check .env configuration (PROJECT_ID, API_KEY) and restart server.",
         variant: "destructive",
-        duration: Infinity 
+        duration: Infinity
       });
       return false;
     }
-    if (!password) { 
+    if (!password) {
       toast({ title: "Login Error", description: "Password is required.", variant: "destructive" });
       return false;
     }
 
-    // Do NOT set isAuthLoading here. It's managed by onAuthStateChanged.
     showLoader(AUTH_LOADER_ID, "Logging in...");
     try {
       console.log("AuthContext: Attempting Firebase signInWithEmailAndPassword for", email);
@@ -147,9 +151,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // onAuthStateChanged will handle setting the user and isAuthLoading
       toast({ title: "Login Successful", description: "Welcome back!"});
       console.log("AuthContext: Firebase signInWithEmailAndPassword successful for", email);
+      // Do not set user or isAuthLoading here directly; onAuthStateChanged handles it.
       return true;
     } catch (error: any) {
-      console.error("AuthContext: Firebase login error:", error);
+      console.error("AuthContext: Firebase login error:", error, "Code:", error.code);
       let toastTitle = "Login Failed";
       let toastMessage = "An unexpected error occurred. Please try again.";
 
@@ -165,36 +170,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else if (error.code === 'auth/network-request-failed') {
         toastMessage = "A network error occurred while trying to sign in. Please check your internet connection and try again.";
       }
-      
+
       toast({ title: toastTitle, description: toastMessage, variant: "destructive" });
-      // setUser(null); // onAuthStateChanged will handle this if auth state truly becomes null
       return false;
     } finally {
-      // Do NOT set isAuthLoading here.
-      hideLoader(AUTH_LOADER_ID);
+      hideLoader(AUTH_LOADER_ID); // Hide loader specific to login action
     }
-  }, [toast, showLoader, hideLoader]); // `auth` is stable from firebase.ts
+  }, [toast, showLoader, hideLoader]);
 
   const logout = useCallback(async () => {
     if (!auth) {
-      toast({ 
-        title: "CRITICAL: Firebase Auth Unavailable", 
-        description: "Cannot logout: Firebase Auth is not initialized. Check .env configuration and restart server.", 
+      toast({
+        title: "CRITICAL: Firebase Auth Unavailable",
+        description: "Cannot logout: Firebase Auth is not initialized. Check .env configuration and restart server.",
         variant: "destructive",
-        duration: Infinity 
+        duration: Infinity
       });
       return;
     }
-    // Do NOT set isAuthLoading here.
     showLoader(AUTH_LOADER_ID, "Logging out...");
     try {
       console.log("AuthContext: Attempting Firebase signOut.");
       await signOut(auth);
-      // onAuthStateChanged will set user to null and update isAuthLoading.
-      // router.push will be handled by page/layout effects reacting to isAuthenticated.
+      // onAuthStateChanged will set user to null.
+      // Explicit navigation here ensures user lands on login page.
+      console.log("AuthContext: Firebase signOut successful. Navigating to /login.");
+      router.push('/login');
       toast({ title: "Logged Out", description: "You have been successfully logged out." });
-      console.log("AuthContext: Firebase signOut successful.");
-      router.push('/login'); // Explicitly redirect on logout action completion
     } catch (error) {
         console.error("AuthContext: Firebase logout error:", error);
         toast({
@@ -203,17 +205,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             variant: "destructive",
         });
     } finally {
-        // Do NOT set isAuthLoading here.
         hideLoader(AUTH_LOADER_ID);
     }
-  }, [toast, router, showLoader, hideLoader]); // `auth` is stable
+  }, [toast, router, showLoader, hideLoader]);
 
-  const isAuthenticated = !!user && !isAuthLoading; 
-  const isAdmin = isAuthenticated && user?.role === 'admin';
-  const isEditor = isAuthenticated && user?.role === 'editor';
+  const isAuthenticated = !!userState && !isAuthLoading;
+  const isAdmin = isAuthenticated && userState?.role === 'admin';
+  const isEditor = isAuthenticated && userState?.role === 'editor';
+
+  // Log final context values provided
+  // console.log("AuthContext: Providing context values:", { user: userState, isAuthenticated, isAdmin, isEditor, isAuthLoading });
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated, isAdmin, isEditor, isAuthLoading }}>
+    <AuthContext.Provider value={{ user: userState, login, logout, isAuthenticated, isAdmin, isEditor, isAuthLoading }}>
       {children}
     </AuthContext.Provider>
   );
