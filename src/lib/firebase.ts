@@ -3,140 +3,141 @@ import { initializeApp, getApp, getApps, type FirebaseApp, type FirebaseOptions 
 import { getAuth, type Auth } from 'firebase/auth';
 import { getDatabase, type Database } from 'firebase/database';
 
-// Effective configuration will be read directly from process.env
-const effectiveProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-const effectiveApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-const effectiveAuthDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
-const effectiveDatabaseURL = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL;
-const effectiveStorageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-const effectiveMessagingSenderId = process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
-const effectiveAppId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
+// Read essential environment variables directly
+const rawProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+const rawApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+const rawDatabaseURL = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL;
+const rawAuthDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
+const rawStorageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+const rawMessagingSenderId = process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
+const rawAppId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
 
 let firebaseConfig: FirebaseOptions | null = null;
-
-// Check if essential configurations are present
-const isProjectIdMissing = !effectiveProjectId;
-const isApiKeyMissing = !effectiveApiKey;
-
-if (process.env.NODE_ENV === 'development') {
-  console.log(
-    "DEBUG FIREBASE CONFIG (src/lib/firebase.ts):\n" +
-    `- Raw NEXT_PUBLIC_FIREBASE_PROJECT_ID from process.env: "${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'NOT SET'}"\n` +
-    `- Raw NEXT_PUBLIC_FIREBASE_API_KEY from process.env: "${process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? process.env.NEXT_PUBLIC_FIREBASE_API_KEY.substring(0,4) + '...' : 'NOT SET'}"\n` +
-    `- Raw NEXT_PUBLIC_FIREBASE_DATABASE_URL from process.env: "${process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || 'NOT SET'}"\n` +
-    `--------------------------------------------------\n` +
-    `- Effective Project ID being used: "${effectiveProjectId || 'NOT SET'}" (Is Missing: ${isProjectIdMissing})\n` +
-    `- Effective API Key being used: "${effectiveApiKey ? effectiveApiKey.substring(0, 4) + '...' + effectiveApiKey.substring(effectiveApiKey.length - 4) : 'NOT SET'}" (Is Missing: ${isApiKeyMissing})\n` +
-    `- Effective Database URL: "${effectiveDatabaseURL || 'NOT SET OR WILL BE AUTO-DERIVED IF POSSIBLE'}"`
-  );
-}
-
-if (isProjectIdMissing || isApiKeyMissing) {
-  if (process.env.NODE_ENV === 'development') {
-    console.warn( // Changed to warn
-      "====================================================================================\n" +
-      "🔴 CRITICAL FIREBASE CONFIGURATION ISSUE (src/lib/firebase.ts) 🔴\n" +
-      "====================================================================================\n" +
-      "Firebase is NOT CONFIGURED because essential environment variables are missing. Please ensure these are correctly set in your .env file and that you have RESTARTED your development server:\n\n" +
-      `[!] NEXT_PUBLIC_FIREBASE_PROJECT_ID is: '${effectiveProjectId || 'MISSING'}' ${isProjectIdMissing ? '\n    👉 THIS IS REQUIRED! Firebase will not work correctly.' : ''}\n` +
-      `[!] NEXT_PUBLIC_FIREBASE_API_KEY is: '${effectiveApiKey ? effectiveApiKey.substring(0,4) + '...' + effectiveApiKey.substring(effectiveApiKey.length -4) : 'MISSING'}' ${isApiKeyMissing ? '\n    👉 THIS IS REQUIRED! Firebase Auth will not work.' : ''}\n\n` +
-      "CONSEQUENCES:\n" +
-      "- Firebase App, Authentication, and Realtime Database WILL NOT initialize.\n" +
-      "- Login, data saving, and other Firebase-dependent features will NOT work.\n" +
-      "\n" +
-      "👉 TO FIX THIS:\n" +
-      "1. Ensure you have a file named `.env` in the ROOT DIRECTORY of your project.\n" +
-      "2. In `.env`, set (at a minimum):\n" +
-      "   - NEXT_PUBLIC_FIREBASE_PROJECT_ID=\"YOUR_REAL_PROJECT_ID\"\n" +
-      "   - NEXT_PUBLIC_FIREBASE_API_KEY=\"YOUR_REAL_API_KEY\"\n" +
-      "   (And ideally also NEXT_PUBLIC_FIREBASE_DATABASE_URL, NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, etc., for your specific project.)\n" +
-      "3. CRITICAL: After saving changes to your `.env` file, you MUST FULLY RESTART your Next.js development server.\n" +
-      "===================================================================================="
-    );
-  }
-} else {
-  // All essential configurations are present, proceed to build the config object
-  firebaseConfig = {
-    apiKey: effectiveApiKey!, // Not null due to check above
-    authDomain: effectiveAuthDomain || `${effectiveProjectId}.firebaseapp.com`,
-    databaseURL: effectiveDatabaseURL || `https://${effectiveProjectId}-default-rtdb.firebaseio.com`, // Default derivation
-    projectId: effectiveProjectId!, // Not null due to check above
-    storageBucket: effectiveStorageBucket || `${effectiveProjectId}.appspot.com`,
-    messagingSenderId: effectiveMessagingSenderId,
-    appId: effectiveAppId,
-  };
-}
-
 let app: FirebaseApp | undefined = undefined;
 let auth: Auth | undefined = undefined;
 let database: Database | undefined = undefined;
 
-// Initialize Firebase only if firebaseConfig was successfully constructed
-if (firebaseConfig) {
+if (process.env.NODE_ENV === 'development') {
+  console.log(
+    "====================================================================================\n" +
+    "🔎 DEBUG: Firebase Configuration Values (from process.env in src/lib/firebase.ts)\n" +
+    "------------------------------------------------------------------------------------\n" +
+    `- NEXT_PUBLIC_FIREBASE_PROJECT_ID: "${rawProjectId || 'NOT SET'}"\n` +
+    `- NEXT_PUBLIC_FIREBASE_API_KEY: "${rawApiKey ? rawApiKey.substring(0, 4) + '...' + rawApiKey.substring(rawApiKey.length - 4) : 'NOT SET'}"\n` +
+    `- NEXT_PUBLIC_FIREBASE_DATABASE_URL: "${rawDatabaseURL || 'NOT SET'}"\n` +
+    `- NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "${rawAuthDomain || 'NOT SET'}"\n` +
+    `- NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: "${rawStorageBucket || 'NOT SET'}"\n` +
+    `- NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "${rawMessagingSenderId || 'NOT SET'}"\n` +
+    `- NEXT_PUBLIC_FIREBASE_APP_ID: "${rawAppId || 'NOT SET'}"\n` +
+    "===================================================================================="
+  );
+}
+
+// Check if essential configurations for app initialization are present and not empty strings
+const isProjectIdMissing = !rawProjectId || rawProjectId.trim() === "";
+const isApiKeyMissing = !rawApiKey || rawApiKey.trim() === "";
+
+if (isProjectIdMissing || isApiKeyMissing) {
+  if (process.env.NODE_ENV === 'development') {
+    let missingReason = "";
+    if (isProjectIdMissing && isApiKeyMissing) {
+      missingReason = "'NEXT_PUBLIC_FIREBASE_PROJECT_ID' and 'NEXT_PUBLIC_FIREBASE_API_KEY' are missing or empty.";
+    } else if (isProjectIdMissing) {
+      missingReason = "'NEXT_PUBLIC_FIREBASE_PROJECT_ID' is missing or empty.";
+    } else {
+      missingReason = "'NEXT_PUBLIC_FIREBASE_API_KEY' is missing or empty.";
+    }
+
+    console.warn(
+      "====================================================================================\n" +
+      "🔴 CRITICAL FIREBASE CONFIGURATION ISSUE (src/lib/firebase.ts) 🔴\n" +
+      "====================================================================================\n" +
+      `Firebase App, Authentication, and Realtime Database WILL NOT initialize because: ${missingReason}\n\n` +
+      "Please ensure these are correctly set in your .env file (located in the project root):\n" +
+      "  - NEXT_PUBLIC_FIREBASE_PROJECT_ID=\"YOUR_REAL_PROJECT_ID\"\n" +
+      "  - NEXT_PUBLIC_FIREBASE_API_KEY=\"YOUR_REAL_API_KEY\"\n" +
+      "  (And ideally also NEXT_PUBLIC_FIREBASE_DATABASE_URL, etc., for your specific project.)\n\n" +
+      "👉 CRITICAL: After saving changes to your .env file, you MUST FULLY RESTART your Next.js development server.\n" +
+      "Consequences: Login, data saving, and other Firebase-dependent features will NOT work.\n" +
+      "===================================================================================="
+    );
+  }
+} else {
+  // All essential configurations for app init are present, proceed to build the config object
+  firebaseConfig = {
+    apiKey: rawApiKey!, // Not null or empty due to check above
+    authDomain: rawAuthDomain || `${rawProjectId}.firebaseapp.com`,
+    databaseURL: rawDatabaseURL, // Will be checked separately for DB initialization
+    projectId: rawProjectId!, // Not null or empty due to check above
+    storageBucket: rawStorageBucket || `${rawProjectId}.appspot.com`,
+    messagingSenderId: rawMessagingSenderId,
+    appId: rawAppId,
+  };
+
+  // Attempt to initialize Firebase app
   if (!getApps().length) {
     try {
       app = initializeApp(firebaseConfig);
       if (process.env.NODE_ENV === 'development') {
-        console.info("Firebase app initialized successfully with config:", firebaseConfig);
+        console.info("✅ Firebase app initialized successfully with effective config:", app.options);
       }
     } catch (e) {
-      console.error("Firebase app initialization FAILED:", e);
-      app = undefined; 
+      console.error("🔥 Firebase app initialization FAILED:", e, "Using config:", firebaseConfig);
+      app = undefined;
     }
   } else {
     app = getApp();
     if (process.env.NODE_ENV === 'development') {
-      console.info("Using existing Firebase app instance.");
+      console.info("✅ Using existing Firebase app instance with effective config:", app.options);
     }
   }
 
   if (app) {
+    // Attempt to initialize Auth
     try {
       auth = getAuth(app);
       if (process.env.NODE_ENV === 'development') {
-        console.info("Firebase Auth instance obtained successfully.");
+        console.info("✅ Firebase Auth instance obtained successfully.");
       }
     } catch (e) {
-      console.error("Failed to get Firebase Auth instance:", e);
+      console.error("🔥 Failed to get Firebase Auth instance:", e);
       auth = undefined;
     }
 
-    // Check if databaseURL is present in the final config used for initialization
-    const currentDatabaseURL = (app.options as FirebaseOptions).databaseURL;
-    if (currentDatabaseURL) {
+    // Attempt to initialize Database
+    const effectiveDatabaseURL = (app.options as FirebaseOptions).databaseURL;
+    if (effectiveDatabaseURL && effectiveDatabaseURL.trim() !== "") {
       try {
         database = getDatabase(app);
         if (process.env.NODE_ENV === 'development') {
-          console.info("Firebase Realtime Database instance obtained successfully for URL:", currentDatabaseURL);
+          console.info("✅ Firebase Realtime Database instance obtained successfully for URL:", effectiveDatabaseURL);
         }
       } catch (e) {
-        console.error("Failed to get Firebase Realtime Database instance:", e, "Ensure databaseURL is correct:", currentDatabaseURL);
+        console.error("🔥 Failed to get Firebase Realtime Database instance:", e, "Ensure databaseURL is correct and service is enabled:", effectiveDatabaseURL);
         database = undefined;
       }
     } else {
-       if (process.env.NODE_ENV === 'development') {
-        console.warn( // Changed to warn
-          `FIREBASE_DB_INIT_SKIPPED: Firebase Realtime Database will NOT be initialized. ` +
-          `'databaseURL' is missing or invalid in the Firebase config. ` +
-          `Please ensure NEXT_PUBLIC_FIREBASE_DATABASE_URL is explicitly set in your .env file if it's not the default for your projectId, or if the auto-derivation is failing. ` +
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          `🟡 FIREBASE_DB_INIT_SKIPPED: Firebase Realtime Database will NOT be initialized. ` +
+          `'databaseURL' is missing, empty, or invalid in the Firebase config used for app initialization. ` +
+          `Value seen: "${effectiveDatabaseURL || 'NOT SET OR EMPTY'}". ` +
+          `Please ensure NEXT_PUBLIC_FIREBASE_DATABASE_URL is explicitly set in your .env file. ` +
           `Database operations will fail.`
         );
       }
+      database = undefined;
     }
-  }
-} else {
-  // Firebase config could not be constructed (due to missing essential .env vars)
-  // The critical warning about missing PROJECT_ID or API_KEY should have already been logged.
-  app = undefined;
-  auth = undefined;
-  database = undefined;
-  if (process.env.NODE_ENV === 'development') {
-    console.warn( // Changed to warn
-      `FIREBASE_APP_INIT_SKIPPED: Firebase app, Auth, and Database instances will NOT be initialized due to missing essential configurations (PROJECT_ID or API_KEY). See critical warning above.`
-    );
+  } else {
+    // App initialization failed (likely due to earlier critical config issue)
+    // Warnings for auth and database are implicitly covered by app init failure
+    if (process.env.NODE_ENV === 'development' && (isProjectIdMissing || isApiKeyMissing)) {
+      // The critical warning has already been displayed.
+    } else if (process.env.NODE_ENV === 'development') {
+      // If critical warning wasn't shown but app is still undefined (e.g. initializeApp threw an unexpected error)
+      console.error("🔥 UNEXPECTED_FIREBASE_APP_INIT_FAILURE: Firebase app object is undefined after initialization attempt, but critical .env variable checks passed. This is unexpected. Firebase services (Auth, Database) will not be available.");
+    }
   }
 }
 
 export { app, auth, database };
-
-    
