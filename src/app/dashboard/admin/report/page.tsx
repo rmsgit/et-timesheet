@@ -15,23 +15,53 @@ import { useMockUsers } from '@/hooks/useMockUsers';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
+import { useAuth } from '@/hooks/useAuth'; // Import useAuth
 
 export default function AdminReportPage() {
-  const { getAllRecordsByDateRange, timeRecords: allTimeRecords, isTimesheetLoading } = useTimesheet();
-  const { users: mockUsers, isUsersLoading } = useMockUsers(); 
+  const { getAllRecordsByDateRange, timeRecords: allTimeRecordsFromContext, isTimesheetLoading } = useTimesheet();
+  const { users: mockUsers, isUsersLoading } = useMockUsers();
+  const { user: loggedInUser } = useAuth(); // Get logged-in user for debugging
   
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: new Date(),
   });
 
+  // Diagnostic logging for the records received from the context
+  useEffect(() => {
+    if (!isTimesheetLoading && allTimeRecordsFromContext) {
+      console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - allTimeRecordsFromContext loaded. Count: ${allTimeRecordsFromContext.length}`);
+      if (allTimeRecordsFromContext.length > 0) {
+        const uniqueUserIdsInContextData = Array.from(new Set(allTimeRecordsFromContext.map(r => r.userId)));
+        console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Unique UserIDs in context data:`, uniqueUserIdsInContextData);
+        if (loggedInUser) {
+          console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Logged-in admin UserID: ${loggedInUser.id}`);
+        }
+      } else {
+        console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - allTimeRecordsFromContext is empty.`);
+      }
+    } else if (isTimesheetLoading) {
+      console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Timesheet data is still loading...`);
+    } else if (!allTimeRecordsFromContext) {
+      console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - allTimeRecordsFromContext is null/undefined after loading.`);
+    }
+  }, [allTimeRecordsFromContext, isTimesheetLoading, loggedInUser]);
+
   const isLoading = isTimesheetLoading || isUsersLoading;
 
   const filteredRecords = useMemo(() => {
-    if (isLoading || !dateRange?.from || !dateRange?.to || !allTimeRecords || !mockUsers) return [];
-    return getAllRecordsByDateRange(dateRange.from, dateRange.to)
+    if (isLoading || !dateRange?.from || !dateRange?.to || !allTimeRecordsFromContext || !mockUsers) return [];
+    // getAllRecordsByDateRange filters the context's timeRecords (which should be all records) by date.
+    const recordsToDisplay = getAllRecordsByDateRange(dateRange.from, dateRange.to)
       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [dateRange, getAllRecordsByDateRange, isLoading, allTimeRecords, mockUsers]);
+    
+    console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - filteredRecords for display (after date filter). Count: ${recordsToDisplay.length}`);
+    if (recordsToDisplay.length > 0) {
+        const uniqueUserIdsInFilteredData = Array.from(new Set(recordsToDisplay.map(r => r.userId)));
+        console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Unique UserIDs in filtered data for display:`, uniqueUserIdsInFilteredData);
+    }
+    return recordsToDisplay;
+  }, [dateRange, getAllRecordsByDateRange, isLoading, allTimeRecordsFromContext, mockUsers]);
 
   const getUsernameById = (userId: string) => {
     if (isLoading || !mockUsers) return 'Loading...';
