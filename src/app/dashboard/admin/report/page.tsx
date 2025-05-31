@@ -10,24 +10,24 @@ import { AdminTimesheetChart } from '@/components/admin/AdminTimesheetChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, AlertCircle, Users, Clock, Loader2, UsersRound } from 'lucide-react';
+import { BarChart3, AlertCircle, Users, Clock, Loader2, UsersRound, Package, RefreshCw, FilePlus2 } from 'lucide-react';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
-import { useAuth } from '@/hooks/useAuth'; // Import useAuth
+import { useAuth } from '@/hooks/useAuth'; 
+import type { TimeRecord } from '@/lib/types';
 
 export default function AdminReportPage() {
   const { getAllRecordsByDateRange, timeRecords: allTimeRecordsFromContext, isTimesheetLoading } = useTimesheet();
   const { users: mockUsers, isUsersLoading } = useMockUsers();
-  const { user: loggedInUser } = useAuth(); // Get logged-in user for debugging
+  const { user: loggedInUser } = useAuth(); 
   
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: new Date(),
   });
 
-  // Diagnostic logging for the records received from the context
   useEffect(() => {
     if (!isTimesheetLoading && allTimeRecordsFromContext) {
       console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - allTimeRecordsFromContext loaded. Count: ${allTimeRecordsFromContext.length}`);
@@ -51,7 +51,6 @@ export default function AdminReportPage() {
 
   const filteredRecords = useMemo(() => {
     if (isLoading || !dateRange?.from || !dateRange?.to || !allTimeRecordsFromContext || !mockUsers) return [];
-    // getAllRecordsByDateRange filters the context's timeRecords (which should be all records) by date.
     const recordsToDisplay = getAllRecordsByDateRange(dateRange.from, dateRange.to)
       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
@@ -76,6 +75,19 @@ export default function AdminReportPage() {
     if (isLoading || !mockUsers) return 0;
     return mockUsers.filter(u => u.role === 'editor').length;
   }, [mockUsers, isLoading]);
+
+  const getWorkTypeBadge = (workType: TimeRecord['workType']) => {
+    switch (workType) {
+      case 'New work':
+        return <Badge variant="outline" className="border-blue-500 text-blue-500"><FilePlus2 className="mr-1 h-3 w-3" />New</Badge>;
+      case 'Revision':
+        return <Badge variant="outline" className="border-orange-500 text-orange-500"><RefreshCw className="mr-1 h-3 w-3" />Revision</Badge>;
+      case 'Sample work':
+        return <Badge variant="outline" className="border-purple-500 text-purple-500"><Package className="mr-1 h-3 w-3" />Sample</Badge>;
+      default:
+        return <Badge variant="secondary">{workType}</Badge>;
+    }
+  };
 
 
   return (
@@ -142,7 +154,7 @@ export default function AdminReportPage() {
       <AdminTimesheetChart records={filteredRecords} />
 
       {isLoading ? (
-        <TableSkeleton columnCount={6} className="shadow-lg mt-6 h-[480px]" />
+        <TableSkeleton columnCount={7} className="shadow-lg mt-6 h-[480px]" />
       ) : filteredRecords.length > 0 ? (
         <Card className="shadow-lg mt-6">
           <CardHeader>
@@ -159,7 +171,8 @@ export default function AdminReportPage() {
                     <TableHead>Date</TableHead>
                     <TableHead>Editor</TableHead>
                     <TableHead>Project Name</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Work Type</TableHead>
                     <TableHead>Duration (hrs)</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
@@ -171,6 +184,7 @@ export default function AdminReportPage() {
                       <TableCell>{getUsernameById(record.userId)}</TableCell>
                       <TableCell className="font-medium">{record.projectName}</TableCell>
                       <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
+                      <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
                       <TableCell>{record.durationHours.toFixed(1)}</TableCell>
                       <TableCell>
                         {record.completedAt ? (
@@ -178,7 +192,6 @@ export default function AdminReportPage() {
                         ) : (
                           <Badge variant="outline">Pending</Badge>
                         )}
-                        {record.isRevision && <Badge variant="outline" className="ml-2 border-orange-500 text-orange-500">Revision</Badge>}
                       </TableCell>
                     </TableRow>
                   ))}

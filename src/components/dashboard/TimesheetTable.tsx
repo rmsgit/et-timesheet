@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { TimeRecordForm } from './TimeRecordForm';
-import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2 } from 'lucide-react';
+import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -34,7 +34,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -49,7 +48,6 @@ export const TimesheetTable: React.FC = () => {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<TimeRecord | undefined>(undefined);
-  // Local submitting state for actions within this table, if TimeRecordForm doesn't cover all.
   const [isActionSubmitting, setIsActionSubmitting] = useState(false);
 
 
@@ -100,13 +98,24 @@ export const TimesheetTable: React.FC = () => {
     setIsActionSubmitting(true);
     try {
       await markAsComplete(recordId);
-      // Toast for notification is handled within markAsComplete now
-      // We can add a toast here for UI feedback if needed.
       toast({ title: "Completion Initiated", description: `Attempting to mark "${projectName}" as complete.` });
     } catch (error) {
       toast({ title: "Error", description: "Failed to mark as complete.", variant: "destructive" });
     } finally {
       setIsActionSubmitting(false);
+    }
+  };
+
+  const getWorkTypeBadge = (workType: TimeRecord['workType']) => {
+    switch (workType) {
+      case 'New work':
+        return <Badge variant="outline" className="border-blue-500 text-blue-500"><FilePlus2 className="mr-1 h-3 w-3" />New</Badge>;
+      case 'Revision':
+        return <Badge variant="outline" className="border-orange-500 text-orange-500"><RefreshCw className="mr-1 h-3 w-3" />Revision</Badge>;
+      case 'Sample work':
+        return <Badge variant="outline" className="border-purple-500 text-purple-500"><Package className="mr-1 h-3 w-3" />Sample</Badge>;
+      default:
+        return <Badge variant="secondary">{workType}</Badge>;
     }
   };
 
@@ -147,7 +156,8 @@ export const TimesheetTable: React.FC = () => {
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Project Name</TableHead>
-                  <TableHead>Type</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Work Type</TableHead>
                   <TableHead>Duration (hrs)</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -159,6 +169,7 @@ export const TimesheetTable: React.FC = () => {
                     <TableCell>{format(parseISO(record.date), 'MMM d, yyyy')}</TableCell>
                     <TableCell className="font-medium">{record.projectName}</TableCell>
                     <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
+                    <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
                     <TableCell>{record.durationHours.toFixed(1)}</TableCell>
                     <TableCell>
                       {record.completedAt ? (
@@ -168,7 +179,6 @@ export const TimesheetTable: React.FC = () => {
                       ) : (
                         <Badge variant="outline">Pending</Badge>
                       )}
-                      {record.isRevision && <Badge variant="outline" className="ml-2 border-orange-500 text-orange-500">Revision</Badge>}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>

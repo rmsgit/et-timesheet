@@ -1,4 +1,6 @@
 
+export type WorkType = 'New work' | 'Revision' | 'Sample work';
+
 export interface User {
   id: string; // Firebase UID
   email: string | null; // From Firebase Auth
@@ -11,10 +13,12 @@ export interface TimeRecord {
   userId: string; // To associate record with an editor (Firebase UID)
   date: string; // ISO string format for date
   projectName: string;
-  projectType: string;
+  projectType: string; // This is the type like 'Bug Fix', 'New Feature'
+  workType: WorkType; // This is 'New work', 'Revision', or 'Sample work'
   durationHours: number;
   completedAt?: string; // ISO string format, set when task is marked complete
-  isRevision: boolean;
+  // isRevision: boolean; // Replaced by workType
 }
 
 export type ProjectType = 'New Feature' | 'Bug Fix' | 'Documentation' | 'Meeting' | 'Refactor' | 'Testing';
+

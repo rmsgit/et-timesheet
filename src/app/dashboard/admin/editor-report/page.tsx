@@ -13,10 +13,10 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { UserCheck, AlertCircle, Hourglass, CheckCircle2, Briefcase, Loader2, BarChart2 } from 'lucide-react';
+import { UserCheck, AlertCircle, Hourglass, CheckCircle2, Briefcase, Loader2, BarChart2, Package, RefreshCw, FilePlus2 } from 'lucide-react';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
-import type { User } from '@/lib/types';
+import type { User, TimeRecord } from '@/lib/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function AdminEditorReportPage() {
@@ -76,9 +76,9 @@ export default function AdminEditorReportPage() {
     filteredRecords.forEach(record => {
       const recordDateStr = format(parseISO(record.date), 'yyyy-MM-dd');
       if (dailyData[recordDateStr] !== undefined) {
-        if (record.isRevision) {
+        if (record.workType === 'Revision') {
           dailyData[recordDateStr].revisionHours += record.durationHours;
-        } else {
+        } else { // 'New work' and 'Sample work' contribute to normalHours
           dailyData[recordDateStr].normalHours += record.durationHours;
         }
       }
@@ -86,13 +86,26 @@ export default function AdminEditorReportPage() {
 
     return Object.entries(dailyData)
       .map(([dateStr, hoursData]) => ({
-        date: format(parseISO(dateStr), 'MMM d'), // Format for display
-        fullDate: dateStr, // Keep yyyy-MM-dd for sorting
+        date: format(parseISO(dateStr), 'MMM d'), 
+        fullDate: dateStr, 
         normalHours: parseFloat(hoursData.normalHours.toFixed(1)),
         revisionHours: parseFloat(hoursData.revisionHours.toFixed(1)),
       }))
       .sort((a,b) => compareAsc(parseISO(a.fullDate), parseISO(b.fullDate)));
   }, [filteredRecords, dateRange, isLoading]);
+
+  const getWorkTypeBadge = (workType: TimeRecord['workType']) => {
+    switch (workType) {
+      case 'New work':
+        return <Badge variant="outline" className="border-blue-500 text-blue-500"><FilePlus2 className="mr-1 h-3 w-3" />New</Badge>;
+      case 'Revision':
+        return <Badge variant="outline" className="border-orange-500 text-orange-500"><RefreshCw className="mr-1 h-3 w-3" />Revision</Badge>;
+      case 'Sample work':
+        return <Badge variant="outline" className="border-purple-500 text-purple-500"><Package className="mr-1 h-3 w-3" />Sample</Badge>;
+      default:
+        return <Badge variant="secondary">{workType}</Badge>;
+    }
+  };
 
 
   return (
@@ -213,7 +226,7 @@ export default function AdminEditorReportPage() {
                   <BarChart2 className="mr-2 h-6 w-6 text-primary" /> Daily Work Hours for {selectedEditor?.username || 'Editor'}
                 </CardTitle>
                 <CardDescription>
-                  Total hours logged per day, differentiating normal and revision work, from {dateRange?.from ? format(dateRange.from, "PPP") : ''} to {dateRange?.to ? format(dateRange.to, "PPP") : ''}.
+                  Total hours logged per day (Normal = New Work + Sample Work), from {dateRange?.from ? format(dateRange.from, "PPP") : ''} to {dateRange?.to ? format(dateRange.to, "PPP") : ''}.
                 </CardDescription>
               </CardHeader>
               <CardContent className="pl-2 pr-6 pt-4 pb-4">
@@ -225,15 +238,15 @@ export default function AdminEditorReportPage() {
                     <Tooltip
                         contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
                         labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
-                        formatter={(value: number, name: string, props: any) => {
+                        formatter={(value: number, name: string) => {
                             let label = "";
-                            if (name === "normalHours") label = "Normal";
+                            if (name === "normalHours") label = "Normal/Sample";
                             else if (name === "revisionHours") label = "Revision";
                             return [`${value.toFixed(1)} hrs`, label];
                         }}
                     />
                     <Legend wrapperStyle={{fontSize: "12px"}} />
-                    <Bar dataKey="normalHours" stackId="a" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Normal Hours" />
+                    <Bar dataKey="normalHours" stackId="a" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Normal/Sample Hours" />
                     <Bar dataKey="revisionHours" stackId="a" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} name="Revision Hours" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -253,7 +266,7 @@ export default function AdminEditorReportPage() {
 
 
           {isLoading ? (
-            <TableSkeleton columnCount={5} className="shadow-lg mt-6 h-[480px]" />
+            <TableSkeleton columnCount={6} className="shadow-lg mt-6 h-[480px]" />
           ) : filteredRecords.length > 0 ? (
             <Card className="shadow-lg mt-6">
               <CardHeader>
@@ -269,7 +282,8 @@ export default function AdminEditorReportPage() {
                       <TableRow>
                         <TableHead>Date</TableHead>
                         <TableHead>Project Name</TableHead>
-                        <TableHead>Type</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Work Type</TableHead>
                         <TableHead>Duration (hrs)</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
@@ -280,6 +294,7 @@ export default function AdminEditorReportPage() {
                           <TableCell>{format(parseISO(record.date), 'MMM d, yyyy')}</TableCell>
                           <TableCell className="font-medium">{record.projectName}</TableCell>
                           <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
+                          <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
                           <TableCell>{record.durationHours.toFixed(1)}</TableCell>
                           <TableCell>
                             {record.completedAt ? (
@@ -287,7 +302,6 @@ export default function AdminEditorReportPage() {
                             ) : (
                               <Badge variant="outline">Pending</Badge>
                             )}
-                            {record.isRevision && <Badge variant="outline" className="ml-2 border-orange-500 text-orange-500">Revision</Badge>}
                           </TableCell>
                         </TableRow>
                       ))}

@@ -1,17 +1,17 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react'; // Added useState
+import React, { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { useProjectTypes } from '@/hooks/useProjectTypes';
-import type { TimeRecord } from '@/lib/types';
+import type { TimeRecord, WorkType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
+// import { Checkbox } from '@/components/ui/checkbox'; // Removed Checkbox
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -20,18 +20,20 @@ import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
+const workTypeOptions: WorkType[] = ['New work', 'Revision', 'Sample work'];
+
 const timeRecordSchema = z.object({
   date: z.date({ required_error: "A date is required." }),
   projectName: z.string().min(1, "Project name is required."),
   projectType: z.string().min(1, "Project type is required."),
+  workType: z.enum(workTypeOptions, { required_error: "Work type is required." }),
   durationHours: z.coerce.number().min(0.1, "Duration must be at least 0.1 hours."),
-  isRevision: z.boolean().default(false),
 });
 
 type TimeRecordFormData = z.infer<typeof timeRecordSchema>;
 
 interface TimeRecordFormProps {
-  record?: TimeRecord; 
+  record?: TimeRecord & { isRevision?: boolean }; // Allow isRevision for backward compatibility when loading old records
   onClose: () => void;
 }
 
@@ -39,22 +41,35 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
   const { addTimeRecord, updateTimeRecord } = useTimesheet();
   const { projectTypes, isLoadingProjectTypes } = useProjectTypes();
   const { toast } = useToast();
-  const [isSubmittingForm, setIsSubmittingForm] = useState(false); // Local submitting state
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   
+  const getInitialWorkType = (): WorkType => {
+    if (record) {
+      if (record.workType) return record.workType;
+      // @ts-ignore - for backward compatibility with old records
+      if (typeof record.isRevision === 'boolean') {
+      // @ts-ignore
+        return record.isRevision ? 'Revision' : 'New work';
+      }
+    }
+    return 'New work'; // Default for new records
+  };
+
+
   const { control, handleSubmit, reset, formState: { errors } } = useForm<TimeRecordFormData>({
     resolver: zodResolver(timeRecordSchema),
     defaultValues: record ? {
       date: record.date ? parseISO(record.date) : new Date(),
       projectName: record.projectName,
       projectType: record.projectType,
+      workType: getInitialWorkType(),
       durationHours: record.durationHours,
-      isRevision: record.isRevision,
     } : {
       date: new Date(),
       projectName: '',
       projectType: '', 
+      workType: 'New work',
       durationHours: 1,
-      isRevision: false,
     },
   });
 
@@ -63,18 +78,19 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
       date: record.date ? parseISO(record.date) : new Date(),
       projectName: record.projectName,
       projectType: projectTypes.includes(record.projectType) ? record.projectType : (projectTypes.length > 0 ? projectTypes[0] : ''),
+      workType: getInitialWorkType(),
       durationHours: record.durationHours,
-      isRevision: record.isRevision,
     } : {
       date: new Date(),
       projectName: '',
       projectType: projectTypes.length > 0 ? projectTypes[0] : '',
+      workType: 'New work' as WorkType,
       durationHours: 1,
-      isRevision: false,
     };
-    if (!isLoadingProjectTypes) { // Only reset if project types are loaded
+    if (!isLoadingProjectTypes) { 
       reset(defaultVals);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [record, reset, projectTypes, isLoadingProjectTypes]);
 
 
@@ -85,17 +101,18 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
       date: data.date.toISOString(), 
     };
 
+    // Remove isRevision if it exists from old record before saving
+    const finalRecordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'> & { id?: string; userId?: string; completedAt?: string } = { ...recordData };
+    // @ts-ignore
+    delete finalRecordData.isRevision;
+
+
     try {
-      if (record) {
-        await updateTimeRecord({ ...record, ...recordData });
+      if (record && record.id) {
+         await updateTimeRecord({ ...record, ...finalRecordData, id: record.id, userId: record.userId }); // Ensure id and userId are preserved
         toast({ title: "Success", description: "Time record updated." });
       } else {
-        console.log("Attempting to add new record via addTimeRecord:", recordData); // Added console.log
-        await addTimeRecord(recordData);
-        // Toast for addTimeRecord is now handled within the addTimeRecord function itself or its context
-        // to provide specific feedback about Firebase connection.
-        // If addTimeRecord itself doesn't toast on success when Firebase is connected, we can add one here.
-        // For now, assuming addTimeRecord will toast appropriately.
+        await addTimeRecord(finalRecordData as Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>);
       }
       onClose();
     } catch (error) {
@@ -154,7 +171,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
       </div>
 
       <div>
-        <Label htmlFor="projectType">Project Type</Label>
+        <Label htmlFor="projectType">Project Category</Label>
         {isLoadingProjectTypes ? (
           <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> 
@@ -166,13 +183,13 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
           render={({ field }) => (
             <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value} disabled={isSubmittingForm || isLoadingProjectTypes}>
               <SelectTrigger id="projectType">
-                <SelectValue placeholder="Select project type" />
+                <SelectValue placeholder="Select project category" />
               </SelectTrigger>
               <SelectContent>
                 {projectTypes.map((type) => (
                   <SelectItem key={type} value={type}>{type}</SelectItem>
                 ))}
-                 {projectTypes.length === 0 && <SelectItem value="" disabled>No project types available</SelectItem>}
+                 {projectTypes.length === 0 && <SelectItem value="" disabled>No project categories available</SelectItem>}
               </SelectContent>
             </Select>
           )}
@@ -180,6 +197,28 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
         )}
         {errors.projectType && <p className="text-sm text-destructive mt-1">{errors.projectType.message}</p>}
       </div>
+
+      <div>
+        <Label htmlFor="workType">Work Type</Label>
+        <Controller
+          name="workType"
+          control={control}
+          render={({ field }) => (
+            <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value} disabled={isSubmittingForm}>
+              <SelectTrigger id="workType">
+                <SelectValue placeholder="Select work type" />
+              </SelectTrigger>
+              <SelectContent>
+                {workTypeOptions.map((type) => (
+                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+        {errors.workType && <p className="text-sm text-destructive mt-1">{errors.workType.message}</p>}
+      </div>
+
 
       <div>
         <Label htmlFor="durationHours">Duration (hours)</Label>
@@ -191,16 +230,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
         {errors.durationHours && <p className="text-sm text-destructive mt-1">{errors.durationHours.message}</p>}
       </div>
 
-      <div className="flex items-center space-x-2">
-         <Controller
-            name="isRevision"
-            control={control}
-            render={({ field }) => (
-                 <Checkbox id="isRevision" checked={field.value} onCheckedChange={field.onChange} disabled={isSubmittingForm} />
-            )}
-         />
-        <Label htmlFor="isRevision" className="font-normal">This is a revision</Label>
-      </div>
+      {/* Removed isRevision Checkbox */}
 
       <div className="flex justify-end space-x-2 pt-4">
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmittingForm}>
@@ -208,7 +238,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
         </Button>
         <Button type="submit" disabled={isSubmittingForm || isLoadingProjectTypes}>
            {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-           {record ? "Update Record" : "Add Record"}
+           {record && record.id ? "Update Record" : "Add Record"}
         </Button>
       </div>
     </form>

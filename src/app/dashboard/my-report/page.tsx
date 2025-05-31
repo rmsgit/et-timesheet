@@ -11,9 +11,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { FileText, AlertCircle, Hourglass, Loader2 } from 'lucide-react';
+import { FileText, AlertCircle, Hourglass, Loader2, Package, RefreshCw, FilePlus2 } from 'lucide-react';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
+import type { TimeRecord } from '@/lib/types';
 
 export default function MyReportPage() {
   const { user, isAuthLoading } = useAuth();
@@ -44,7 +45,6 @@ export default function MyReportPage() {
     return filteredRecords.filter(record => record.completedAt).length;
   }, [filteredRecords]);
 
-  // This top-level loading covers auth. Individual sections will handle timesheet loading.
   if (isAuthLoading) {
     return (
       <div className="flex h-[calc(100vh-theme(spacing.32))] items-center justify-center">
@@ -53,9 +53,22 @@ export default function MyReportPage() {
     );
   }
   
-  if (!user && !isAuthLoading) { // Should be redirected by layout, but as a fallback
+  if (!user && !isAuthLoading) { 
       return <p className="text-center text-muted-foreground p-8">User not found. Redirecting...</p>;
   }
+
+  const getWorkTypeBadge = (workType: TimeRecord['workType']) => {
+    switch (workType) {
+      case 'New work':
+        return <Badge variant="outline" className="border-blue-500 text-blue-500"><FilePlus2 className="mr-1 h-3 w-3" />New</Badge>;
+      case 'Revision':
+        return <Badge variant="outline" className="border-orange-500 text-orange-500"><RefreshCw className="mr-1 h-3 w-3" />Revision</Badge>;
+      case 'Sample work':
+        return <Badge variant="outline" className="border-purple-500 text-purple-500"><Package className="mr-1 h-3 w-3" />Sample</Badge>;
+      default:
+        return <Badge variant="secondary">{workType}</Badge>;
+    }
+  };
 
 
   return (
@@ -67,7 +80,7 @@ export default function MyReportPage() {
         <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} disabled={isLoading} />
       </div>
 
-      {isLoading && !isAuthLoading ? ( // Show skeletons if only timesheet is loading (auth is done)
+      {isLoading && !isAuthLoading ? ( 
         <div className="grid gap-6 md:grid-cols-3">
           <CardSkeleton className="shadow-md" />
           <CardSkeleton className="shadow-md" />
@@ -115,7 +128,7 @@ export default function MyReportPage() {
       )}
 
       {isLoading && !isAuthLoading ? (
-        <TableSkeleton columnCount={5} className="shadow-lg h-[480px]" />
+        <TableSkeleton columnCount={6} className="shadow-lg h-[480px]" />
       ) : filteredRecords.length > 0 ? (
         <Card className="shadow-lg">
           <CardHeader>
@@ -131,7 +144,8 @@ export default function MyReportPage() {
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Project Name</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Work Type</TableHead>
                     <TableHead>Duration (hrs)</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
@@ -142,6 +156,7 @@ export default function MyReportPage() {
                       <TableCell>{format(parseISO(record.date), 'MMM d, yyyy')}</TableCell>
                       <TableCell className="font-medium">{record.projectName}</TableCell>
                       <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
+                      <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
                       <TableCell>{record.durationHours.toFixed(1)}</TableCell>
                       <TableCell>
                         {record.completedAt ? (
@@ -149,7 +164,6 @@ export default function MyReportPage() {
                         ) : (
                           <Badge variant="outline">Pending</Badge>
                         )}
-                        {record.isRevision && <Badge variant="outline" className="ml-2 border-orange-500 text-orange-500">Revision</Badge>}
                       </TableCell>
                     </TableRow>
                   ))}
