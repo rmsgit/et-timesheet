@@ -87,8 +87,14 @@ export const TimesheetTable: React.FC = () => {
   const handleAddNew = () => {
     setEditingRecord({
       date: selectedDate ? selectedDate.toISOString() : new Date().toISOString(),
-      id: undefined, // Ensures TimeRecordForm treats this as a new record for default values
-    } as TimeRecord); // Cast because it's intentionally a partial shell
+      // Explicitly ensure other fields are undefined so form defaults apply for a new record
+      id: undefined,
+      projectName: '',
+      projectType: '',
+      durationHours: 1, // or whatever your desired default is
+      projectDurationMinutes: undefined,
+      workType: 'New work',
+    } as unknown as TimeRecord); // Use unknown then TimeRecord to satisfy partial init
     setIsFormOpen(true);
   };
 
@@ -136,11 +142,20 @@ export const TimesheetTable: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">
+          Welcome, {user ? user.username : 'Editor'}!
+        </h1>
+        <p className="text-lg text-muted-foreground mt-1">
+          This is your personal timesheet dashboard. Track your work efficiently.
+        </p>
+      </div>
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-semibold">My Timesheet</h2>
+          <h2 className="text-2xl font-semibold">Entries for {selectedDate ? format(selectedDate, 'PPP') : 'Selected Date'}</h2>
           <p className="text-sm text-muted-foreground">
-            Showing records for: {selectedDate ? format(selectedDate, 'PPP') : 'All Dates'}
+            Use the calendar to view records for a specific day or add new entries.
           </p>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
