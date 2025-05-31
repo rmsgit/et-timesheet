@@ -173,8 +173,8 @@ export default function AdminReportPage() {
                     <TableHead>Project Name</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Work Type</TableHead>
-                    <TableHead>Completed in (hrs)</TableHead>
                     <TableHead>Project duration (min)</TableHead>
+                    <TableHead>Completed in (hrs)</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -186,12 +186,12 @@ export default function AdminReportPage() {
                       <TableCell className="font-medium">{record.projectName}</TableCell>
                       <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
                       <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
-                      <TableCell>{record.durationHours.toFixed(1)}</TableCell>
-                       <TableCell>
+                      <TableCell>
                         {record.projectDurationMinutes !== undefined && record.projectDurationMinutes !== null 
                             ? <span className="flex items-center"><Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>{record.projectDurationMinutes}</span> 
                             : 'N/A'}
                       </TableCell>
+                      <TableCell>{record.durationHours.toFixed(1)}</TableCell>
                       <TableCell>
                         {record.completedAt ? (
                           <Badge variant="default" className="bg-green-500 hover:bg-green-600">Completed</Badge>
@@ -220,3 +220,4 @@ export default function AdminReportPage() {
     </div>
   );
 }
+
