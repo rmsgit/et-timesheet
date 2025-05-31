@@ -26,8 +26,8 @@ const timeRecordSchema = z.object({
   projectName: z.string().min(1, "Project name is required."),
   projectType: z.string().min(1, "Project type is required."),
   workType: z.enum(workTypeOptions, { required_error: "Work type is required." }),
-  durationHours: z.coerce.number().min(0.1, "Work duration must be at least 0.1 hours."),
   projectDurationMinutes: z.coerce.number().min(0, "Video duration cannot be negative.").optional().nullable(),
+  durationHours: z.coerce.number().min(0.1, "Work duration must be at least 0.1 hours."),
 });
 
 type TimeRecordFormData = z.infer<typeof timeRecordSchema>;
@@ -59,8 +59,8 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
       projectName: (record?.id ? record.projectName : '') || '',
       projectType: (record?.id ? record.projectType : '') || '',
       workType: (record?.id ? getInitialWorkType() : 'New work') as WorkType,
-      durationHours: record?.id ? record.durationHours : 1,
       projectDurationMinutes: record?.id ? (record.projectDurationMinutes ?? undefined) : undefined,
+      durationHours: record?.id ? record.durationHours : 1,
     },
   });
 
@@ -73,16 +73,16 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
         projectName: isEditing ? record.projectName : (record?.projectName || ''),
         projectType: isEditing ? record.projectType : (record?.projectType || ''),
         workType: isEditing ? getInitialWorkType() : (record?.workType || 'New work'),
-        durationHours: isEditing ? record.durationHours : (record?.durationHours !== undefined ? record.durationHours : 1),
         projectDurationMinutes: isEditing ? (record.projectDurationMinutes ?? undefined) : (record?.projectDurationMinutes ?? undefined),
+        durationHours: isEditing ? record.durationHours : (record?.durationHours !== undefined ? record.durationHours : 1),
     };
     
     // If it's a new record (not editing) set defaults for empty fields
     if (!isEditing) {
         resetToValues.projectName = resetToValues.projectName || '';
         resetToValues.workType = resetToValues.workType || 'New work';
-        resetToValues.durationHours = resetToValues.durationHours !== undefined ? resetToValues.durationHours : 1;
         resetToValues.projectDurationMinutes = resetToValues.projectDurationMinutes ?? undefined;
+        resetToValues.durationHours = resetToValues.durationHours !== undefined ? resetToValues.durationHours : 1;
     }
 
 
@@ -244,19 +244,9 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
         />
         {errors.workType && <p className="text-sm text-destructive mt-1">{errors.workType.message}</p>}
       </div>
-
+      
       <div>
-        <Label htmlFor="durationHours">Work Duration (hours)</Label>
-        <Controller
-          name="durationHours"
-          control={control}
-          render={({ field }) => <Input id="durationHours" type="number" step="0.1" {...field} placeholder="e.g., 2.5" disabled={isSubmittingForm} />}
-        />
-        {errors.durationHours && <p className="text-sm text-destructive mt-1">{errors.durationHours.message}</p>}
-      </div>
-
-      <div>
-        <Label htmlFor="projectDurationMinutes">Project Video Duration (minutes)</Label>
+        <Label htmlFor="projectDurationMinutes">Project Duration (minutes)</Label>
         <Controller
           name="projectDurationMinutes"
           control={control}
@@ -278,6 +268,16 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
           )}
         />
         {errors.projectDurationMinutes && <p className="text-sm text-destructive mt-1">{errors.projectDurationMinutes.message}</p>}
+      </div>
+
+      <div>
+        <Label htmlFor="durationHours">Completed In (hours)</Label>
+        <Controller
+          name="durationHours"
+          control={control}
+          render={({ field }) => <Input id="durationHours" type="number" step="0.1" {...field} placeholder="e.g., 2.5" disabled={isSubmittingForm} />}
+        />
+        {errors.durationHours && <p className="text-sm text-destructive mt-1">{errors.durationHours.message}</p>}
       </div>
 
       <div className="flex justify-end space-x-2 pt-4">
