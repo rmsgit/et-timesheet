@@ -8,6 +8,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LoaderProvider } from '@/contexts/LoaderContext';
 import { GlobalLoader } from '@/components/common/GlobalLoader';
+import { useAdminNotifications } from '@/hooks/useAdminNotifications';
+
+const AdminNotificationInitializer: React.FC = () => {
+  useAdminNotifications(); // Initialize and run the hook globally for admins
+  return null; // This component doesn't render anything
+};
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -19,6 +25,7 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
       <AuthProvider>
         <TimesheetProvider>
           <TooltipProvider>
+            <AdminNotificationInitializer />
             {children}
             <Toaster />
             <GlobalLoader />

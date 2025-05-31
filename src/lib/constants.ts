@@ -14,6 +14,7 @@ export const PROJECT_TYPES: ProjectType[] = [
 export const FIREBASE_USERS_PATH = 'users'; // Stores user profiles (username, role, email) keyed by Firebase Auth UID
 export const FIREBASE_PROJECT_TYPES_PATH = 'projectTypes';
 export const FIREBASE_TIMESHEET_PATH = 'timeRecords';
+export const FIREBASE_ADMIN_NOTIFICATIONS_PATH = 'adminTaskCompletionNotifications';
 
 
 // MOCK_USERS_DATA: Example User Structures
@@ -41,3 +42,4 @@ export const MOCK_USERS_DATA: User[] = [
   { id: 'example_editor_uid_2', email: 'alice@example.com', username: 'alice', role: 'editor' as const },
   { id: 'example_editor_uid_3', email: 'bob@example.com', username: 'bob', role: 'editor' as const },
 ];
+

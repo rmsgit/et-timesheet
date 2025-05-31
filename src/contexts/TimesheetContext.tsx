@@ -5,7 +5,7 @@ import type { TimeRecord } from '@/lib/types';
 import React, { createContext, ReactNode, useCallback, useState, useEffect } from 'react';
 import { database } from '@/lib/firebase';
 import { ref, onValue, set, remove, update as firebaseUpdate, push } from 'firebase/database';
-import { FIREBASE_TIMESHEET_PATH } from '@/lib/constants';
+import { FIREBASE_TIMESHEET_PATH, FIREBASE_ADMIN_NOTIFICATIONS_PATH } from '@/lib/constants';
 import { useAuth } from '@/hooks/useAuth';
 import { useLoader } from '@/hooks/useLoader';
 import { useToast } from '@/hooks/use-toast';
@@ -108,7 +108,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       unsubscribe();
       hideLoader(TIMESHEET_LOADER_ID);
     };
-  }, [showLoader, hideLoader, toast]); // `database` is stable, no need to list as dep
+  }, [showLoader, hideLoader, toast]); // `database` is stable
 
   const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => {
     if (!user) {
@@ -178,6 +178,10 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         toast({ title: "Configuration Error", description: "Firebase is not connected. Record status not updated.", variant: "destructive" });
         return;
     }
+    if (!user) {
+      toast({ title: "Authentication Error", description: "User not logged in. Cannot mark as complete.", variant: "destructive" });
+      return;
+    }
     const recordToComplete = timeRecords.find(r => r.id === recordId);
     if (!recordToComplete) {
       toast({ title: "Error", description: "Record not found.", variant: "destructive" });
@@ -189,26 +193,23 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       await firebaseUpdate(ref(database, `${FIREBASE_TIMESHEET_PATH}/${recordId}`), { completedAt });
       toast({ title: "Success", description: `Project "${recordToComplete.projectName}" marked as complete.`});
 
-      if (typeof window !== "undefined" && "Notification" in window) {
-        if (Notification.permission === "granted") {
-            new Notification("Task Completed!", {
-            body: `Project "${recordToComplete.projectName}" marked as complete.`,
-            });
-        } else if (Notification.permission !== "denied") {
-            Notification.requestPermission().then(permission => {
-                if (permission === "granted") {
-                    new Notification("Task Completed!", {
-                        body: `Project "${recordToComplete.projectName}" marked as complete.`,
-                    });
-                }
-            });
-        }
-    }
+      // Send notification to admins via Firebase
+      const adminNotificationRef = push(ref(database, FIREBASE_ADMIN_NOTIFICATIONS_PATH));
+      await set(adminNotificationRef, {
+        recordId: recordToComplete.id,
+        projectName: recordToComplete.projectName,
+        editorUsername: user.username || 'Unknown Editor',
+        timestamp: new Date().toISOString(),
+      });
+
+      // The original client-side browser notification for the action-taker is removed as per new requirements.
+      // Admins will receive notifications via useAdminNotifications hook.
+
     } catch (error) {
-      console.error("Firebase mark as complete error:", error);
-      toast({ title: "Firebase Error", description: "Failed to mark record as complete in Firebase. Check console for details.", variant: "destructive" });
+      console.error("Firebase mark as complete error or admin notification error:", error);
+      toast({ title: "Firebase Error", description: "Failed to mark record as complete or send admin notification. Check console.", variant: "destructive" });
     }
-  }, [timeRecords, toast]); // `database` is stable
+  }, [timeRecords, toast, user]); // `database` is stable, user added
 
   const getRecordsForUser = useCallback((userId: string) => {
     return timeRecords.filter(r => r.userId === userId);
@@ -234,9 +235,12 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
 
 
   useEffect(() => {
+    // Initial permission request for notifications if not already set (for admins primarily)
     if (typeof window !== "undefined" && "Notification" in window) {
         if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-            Notification.requestPermission();
+            // We'll let useAdminNotifications handle more targeted permission requests.
+            // Or, request it broadly here if preferred.
+            // Notification.requestPermission(); 
         }
     }
   }, []);
@@ -257,3 +261,4 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     </TimesheetContext.Provider>
   );
 };
+
