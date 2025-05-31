@@ -25,7 +25,7 @@ export function SidebarNav() {
   ];
 
   const adminRoutes = [
-    { href: '/dashboard/admin/users', label: 'User Management', icon: Users },
+    // { href: '/dashboard/admin/users', label: 'User Management', icon: Users }, // Removed as it's now public
     { href: '/dashboard/admin/report', label: 'Admin Report', icon: BarChart3 },
     { href: '/dashboard/admin/project-types', label: 'Project Types', icon: FolderKanban },
   ];
@@ -63,7 +63,7 @@ export function SidebarNav() {
         </SidebarGroup>
       )}
 
-      {isAdmin && (
+      {isAdmin && adminRoutes.length > 0 && (
          <SidebarGroup>
           <SidebarGroupLabel>Admin Tools</SidebarGroupLabel>
           {adminRoutes.map((route) => (
