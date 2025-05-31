@@ -70,6 +70,10 @@ export const TimesheetTable: React.FC = () => {
     return allUserRecords; 
   }, [user, getRecordsForUser, isLoading, selectedDate]);
 
+  const dailyTotalHours = useMemo(() => {
+    return userRecords.reduce((sum, record) => sum + record.durationHours, 0);
+  }, [userRecords]);
+
 
   if (isAuthLoading) { 
     return (
@@ -87,13 +91,15 @@ export const TimesheetTable: React.FC = () => {
   const handleAddNew = () => {
     setEditingRecord({
       date: selectedDate ? selectedDate.toISOString() : new Date().toISOString(),
-      id: undefined,
+      id: undefined, // Important for signaling it's a new record
       projectName: '',
-      projectType: '',
-      durationHours: 1, 
+      projectType: '', // Default or let form handle
+      durationHours: 1, // Default duration
       projectDurationMinutes: undefined,
-      workType: 'New work',
-    } as unknown as TimeRecord); 
+      workType: 'New work', // Default work type
+      // No userId here, it's added by context
+      // No completedAt here
+    } as unknown as TimeRecord); // Cast because we're intentionally omitting some fields for a new record
     setIsFormOpen(true);
   };
 
@@ -152,7 +158,14 @@ export const TimesheetTable: React.FC = () => {
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-semibold">Entries for {selectedDate ? format(selectedDate, 'PPP') : 'Selected Date'}</h2>
+          <h2 className="text-2xl font-semibold">
+            Entries for {selectedDate ? format(selectedDate, 'PPP') : 'Selected Date'}
+            {userRecords.length > 0 && (
+              <span className="text-base font-normal text-muted-foreground ml-2">
+                ({dailyTotalHours.toFixed(1)} hrs total)
+              </span>
+            )}
+          </h2>
           <p className="text-sm text-muted-foreground">
             Use the calendar to view records for a specific day or add new entries.
           </p>
