@@ -130,14 +130,25 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       return;
     }
 
-    const newRecord: TimeRecord = {
+    const newRecordObject: TimeRecord = {
       ...recordData,
       id: newRecordId,
       userId: user.id,
+      // completedAt will be undefined here, and projectDurationMinutes might be
     };
+    
+    // Clean the object before saving to Firebase to remove any undefined optional fields
+    const recordToSave = Object.entries(newRecordObject).reduce((acc, [key, value]) => {
+      if (value !== undefined) {
+        // @ts-ignore
+        acc[key] = value;
+      }
+      return acc;
+    }, {} as Partial<TimeRecord>);
+
 
     try {
-      await set(ref(database, `${FIREBASE_TIMESHEET_PATH}/${newRecordId}`), newRecord);
+      await set(ref(database, `${FIREBASE_TIMESHEET_PATH}/${newRecordId}`), recordToSave);
       toast({ title: "Success", description: "Time record added." });
     } catch (error) {
       console.error("Firebase add time record error:", error);
@@ -150,8 +161,18 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         toast({ title: "Configuration Error", description: "Firebase is not connected. Record not updated.", variant: "destructive" });
         return;
     }
+
+    // Create a new object that only includes properties with defined values from updatedRecord
+    const recordToSave = Object.entries(updatedRecord).reduce((acc, [key, value]) => {
+      if (value !== undefined) {
+        // @ts-ignore - We are building the object dynamically
+        acc[key] = value;
+      }
+      return acc;
+    }, {} as Partial<TimeRecord>); // Use Partial<TimeRecord> as intermediate type
+
     try {
-      await set(ref(database, `${FIREBASE_TIMESHEET_PATH}/${updatedRecord.id}`), updatedRecord);
+      await set(ref(database, `${FIREBASE_TIMESHEET_PATH}/${updatedRecord.id}`), recordToSave);
       toast({ title: "Success", description: "Time record updated." });
     } catch (error) {
       console.error("Firebase update time record error:", error);
@@ -202,9 +223,6 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         timestamp: new Date().toISOString(),
       });
 
-      // The original client-side browser notification for the action-taker is removed as per new requirements.
-      // Admins will receive notifications via useAdminNotifications hook.
-
     } catch (error) {
       console.error("Firebase mark as complete error or admin notification error:", error);
       toast({ title: "Firebase Error", description: "Failed to mark record as complete or send admin notification. Check console.", variant: "destructive" });
@@ -235,11 +253,8 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
 
 
   useEffect(() => {
-    // Initial permission request for notifications if not already set (for admins primarily)
     if (typeof window !== "undefined" && "Notification" in window) {
         if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-            // We'll let useAdminNotifications handle more targeted permission requests.
-            // Or, request it broadly here if preferred.
             // Notification.requestPermission(); 
         }
     }
