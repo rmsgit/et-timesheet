@@ -85,7 +85,10 @@ export const TimesheetTable: React.FC = () => {
   
 
   const handleAddNew = () => {
-    setEditingRecord(undefined);
+    setEditingRecord({
+      date: selectedDate ? selectedDate.toISOString() : new Date().toISOString(),
+      id: undefined, // Ensures TimeRecordForm treats this as a new record for default values
+    } as TimeRecord); // Cast because it's intentionally a partial shell
     setIsFormOpen(true);
   };
 
@@ -178,7 +181,7 @@ export const TimesheetTable: React.FC = () => {
       <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) setEditingRecord(undefined);}}>
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
-            <DialogTitle>{editingRecord ? 'Edit Time Record' : 'Add New Time Record'}</DialogTitle>
+            <DialogTitle>{editingRecord && editingRecord.id ? 'Edit Time Record' : 'Add New Time Record'}</DialogTitle>
           </DialogHeader>
           <TimeRecordForm record={editingRecord} onClose={() => setIsFormOpen(false)} />
         </DialogContent>

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -33,7 +33,7 @@ const timeRecordSchema = z.object({
 type TimeRecordFormData = z.infer<typeof timeRecordSchema>;
 
 interface TimeRecordFormProps {
-  record?: TimeRecord & { isRevision?: boolean }; 
+  record?: TimeRecord; // Can be a full record for editing, or partial (e.g., just date) for new
   onClose: () => void;
 }
 
@@ -42,80 +42,101 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
   const { projectTypes, isLoadingProjectTypes } = useProjectTypes();
   const { toast } = useToast();
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
+  const prevRecordRef = useRef(record);
   
   const getInitialWorkType = (): WorkType => {
-    if (record) {
+    if (record && record.id) { // Only consider for existing records being edited
       if (record.workType) return record.workType;
-      // @ts-ignore 
-      if (typeof record.isRevision === 'boolean') {
-      // @ts-ignore
-        return record.isRevision ? 'Revision' : 'New work';
-      }
     }
     return 'New work'; 
   };
 
 
-  const { control, handleSubmit, reset, formState: { errors } } = useForm<TimeRecordFormData>({
+  const { control, handleSubmit, reset, formState: { errors }, getValues, setValue } = useForm<TimeRecordFormData>({
     resolver: zodResolver(timeRecordSchema),
-    defaultValues: record ? {
-      date: record.date ? parseISO(record.date) : new Date(),
-      projectName: record.projectName,
-      projectType: record.projectType,
-      workType: getInitialWorkType(),
-      durationHours: record.durationHours,
-      projectDurationMinutes: record.projectDurationMinutes ?? undefined,
-    } : {
-      date: new Date(),
-      projectName: '',
-      projectType: '', 
-      workType: 'New work',
-      durationHours: 1,
-      projectDurationMinutes: undefined,
+    defaultValues: {
+      date: record?.date ? parseISO(record.date) : new Date(),
+      projectName: (record?.id ? record.projectName : '') || '',
+      projectType: (record?.id ? record.projectType : '') || '',
+      workType: (record?.id ? getInitialWorkType() : 'New work') as WorkType,
+      durationHours: record?.id ? record.durationHours : 1,
+      projectDurationMinutes: record?.id ? (record.projectDurationMinutes ?? undefined) : undefined,
     },
   });
 
   useEffect(() => {
-    const defaultVals = record ? {
-      date: record.date ? parseISO(record.date) : new Date(),
-      projectName: record.projectName,
-      projectType: projectTypes.includes(record.projectType) ? record.projectType : (projectTypes.length > 0 ? projectTypes[0] : ''),
-      workType: getInitialWorkType(),
-      durationHours: record.durationHours,
-      projectDurationMinutes: record.projectDurationMinutes ?? undefined,
-    } : {
-      date: new Date(),
-      projectName: '',
-      projectType: projectTypes.length > 0 ? projectTypes[0] : '',
-      workType: 'New work' as WorkType,
-      durationHours: 1,
-      projectDurationMinutes: undefined,
+    const isEditing = record && record.id;
+    const currentFormValues = getValues();
+
+    let resetToValues: TimeRecordFormData = {
+        date: record?.date ? parseISO(record.date) : new Date(),
+        projectName: isEditing ? record.projectName : (record?.projectName || ''),
+        projectType: isEditing ? record.projectType : (record?.projectType || ''),
+        workType: isEditing ? getInitialWorkType() : (record?.workType || 'New work'),
+        durationHours: isEditing ? record.durationHours : (record?.durationHours !== undefined ? record.durationHours : 1),
+        projectDurationMinutes: isEditing ? (record.projectDurationMinutes ?? undefined) : (record?.projectDurationMinutes ?? undefined),
     };
-    if (!isLoadingProjectTypes) { 
-      reset(defaultVals);
+    
+    // If it's a new record (not editing) set defaults for empty fields
+    if (!isEditing) {
+        resetToValues.projectName = resetToValues.projectName || '';
+        resetToValues.workType = resetToValues.workType || 'New work';
+        resetToValues.durationHours = resetToValues.durationHours !== undefined ? resetToValues.durationHours : 1;
+        resetToValues.projectDurationMinutes = resetToValues.projectDurationMinutes ?? undefined;
     }
+
+
+    // Handle projectType default based on loaded projectTypes
+    if (!isLoadingProjectTypes) {
+        if (isEditing) {
+            if (record.projectType && !projectTypes.includes(record.projectType) && projectTypes.length > 0) {
+                resetToValues.projectType = projectTypes[0]; // Existing type invalid, default to first
+            } else if (record.projectType && !projectTypes.includes(record.projectType) && projectTypes.length === 0) {
+                resetToValues.projectType = ''; // Existing type invalid, no types available
+            } else {
+                 resetToValues.projectType = record.projectType; // Keep existing valid type
+            }
+        } else { // New record
+            if (projectTypes.length > 0 && (!resetToValues.projectType || !projectTypes.includes(resetToValues.projectType))) {
+                resetToValues.projectType = projectTypes[0];
+            } else if (projectTypes.length === 0) {
+                 resetToValues.projectType = '';
+            }
+            // If resetToValues.projectType was pre-filled (e.g. from a partial 'record' for 'add new') and is valid, it's kept
+        }
+    } else {
+      // Project types still loading, ensure projectType is empty or from record for now
+      resetToValues.projectType = isEditing ? record.projectType : (record?.projectType || '');
+    }
+    
+    // Only reset if the record prop itself has changed, or if it's the initial load and project types just became available
+    if (prevRecordRef.current !== record || (prevRecordRef.current === record && isLoadingProjectTypes && !getValues().projectType && projectTypes.length > 0)) {
+        reset(resetToValues);
+    }
+    prevRecordRef.current = record;
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [record, reset, projectTypes, isLoadingProjectTypes]);
+  }, [record, reset, projectTypes, isLoadingProjectTypes, getValues]);
 
 
   const onSubmit = async (data: TimeRecordFormData) => {
     setIsSubmittingForm(true);
-    const recordData = {
+    const recordDataToSave = {
       ...data,
-      date: data.date.toISOString(),
+      date: data.date.toISOString(), // Ensure date is ISO string
       projectDurationMinutes: data.projectDurationMinutes === null || data.projectDurationMinutes === undefined ? undefined : Number(data.projectDurationMinutes),
     };
     
-    const finalRecordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'> & { id?: string; userId?: string; completedAt?: string } = { ...recordData };
+    const finalRecordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'> & { id?: string; userId?: string; completedAt?: string } = { ...recordDataToSave };
     // @ts-ignore
-    delete finalRecordData.isRevision;
+    delete finalRecordData.isRevision; // Deprecated field
 
 
     try {
-      if (record && record.id) {
-         await updateTimeRecord({ ...record, ...finalRecordData, id: record.id, userId: record.userId }); 
+      if (record && record.id) { // Editing existing record
+         await updateTimeRecord({ ...finalRecordData, id: record.id, userId: record.userId, completedAt: record.completedAt }); 
         toast({ title: "Success", description: "Time record updated." });
-      } else {
+      } else { // Adding new record
         await addTimeRecord(finalRecordData as Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>);
         toast({ title: "Success", description: "Time record added." });
       }
@@ -271,3 +292,4 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
     </form>
   );
 };
+
