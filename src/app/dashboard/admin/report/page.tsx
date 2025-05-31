@@ -10,7 +10,7 @@ import { AdminTimesheetChart } from '@/components/admin/AdminTimesheetChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, AlertCircle, Users, Clock, Loader2 } from 'lucide-react';
+import { BarChart3, AlertCircle, Users, Clock, Loader2, UsersRound } from 'lucide-react';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
@@ -39,10 +39,14 @@ export default function AdminReportPage() {
   };
   
   const totalHours = useMemo(() => filteredRecords.reduce((sum, r) => sum + r.durationHours, 0), [filteredRecords]);
-  const uniqueEditors = useMemo(() => new Set(filteredRecords.map(r => r.userId)).size, [filteredRecords]);
+  const uniqueActiveEditors = useMemo(() => new Set(filteredRecords.map(r => r.userId)).size, [filteredRecords]);
   const uniqueProjects = useMemo(() => new Set(filteredRecords.map(r => r.projectName)).size, [filteredRecords]);
+  
+  const totalRegisteredEditors = useMemo(() => {
+    if (isLoading || !mockUsers) return 0;
+    return mockUsers.filter(u => u.role === 'editor').length;
+  }, [mockUsers, isLoading]);
 
-  // Removed useEffect for notifications as it's handled in context or not the focus here.
 
   return (
     <div className="space-y-6">
@@ -54,13 +58,14 @@ export default function AdminReportPage() {
       </div>
       
       {isLoading ? (
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <CardSkeleton className="shadow-md" />
           <CardSkeleton className="shadow-md" />
           <CardSkeleton className="shadow-md" />
           <CardSkeleton className="shadow-md" />
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Hours (All Editors)</CardTitle>
@@ -77,8 +82,18 @@ export default function AdminReportPage() {
               <Users className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{uniqueEditors}</div>
+              <div className="text-2xl font-bold">{uniqueActiveEditors}</div>
               <p className="text-xs text-muted-foreground">Editors with logged time</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Registered Editors</CardTitle>
+              <UsersRound className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalRegisteredEditors}</div>
+              <p className="text-xs text-muted-foreground">Total editor accounts</p>
             </CardContent>
           </Card>
            <Card className="shadow-md">
