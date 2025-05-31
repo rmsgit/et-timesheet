@@ -284,8 +284,8 @@ export default function AdminEditorReportPage() {
                         <TableHead>Project Name</TableHead>
                         <TableHead>Category</TableHead>
                         <TableHead>Work Type</TableHead>
-                        <TableHead>Work (hrs)</TableHead>
-                        <TableHead>Video (min)</TableHead>
+                        <TableHead>Completed in (hrs)</TableHead>
+                        <TableHead>Project duration (min)</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
