@@ -13,7 +13,7 @@ import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import type { DateRange } from 'react-day-picker';
 import { startOfMonth, format, parseISO } from 'date-fns';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import type { TimeRecord as AppTimeRecord } from '@/lib/types';
