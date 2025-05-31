@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { FileText, AlertCircle, Hourglass, Loader2, Package, RefreshCw, FilePlus2 } from 'lucide-react';
+import { FileText, AlertCircle, Hourglass, Loader2, Package, RefreshCw, FilePlus2, Film } from 'lucide-react';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import type { TimeRecord } from '@/lib/types';
@@ -128,7 +128,7 @@ export default function MyReportPage() {
       )}
 
       {isLoading && !isAuthLoading ? (
-        <TableSkeleton columnCount={6} className="shadow-lg h-[480px]" />
+        <TableSkeleton columnCount={7} className="shadow-lg h-[480px]" />
       ) : filteredRecords.length > 0 ? (
         <Card className="shadow-lg">
           <CardHeader>
@@ -146,7 +146,8 @@ export default function MyReportPage() {
                     <TableHead>Project Name</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Work Type</TableHead>
-                    <TableHead>Duration (hrs)</TableHead>
+                    <TableHead>Work (hrs)</TableHead>
+                    <TableHead>Video (min)</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -158,6 +159,11 @@ export default function MyReportPage() {
                       <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
                       <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
                       <TableCell>{record.durationHours.toFixed(1)}</TableCell>
+                      <TableCell>
+                        {record.projectDurationMinutes !== undefined && record.projectDurationMinutes !== null 
+                            ? <span className="flex items-center"><Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>{record.projectDurationMinutes}</span> 
+                            : 'N/A'}
+                      </TableCell>
                       <TableCell>
                         {record.completedAt ? (
                            <Badge variant="default" className="bg-green-500 hover:bg-green-600">Completed</Badge>

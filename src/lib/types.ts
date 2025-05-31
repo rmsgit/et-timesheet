@@ -15,9 +15,9 @@ export interface TimeRecord {
   projectName: string;
   projectType: string; // This is the type like 'Bug Fix', 'New Feature'
   workType: WorkType; // This is 'New work', 'Revision', or 'Sample work'
-  durationHours: number;
+  durationHours: number; // Actual work duration
+  projectDurationMinutes?: number; // Duration of the video project itself, in minutes
   completedAt?: string; // ISO string format, set when task is marked complete
-  // isRevision: boolean; // Replaced by workType
 }
 
 export type ProjectType = 'New Feature' | 'Bug Fix' | 'Documentation' | 'Meeting' | 'Refactor' | 'Testing';

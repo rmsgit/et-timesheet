@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { TimeRecordForm } from './TimeRecordForm';
-import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon } from 'lucide-react';
+import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film } from 'lucide-react';
 import { format, parseISO, isSameDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -67,7 +67,7 @@ export const TimesheetTable: React.FC = () => {
     if (selectedDate) {
       return allUserRecords.filter(record => isSameDay(parseISO(record.date), selectedDate));
     }
-    return allUserRecords; // Should not happen with current default, but as a fallback
+    return allUserRecords; 
   }, [user, getRecordsForUser, isLoading, selectedDate]);
 
 
@@ -185,7 +185,7 @@ export const TimesheetTable: React.FC = () => {
       </Dialog>
 
       {isTimesheetLoading && !isAuthLoading ? ( 
-        <TableSkeleton columnCount={7} className="shadow-lg" /> 
+        <TableSkeleton columnCount={8} className="shadow-lg" /> 
       ) : userRecords.length === 0 ? (
         <div className="text-center py-10 border-2 border-dashed rounded-lg bg-card">
             <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -208,7 +208,8 @@ export const TimesheetTable: React.FC = () => {
                   <TableHead>Project Name</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Work Type</TableHead>
-                  <TableHead>Duration (hrs)</TableHead>
+                  <TableHead>Work (hrs)</TableHead>
+                  <TableHead>Video (min)</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -221,6 +222,11 @@ export const TimesheetTable: React.FC = () => {
                     <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
                     <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
                     <TableCell>{record.durationHours.toFixed(1)}</TableCell>
+                    <TableCell>
+                        {record.projectDurationMinutes !== undefined && record.projectDurationMinutes !== null 
+                            ? <span className="flex items-center"><Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>{record.projectDurationMinutes}</span> 
+                            : 'N/A'}
+                    </TableCell>
                     <TableCell>
                       {record.completedAt ? (
                         <Badge variant="default" className="bg-green-500 hover:bg-green-600">

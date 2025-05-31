@@ -10,7 +10,7 @@ import { AdminTimesheetChart } from '@/components/admin/AdminTimesheetChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, AlertCircle, Users, Clock, Loader2, UsersRound, Package, RefreshCw, FilePlus2 } from 'lucide-react';
+import { BarChart3, AlertCircle, Users, Clock, Loader2, UsersRound, Package, RefreshCw, FilePlus2, Film } from 'lucide-react';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
@@ -110,7 +110,7 @@ export default function AdminReportPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Hours (All Editors)</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Work Hours (All Editors)</CardTitle>
               <Clock className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -154,7 +154,7 @@ export default function AdminReportPage() {
       <AdminTimesheetChart records={filteredRecords} />
 
       {isLoading ? (
-        <TableSkeleton columnCount={7} className="shadow-lg mt-6 h-[480px]" />
+        <TableSkeleton columnCount={8} className="shadow-lg mt-6 h-[480px]" />
       ) : filteredRecords.length > 0 ? (
         <Card className="shadow-lg mt-6">
           <CardHeader>
@@ -173,7 +173,8 @@ export default function AdminReportPage() {
                     <TableHead>Project Name</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Work Type</TableHead>
-                    <TableHead>Duration (hrs)</TableHead>
+                    <TableHead>Work (hrs)</TableHead>
+                    <TableHead>Video (min)</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -186,6 +187,11 @@ export default function AdminReportPage() {
                       <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
                       <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
                       <TableCell>{record.durationHours.toFixed(1)}</TableCell>
+                       <TableCell>
+                        {record.projectDurationMinutes !== undefined && record.projectDurationMinutes !== null 
+                            ? <span className="flex items-center"><Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>{record.projectDurationMinutes}</span> 
+                            : 'N/A'}
+                      </TableCell>
                       <TableCell>
                         {record.completedAt ? (
                           <Badge variant="default" className="bg-green-500 hover:bg-green-600">Completed</Badge>

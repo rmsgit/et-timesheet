@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import { useTimesheet } from '@/hooks/useTimesheet';
-import { Layers, Hourglass, CheckCircle2, ListChecks, AlertCircle, ListTree, FilePlus2, RefreshCw, Package } from 'lucide-react';
+import { Layers, Hourglass, CheckCircle2, ListChecks, AlertCircle, ListTree, FilePlus2, RefreshCw, Package, Film } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -45,7 +45,7 @@ export default function ProjectOverviewPage() {
     if (!timeRecords || !dateRange?.from || !dateRange?.to) return [];
     const fromDate = dateRange.from;
     const toDate = new Date(dateRange.to);
-    toDate.setHours(23, 59, 59, 999); // Ensure end of day for 'to' date
+    toDate.setHours(23, 59, 59, 999); 
 
     return timeRecords.filter(record => {
       const recordDate = parseISO(record.date);
@@ -247,7 +247,7 @@ export default function ProjectOverviewPage() {
                   <TableRow>
                     <TableHead className="w-[25%]">Project Name</TableHead>
                     <TableHead className="w-[15%]">Status</TableHead>
-                    <TableHead className="text-right w-[15%]">Total Hours</TableHead>
+                    <TableHead className="text-right w-[15%]">Total Work (hrs)</TableHead>
                     <TableHead className="text-right w-[15%]">Total Tasks</TableHead>
                     <TableHead className="text-right w-[10%]">Completed</TableHead>
                     <TableHead className="text-right w-[10%]">Pending</TableHead>
@@ -305,7 +305,8 @@ export default function ProjectOverviewPage() {
                       <TableHead>Editor</TableHead>
                       <TableHead>Category</TableHead>
                       <TableHead>Work Type</TableHead>
-                      <TableHead>Duration (hrs)</TableHead>
+                      <TableHead>Work (hrs)</TableHead>
+                      <TableHead>Video (min)</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -317,6 +318,11 @@ export default function ProjectOverviewPage() {
                         <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
                         <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
                         <TableCell>{record.durationHours.toFixed(1)}</TableCell>
+                        <TableCell>
+                          {record.projectDurationMinutes !== undefined && record.projectDurationMinutes !== null 
+                              ? <span className="flex items-center"><Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>{record.projectDurationMinutes}</span> 
+                              : 'N/A'}
+                        </TableCell>
                         <TableCell>
                           {record.completedAt ? (
                             <Badge variant="default" className="bg-green-500 hover:bg-green-600">Completed</Badge>

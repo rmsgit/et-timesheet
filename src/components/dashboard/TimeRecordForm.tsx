@@ -11,11 +11,10 @@ import type { TimeRecord, WorkType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-// import { Checkbox } from '@/components/ui/checkbox'; // Removed Checkbox
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, Save, X, Loader2 } from 'lucide-react';
+import { CalendarIcon, Save, X, Loader2, Film } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -27,13 +26,14 @@ const timeRecordSchema = z.object({
   projectName: z.string().min(1, "Project name is required."),
   projectType: z.string().min(1, "Project type is required."),
   workType: z.enum(workTypeOptions, { required_error: "Work type is required." }),
-  durationHours: z.coerce.number().min(0.1, "Duration must be at least 0.1 hours."),
+  durationHours: z.coerce.number().min(0.1, "Work duration must be at least 0.1 hours."),
+  projectDurationMinutes: z.coerce.number().min(0, "Video duration cannot be negative.").optional().nullable(),
 });
 
 type TimeRecordFormData = z.infer<typeof timeRecordSchema>;
 
 interface TimeRecordFormProps {
-  record?: TimeRecord & { isRevision?: boolean }; // Allow isRevision for backward compatibility when loading old records
+  record?: TimeRecord & { isRevision?: boolean }; 
   onClose: () => void;
 }
 
@@ -46,13 +46,13 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
   const getInitialWorkType = (): WorkType => {
     if (record) {
       if (record.workType) return record.workType;
-      // @ts-ignore - for backward compatibility with old records
+      // @ts-ignore 
       if (typeof record.isRevision === 'boolean') {
       // @ts-ignore
         return record.isRevision ? 'Revision' : 'New work';
       }
     }
-    return 'New work'; // Default for new records
+    return 'New work'; 
   };
 
 
@@ -64,12 +64,14 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
       projectType: record.projectType,
       workType: getInitialWorkType(),
       durationHours: record.durationHours,
+      projectDurationMinutes: record.projectDurationMinutes ?? undefined,
     } : {
       date: new Date(),
       projectName: '',
       projectType: '', 
       workType: 'New work',
       durationHours: 1,
+      projectDurationMinutes: undefined,
     },
   });
 
@@ -80,12 +82,14 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
       projectType: projectTypes.includes(record.projectType) ? record.projectType : (projectTypes.length > 0 ? projectTypes[0] : ''),
       workType: getInitialWorkType(),
       durationHours: record.durationHours,
+      projectDurationMinutes: record.projectDurationMinutes ?? undefined,
     } : {
       date: new Date(),
       projectName: '',
       projectType: projectTypes.length > 0 ? projectTypes[0] : '',
       workType: 'New work' as WorkType,
       durationHours: 1,
+      projectDurationMinutes: undefined,
     };
     if (!isLoadingProjectTypes) { 
       reset(defaultVals);
@@ -98,10 +102,10 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
     setIsSubmittingForm(true);
     const recordData = {
       ...data,
-      date: data.date.toISOString(), 
+      date: data.date.toISOString(),
+      projectDurationMinutes: data.projectDurationMinutes === null || data.projectDurationMinutes === undefined ? undefined : Number(data.projectDurationMinutes),
     };
-
-    // Remove isRevision if it exists from old record before saving
+    
     const finalRecordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'> & { id?: string; userId?: string; completedAt?: string } = { ...recordData };
     // @ts-ignore
     delete finalRecordData.isRevision;
@@ -109,10 +113,11 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
 
     try {
       if (record && record.id) {
-         await updateTimeRecord({ ...record, ...finalRecordData, id: record.id, userId: record.userId }); // Ensure id and userId are preserved
+         await updateTimeRecord({ ...record, ...finalRecordData, id: record.id, userId: record.userId }); 
         toast({ title: "Success", description: "Time record updated." });
       } else {
         await addTimeRecord(finalRecordData as Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>);
+        toast({ title: "Success", description: "Time record added." });
       }
       onClose();
     } catch (error) {
@@ -219,9 +224,8 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
         {errors.workType && <p className="text-sm text-destructive mt-1">{errors.workType.message}</p>}
       </div>
 
-
       <div>
-        <Label htmlFor="durationHours">Duration (hours)</Label>
+        <Label htmlFor="durationHours">Work Duration (hours)</Label>
         <Controller
           name="durationHours"
           control={control}
@@ -230,7 +234,30 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
         {errors.durationHours && <p className="text-sm text-destructive mt-1">{errors.durationHours.message}</p>}
       </div>
 
-      {/* Removed isRevision Checkbox */}
+      <div>
+        <Label htmlFor="projectDurationMinutes">Project Video Duration (minutes)</Label>
+        <Controller
+          name="projectDurationMinutes"
+          control={control}
+          render={({ field }) => (
+            <div className="relative">
+              <Film className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="projectDurationMinutes"
+                type="number"
+                step="1"
+                {...field}
+                value={field.value ?? ''}
+                onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                placeholder="e.g., 60"
+                disabled={isSubmittingForm}
+                className="pl-10"
+              />
+            </div>
+          )}
+        />
+        {errors.projectDurationMinutes && <p className="text-sm text-destructive mt-1">{errors.projectDurationMinutes.message}</p>}
+      </div>
 
       <div className="flex justify-end space-x-2 pt-4">
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmittingForm}>
