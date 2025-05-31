@@ -20,6 +20,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import {
@@ -33,28 +34,31 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound } from 'lucide-react'; // Added KeyRound
+import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { auth } from '@/lib/firebase'; // Import Firebase Auth
-import { createUserWithEmailAndPassword, deleteUser as deleteAuthUser } from 'firebase/auth'; // For managing Auth users
+import { createUserWithEmailAndPassword, deleteUser as deleteAuthUser, sendPasswordResetEmail } from 'firebase/auth'; // For managing Auth users
 
 export const UserManagementTable: React.FC = () => {
-  // useMockUsers now manages user profiles (username, role) in RTDB
   const { users, addUserProfileToRTDB, deleteUserProfileFromRTDB, isUsersLoading } = useMockUsers();
   const { toast } = useToast();
 
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
-  const [newUserEmail, setNewUserEmail] = useState(''); // For Firebase Auth
-  const [newUserPassword, setNewUserPassword] = useState(''); // For Firebase Auth
-  const [newUserName, setNewUserName] = useState(''); // For RTDB profile
-  const [newUserRole, setNewUserRole] = useState<'editor' | 'admin'>('editor'); // For RTDB profile
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserRole, setNewUserRole] = useState<'editor' | 'admin'>('editor');
   
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  
+  const [userForPasswordReset, setUserForPasswordReset] = useState<User | null>(null);
+  const [isPasswordResetDialogOpen, setIsPasswordResetDialogOpen] = useState(false);
+
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
 
 
@@ -82,28 +86,23 @@ export const UserManagementTable: React.FC = () => {
 
     setIsSubmittingForm(true);
     try {
-      // 1. Create user in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, newUserEmail, newUserPassword);
       const firebaseUser = userCredential.user;
-
-      // 2. Add user profile (role, username) to Realtime Database, using Firebase UID as key
       const profileResult = await addUserProfileToRTDB(firebaseUser.uid, newUserEmail, newUserName, newUserRole);
 
       if (profileResult.success) {
         toast({
           title: "User Added Successfully",
-          description: `User "${newUserName}" created in Firebase Auth and RTDB.`,
+          description: `User "${newUserName}" created.`,
         });
         setIsAddUserDialogOpen(false);
       } else {
-        // Profile creation failed, attempt to roll back Auth user creation (best effort)
         toast({
           title: "Profile Error",
-          description: profileResult.message || "Failed to add user profile to RTDB. Auth user created but profile failed.",
+          description: profileResult.message || "Failed to add user profile to RTDB.",
           variant: "destructive",
         });
-        // Try to delete the auth user if profile save fails to keep things consistent
-        if (auth.currentUser && auth.currentUser.uid === firebaseUser.uid) { // Ensure it's the same user before deleting
+        if (auth.currentUser && auth.currentUser.uid === firebaseUser.uid) {
             await deleteAuthUser(firebaseUser).catch(delError => console.error("Failed to roll back Auth user:", delError));
         }
       }
@@ -113,15 +112,11 @@ export const UserManagementTable: React.FC = () => {
       if (error.code === 'auth/email-already-in-use') {
         message = "This email is already registered.";
       } else if (error.code === 'auth/weak-password') {
-        message = "Password is too weak. It should be at least 6 characters.";
+        message = "Password is too weak (min. 6 characters).";
       } else if (error.code === 'auth/invalid-email') {
         message = "The email address is not valid.";
       }
-      toast({
-        title: "Auth Creation Failed",
-        description: message,
-        variant: "destructive",
-      });
+      toast({ title: "Auth Creation Failed", description: message, variant: "destructive" });
     } finally {
       setIsSubmittingForm(false);
     }
@@ -152,23 +147,15 @@ export const UserManagementTable: React.FC = () => {
     
     setIsSubmittingForm(true);
     try {
-      // 1. Delete user profile from Realtime Database
       const profileDeleteResult = await deleteUserProfileFromRTDB(userToDelete.id);
-      
       if (profileDeleteResult.success) {
-        // 2. Attempt to delete user from Firebase Auth
-        // This is more complex as it requires re-authentication or admin SDK.
-        // For client-side, direct deletion of OTHER users is not possible without admin privileges/SDK.
-        // This example will assume an admin is deleting and would typically use Firebase Admin SDK on a backend.
-        // For now, we only delete from RTDB. Auth user deletion needs a backend or manual Firebase console action.
         toast({
           title: "User Profile Deleted",
-          description: `Profile for "${userToDelete.username}" deleted from RTDB. Firebase Auth user may need manual deletion.`,
-          variant: "default", // Changed to default as RTDB part succeeded
+          description: `Profile for "${userToDelete.username}" deleted. Firebase Auth user may need manual deletion.`,
         });
       } else {
          toast({
-          title: "Failed to Delete User Profile",
+          title: "Failed to Delete Profile",
           description: profileDeleteResult.message || "Could not delete user profile from RTDB.",
           variant: "destructive",
         });
@@ -183,13 +170,53 @@ export const UserManagementTable: React.FC = () => {
     }
   };
   
+  const openPasswordResetDialog = (user: User) => {
+    setUserForPasswordReset(user);
+    setIsPasswordResetDialogOpen(true);
+  };
+
+  const handleConfirmPasswordReset = async () => {
+    if (!userForPasswordReset || !userForPasswordReset.email) {
+        toast({ title: "Error", description: "User email is not available for password reset.", variant: "destructive" });
+        return;
+    }
+    if (!auth) {
+        toast({ title: "Auth Error", description: "Firebase Auth not initialized.", variant: "destructive" });
+        return;
+    }
+
+    setIsSubmittingForm(true);
+    try {
+        await sendPasswordResetEmail(auth, userForPasswordReset.email);
+        toast({
+            title: "Password Reset Email Sent",
+            description: `An email has been sent to ${userForPasswordReset.email} with instructions to reset their password.`,
+        });
+    } catch (error: any) {
+        console.error("Firebase send password reset email error:", error);
+        let message = "Failed to send password reset email.";
+        if (error.code === 'auth/user-not-found') {
+            message = "There is no user record corresponding to this email. The user may have been deleted.";
+        } else if (error.code === 'auth/invalid-email') {
+            message = "The email address is not valid.";
+        }
+        toast({
+            title: "Password Reset Failed",
+            description: message,
+            variant: "destructive",
+        });
+    } finally {
+        setIsSubmittingForm(false);
+        setIsPasswordResetDialogOpen(false);
+        setUserForPasswordReset(null);
+    }
+  };
+
+
   const handleEditUser = (user: User) => {
-     // Editing user roles/usernames in RTDB is possible.
-     // Editing Firebase Auth email/password client-side for *other* users is not typical without admin SDK.
-     // This function would open a form to edit RTDB profile.
      toast({
       title: "Edit User (Mocked)",
-      description: `Editing user profile for "${user.username}" in RTDB would happen here. Auth details (email/password) require Firebase Console or specific flows.`,
+      description: `Editing profile for "${user.username}" in RTDB. Auth details (email/password) require Firebase Console or specific flows.`,
     });
   }
 
@@ -200,7 +227,7 @@ export const UserManagementTable: React.FC = () => {
           <div className="flex justify-between items-center">
             <div >
               <CardTitle className="text-2xl font-semibold">User Profiles & Roles</CardTitle>
-              <CardDescription>Manage user profiles and roles (stored in Firebase RTDB). Auth users are created here too.</CardDescription>
+              <CardDescription>Manage user profiles (RTDB) and associated Firebase Auth accounts.</CardDescription>
             </div>
             <Button onClick={handleOpenAddUserDialog} disabled={isUsersLoading || isSubmittingForm}>
               <UserPlus className="mr-2 h-4 w-4" /> Add User
@@ -266,12 +293,16 @@ export const UserManagementTable: React.FC = () => {
                           <DropdownMenuItem onClick={() => handleEditUser(user)} disabled={isSubmittingForm}>
                             <Edit2 className="mr-2 h-4 w-4" /> Edit Profile
                           </DropdownMenuItem>
+                           <DropdownMenuItem onClick={() => openPasswordResetDialog(user)} disabled={isSubmittingForm || !user.email}>
+                            <KeyRound className="mr-2 h-4 w-4" /> Reset Password
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             onClick={() => openDeleteDialog(user)} 
                             className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
                             disabled={isSubmittingForm || (auth?.currentUser?.email === user.email && user.role === 'admin' && users.filter(u=>u.role === 'admin').length <=1)}
                           >
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete User
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -356,12 +387,11 @@ export const UserManagementTable: React.FC = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will delete the user's profile (username, role) from the Realtime Database.
-              Deleting the Firebase Authentication user typically requires backend Admin SDK or manual deletion in Firebase Console for security reasons if not deleting self.
+              This will delete the user's profile from RTDB. Firebase Auth user deletion needs manual action in Firebase Console or a backend function.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setUserToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setUserToDelete(null)} disabled={isSubmittingForm}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDeleteUser}
               className={buttonVariants({ variant: "destructive" })}
@@ -372,6 +402,26 @@ export const UserManagementTable: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={isPasswordResetDialogOpen} onOpenChange={setIsPasswordResetDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Password Reset</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Are you sure you want to send a password reset email to {userForPasswordReset?.email}? 
+                    They will receive instructions to set a new password.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setUserForPasswordReset(null)} disabled={isSubmittingForm}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmPasswordReset} disabled={isSubmittingForm}>
+                    {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Send Reset Email'}
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
+
+    

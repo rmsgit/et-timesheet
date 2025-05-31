@@ -152,6 +152,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       toast({ title: "Login Successful", description: "Welcome back!"});
       console.log("AuthContext: Firebase signInWithEmailAndPassword successful for", email);
       // Do not set user or isAuthLoading here directly; onAuthStateChanged handles it.
+      router.push('/dashboard');
       return true;
     } catch (error: any) {
       console.error("AuthContext: Firebase login error:", error, "Code:", error.code);
