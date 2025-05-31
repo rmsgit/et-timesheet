@@ -22,8 +22,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { TimeRecordForm } from './TimeRecordForm';
-import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon } from 'lucide-react';
+import { format, parseISO, isSameDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
@@ -34,12 +34,16 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger, // Added AlertDialogTrigger here
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+import { Label } from '../ui/label';
 
 
 export const TimesheetTable: React.FC = () => {
@@ -50,14 +54,21 @@ export const TimesheetTable: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<TimeRecord | undefined>(undefined);
   const [isActionSubmitting, setIsActionSubmitting] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
 
   const isLoading = isAuthLoading || isTimesheetLoading;
 
   const userRecords = useMemo(() => {
     if (isLoading || !user) return [];
-    return getRecordsForUser(user.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [user, getRecordsForUser, isLoading]);
+    const allUserRecords = getRecordsForUser(user.id)
+      .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    if (selectedDate) {
+      return allUserRecords.filter(record => isSameDay(parseISO(record.date), selectedDate));
+    }
+    return allUserRecords; // Should not happen with current default, but as a fallback
+  }, [user, getRecordsForUser, isLoading, selectedDate]);
 
 
   if (isAuthLoading) { 
@@ -122,11 +133,46 @@ export const TimesheetTable: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold">My Timesheet</h2>
-        <Button onClick={handleAddNew} disabled={isLoading || isActionSubmitting}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add New Record
-        </Button>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-semibold">My Timesheet</h2>
+          <p className="text-sm text-muted-foreground">
+            Showing records for: {selectedDate ? format(selectedDate, 'PPP') : 'All Dates'}
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+           <div className="w-full sm:w-auto">
+            <Label htmlFor="timesheet-date" className="sr-only">Select Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  id="timesheet-date"
+                  variant={"outline"}
+                  className={cn(
+                    "w-full sm:w-[240px] justify-start text-left font-normal",
+                    !selectedDate && "text-muted-foreground"
+                  )}
+                  disabled={isLoading || isActionSubmitting}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  initialFocus
+                  disabled={isLoading || isActionSubmitting}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <Button onClick={handleAddNew} disabled={isLoading || isActionSubmitting} className="w-full sm:w-auto">
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New Record
+          </Button>
+        </div>
       </div>
 
       <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) setEditingRecord(undefined);}}>
@@ -139,12 +185,15 @@ export const TimesheetTable: React.FC = () => {
       </Dialog>
 
       {isTimesheetLoading && !isAuthLoading ? ( 
-        <TableSkeleton columnCount={6} className="shadow-lg" />
+        <TableSkeleton columnCount={7} className="shadow-lg" /> 
       ) : userRecords.length === 0 ? (
         <div className="text-center py-10 border-2 border-dashed rounded-lg bg-card">
             <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-2 text-xl font-medium">No time records yet</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Get started by adding your first time entry.</p>
+            <h3 className="mt-2 text-xl font-medium">No time records for {selectedDate ? format(selectedDate, 'PPP') : 'this period'}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+                {selectedDate ? "Try selecting a different date or " : ""}
+                Add a new time entry.
+            </p>
             <Button className="mt-6" onClick={handleAddNew} disabled={isActionSubmitting}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Record
             </Button>
