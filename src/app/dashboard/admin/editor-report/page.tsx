@@ -13,11 +13,25 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { UserCheck, AlertCircle, Hourglass, CheckCircle2, Briefcase, Loader2, BarChart2, Package, RefreshCw, FilePlus2, Film } from 'lucide-react';
+import { UserCheck, AlertCircle, Hourglass, CheckCircle2, Briefcase, Loader2, BarChart2, Package, RefreshCw, FilePlus2, Film, Clock } from 'lucide-react';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import type { User, TimeRecord } from '@/lib/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
+  if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
+  const hours = Math.floor(totalDecimalHours);
+  const minutes = Math.round((totalDecimalHours % 1) * 60);
+  return `${hours}h ${minutes}m`;
+};
+
+const formatDurationFromTotalMinutes = (totalMinutes: number | undefined | null): string => {
+  if (totalMinutes === undefined || totalMinutes === null || isNaN(totalMinutes) || totalMinutes < 0) return 'N/A';
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}h ${minutes}m`;
+};
 
 export default function AdminEditorReportPage() {
   const { getRecordsByDateRange, isTimesheetLoading } = useTimesheet();
@@ -184,7 +198,7 @@ export default function AdminEditorReportPage() {
                   <Hourglass className="h-5 w-5 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{totalHours.toFixed(1)} hrs</div>
+                  <div className="text-2xl font-bold">{formatDurationFromDecimalHours(totalHours)}</div>
                   <p className="text-xs text-muted-foreground">
                     For {selectedEditor?.username || 'selected editor'}
                   </p>
@@ -284,8 +298,8 @@ export default function AdminEditorReportPage() {
                         <TableHead>Project Name</TableHead>
                         <TableHead>Category</TableHead>
                         <TableHead>Work Type</TableHead>
-                        <TableHead>Project duration (min)</TableHead>
-                        <TableHead>Completed in (hrs)</TableHead>
+                        <TableHead>Proj. Duration</TableHead>
+                        <TableHead>Work Time</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -297,11 +311,17 @@ export default function AdminEditorReportPage() {
                           <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
                           <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
                           <TableCell>
-                            {record.projectDurationMinutes !== undefined && record.projectDurationMinutes !== null 
-                                ? <span className="flex items-center"><Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>{record.projectDurationMinutes}</span> 
-                                : 'N/A'}
+                            <span className="flex items-center">
+                                <Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
+                                {formatDurationFromTotalMinutes(record.projectDurationMinutes)}
+                            </span>
                           </TableCell>
-                          <TableCell>{record.durationHours.toFixed(1)}</TableCell>
+                          <TableCell>
+                            <span className="flex items-center">
+                                <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
+                                {formatDurationFromDecimalHours(record.durationHours)}
+                            </span>
+                          </TableCell>
                           <TableCell>
                             {record.completedAt ? (
                               <Badge variant="default" className="bg-green-500 hover:bg-green-600">Completed</Badge>
@@ -335,4 +355,3 @@ export default function AdminEditorReportPage() {
     </div>
   );
 }
-

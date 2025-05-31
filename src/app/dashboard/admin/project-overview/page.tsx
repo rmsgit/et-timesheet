@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import { useTimesheet } from '@/hooks/useTimesheet';
-import { Layers, Hourglass, CheckCircle2, ListChecks, AlertCircle, ListTree, FilePlus2, RefreshCw, Package, Film } from 'lucide-react';
+import { Layers, Hourglass, CheckCircle2, ListChecks, AlertCircle, ListTree, FilePlus2, RefreshCw, Package, Film, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -18,9 +18,23 @@ import { Button } from '@/components/ui/button';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import type { TimeRecord as AppTimeRecord } from '@/lib/types';
 
+const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
+  if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
+  const hours = Math.floor(totalDecimalHours);
+  const minutes = Math.round((totalDecimalHours % 1) * 60);
+  return `${hours}h ${minutes}m`;
+};
+
+const formatDurationFromTotalMinutes = (totalMinutes: number | undefined | null): string => {
+  if (totalMinutes === undefined || totalMinutes === null || isNaN(totalMinutes) || totalMinutes < 0) return 'N/A';
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}h ${minutes}m`;
+};
+
 interface ProjectSummary {
   projectName: string;
-  totalHours: number;
+  totalHours: number; // This will remain decimal for aggregation, formatted on display
   totalTasks: number;
   completedTasks: number;
   pendingTasks: number;
@@ -89,7 +103,7 @@ export default function ProjectOverviewPage() {
 
       return {
         projectName: name,
-        totalHours: parseFloat(data.totalHours.toFixed(1)),
+        totalHours: data.totalHours, // Keep as decimal for sorting/aggregation, format on display
         totalTasks: data.totalTasks,
         completedTasks: data.completedTasks,
         pendingTasks: pendingTasks,
@@ -247,7 +261,7 @@ export default function ProjectOverviewPage() {
                   <TableRow>
                     <TableHead className="w-[25%]">Project Name</TableHead>
                     <TableHead className="w-[15%]">Status</TableHead>
-                    <TableHead className="text-right w-[15%]">Total Work (hrs)</TableHead>
+                    <TableHead className="text-right w-[15%]">Total Work Time</TableHead>
                     <TableHead className="text-right w-[15%]">Total Tasks</TableHead>
                     <TableHead className="text-right w-[10%]">Completed</TableHead>
                     <TableHead className="text-right w-[10%]">Pending</TableHead>
@@ -259,7 +273,7 @@ export default function ProjectOverviewPage() {
                     <TableRow key={project.projectName}>
                       <TableCell className="font-medium">{project.projectName}</TableCell>
                       <TableCell>{getStatusBadge(project.status)}</TableCell>
-                      <TableCell className="text-right">{project.totalHours.toFixed(1)}</TableCell>
+                      <TableCell className="text-right">{formatDurationFromDecimalHours(project.totalHours)}</TableCell>
                       <TableCell className="text-right">{project.totalTasks}</TableCell>
                       <TableCell className="text-right">{project.completedTasks}</TableCell>
                       <TableCell className="text-right">{project.pendingTasks}</TableCell>
@@ -305,8 +319,8 @@ export default function ProjectOverviewPage() {
                       <TableHead>Editor</TableHead>
                       <TableHead>Category</TableHead>
                       <TableHead>Work Type</TableHead>
-                      <TableHead>Project duration (min)</TableHead>
-                      <TableHead>Completed in (hrs)</TableHead>
+                      <TableHead>Proj. Duration</TableHead>
+                      <TableHead>Work Time</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -318,11 +332,17 @@ export default function ProjectOverviewPage() {
                         <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
                         <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
                         <TableCell>
-                          {record.projectDurationMinutes !== undefined && record.projectDurationMinutes !== null 
-                              ? <span className="flex items-center"><Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>{record.projectDurationMinutes}</span> 
-                              : 'N/A'}
+                          <span className="flex items-center">
+                            <Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
+                            {formatDurationFromTotalMinutes(record.projectDurationMinutes)}
+                          </span>
                         </TableCell>
-                        <TableCell>{record.durationHours.toFixed(1)}</TableCell>
+                        <TableCell>
+                          <span className="flex items-center">
+                            <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
+                            {formatDurationFromDecimalHours(record.durationHours)}
+                          </span>
+                        </TableCell>
                         <TableCell>
                           {record.completedAt ? (
                             <Badge variant="default" className="bg-green-500 hover:bg-green-600">Completed</Badge>
@@ -352,4 +372,3 @@ export default function ProjectOverviewPage() {
     </div>
   );
 }
-

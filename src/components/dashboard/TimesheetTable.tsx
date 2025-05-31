@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { TimeRecordForm } from './TimeRecordForm';
-import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film } from 'lucide-react';
+import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock } from 'lucide-react';
 import { format, parseISO, isSameDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -45,6 +45,20 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Label } from '../ui/label';
+
+const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
+  if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
+  const hours = Math.floor(totalDecimalHours);
+  const minutes = Math.round((totalDecimalHours % 1) * 60);
+  return `${hours}h ${minutes}m`;
+};
+
+const formatDurationFromTotalMinutes = (totalMinutes: number | undefined | null): string => {
+  if (totalMinutes === undefined || totalMinutes === null || isNaN(totalMinutes) || totalMinutes < 0) return 'N/A';
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}h ${minutes}m`;
+};
 
 
 export const TimesheetTable: React.FC = () => {
@@ -95,7 +109,7 @@ export const TimesheetTable: React.FC = () => {
       id: undefined, 
       projectName: '',
       projectType: '', 
-      durationHours: 1, 
+      durationHours: 1, // Default to 1 hour (will be 1h 0m in new form)
       projectDurationMinutes: undefined,
       workType: 'New work', 
     } as unknown as TimeRecord); 
@@ -232,8 +246,8 @@ export const TimesheetTable: React.FC = () => {
                   <TableHead>Project Name</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Work Type</TableHead>
-                  <TableHead>Project duration (min)</TableHead>
-                  <TableHead>Completed in (hrs)</TableHead>
+                  <TableHead>Proj. Duration</TableHead>
+                  <TableHead>Work Time</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -246,11 +260,17 @@ export const TimesheetTable: React.FC = () => {
                     <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
                     <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
                     <TableCell>
-                        {record.projectDurationMinutes !== undefined && record.projectDurationMinutes !== null 
-                            ? <span className="flex items-center"><Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>{record.projectDurationMinutes}</span> 
-                            : 'N/A'}
+                        <span className="flex items-center">
+                            <Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
+                            {formatDurationFromTotalMinutes(record.projectDurationMinutes)}
+                        </span>
                     </TableCell>
-                    <TableCell>{record.durationHours.toFixed(1)}</TableCell>
+                    <TableCell>
+                        <span className="flex items-center">
+                            <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
+                            {formatDurationFromDecimalHours(record.durationHours)}
+                        </span>
+                    </TableCell>
                     <TableCell>
                       {record.completedAt ? (
                         <Badge variant="default" className="bg-green-500 hover:bg-green-600">
@@ -315,9 +335,16 @@ export const TimesheetTable: React.FC = () => {
               {userRecords.length > 0 && (
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={8} className="text-right font-semibold text-muted-foreground pr-6">
-                      Total for {selectedDate ? format(selectedDate, 'PPP') : 'selected day'}: {dailyTotalHours.toFixed(1)} hrs
+                    <TableCell colSpan={5} className="font-semibold text-muted-foreground text-right">
+                      Total for {selectedDate ? format(selectedDate, 'PPP') : 'selected day'}:
                     </TableCell>
+                    <TableCell>
+                        <span className="flex items-center font-semibold">
+                            <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
+                            {formatDurationFromDecimalHours(dailyTotalHours)}
+                        </span>
+                    </TableCell>
+                    <TableCell colSpan={2}></TableCell>
                   </TableRow>
                 </TableFooter>
               )}
@@ -328,4 +355,3 @@ export const TimesheetTable: React.FC = () => {
     </div>
   );
 };
-

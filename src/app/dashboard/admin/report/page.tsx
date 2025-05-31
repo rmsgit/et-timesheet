@@ -18,6 +18,20 @@ import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { useAuth } from '@/hooks/useAuth'; 
 import type { TimeRecord } from '@/lib/types';
 
+const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
+  if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
+  const hours = Math.floor(totalDecimalHours);
+  const minutes = Math.round((totalDecimalHours % 1) * 60);
+  return `${hours}h ${minutes}m`;
+};
+
+const formatDurationFromTotalMinutes = (totalMinutes: number | undefined | null): string => {
+  if (totalMinutes === undefined || totalMinutes === null || isNaN(totalMinutes) || totalMinutes < 0) return 'N/A';
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}h ${minutes}m`;
+};
+
 export default function AdminReportPage() {
   const { getAllRecordsByDateRange, timeRecords: allTimeRecordsFromContext, isTimesheetLoading } = useTimesheet();
   const { users: mockUsers, isUsersLoading } = useMockUsers();
@@ -30,20 +44,20 @@ export default function AdminReportPage() {
 
   useEffect(() => {
     if (!isTimesheetLoading && allTimeRecordsFromContext) {
-      console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - allTimeRecordsFromContext loaded. Count: ${allTimeRecordsFromContext.length}`);
+      // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - allTimeRecordsFromContext loaded. Count: ${allTimeRecordsFromContext.length}`);
       if (allTimeRecordsFromContext.length > 0) {
         const uniqueUserIdsInContextData = Array.from(new Set(allTimeRecordsFromContext.map(r => r.userId)));
-        console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Unique UserIDs in context data:`, uniqueUserIdsInContextData);
+        // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Unique UserIDs in context data:`, uniqueUserIdsInContextData);
         if (loggedInUser) {
-          console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Logged-in admin UserID: ${loggedInUser.id}`);
+          // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Logged-in admin UserID: ${loggedInUser.id}`);
         }
       } else {
-        console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - allTimeRecordsFromContext is empty.`);
+        // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - allTimeRecordsFromContext is empty.`);
       }
     } else if (isTimesheetLoading) {
-      console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Timesheet data is still loading...`);
+      // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Timesheet data is still loading...`);
     } else if (!allTimeRecordsFromContext) {
-      console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - allTimeRecordsFromContext is null/undefined after loading.`);
+      // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - allTimeRecordsFromContext is null/undefined after loading.`);
     }
   }, [allTimeRecordsFromContext, isTimesheetLoading, loggedInUser]);
 
@@ -54,10 +68,10 @@ export default function AdminReportPage() {
     const recordsToDisplay = getAllRecordsByDateRange(dateRange.from, dateRange.to)
       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
-    console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - filteredRecords for display (after date filter). Count: ${recordsToDisplay.length}`);
+    // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - filteredRecords for display (after date filter). Count: ${recordsToDisplay.length}`);
     if (recordsToDisplay.length > 0) {
         const uniqueUserIdsInFilteredData = Array.from(new Set(recordsToDisplay.map(r => r.userId)));
-        console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Unique UserIDs in filtered data for display:`, uniqueUserIdsInFilteredData);
+        // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Unique UserIDs in filtered data for display:`, uniqueUserIdsInFilteredData);
     }
     return recordsToDisplay;
   }, [dateRange, getAllRecordsByDateRange, isLoading, allTimeRecordsFromContext, mockUsers]);
@@ -114,7 +128,7 @@ export default function AdminReportPage() {
               <Clock className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalHours.toFixed(1)} hrs</div>
+              <div className="text-2xl font-bold">{formatDurationFromDecimalHours(totalHours)}</div>
               <p className="text-xs text-muted-foreground">Across {filteredRecords.length} entries</p>
             </CardContent>
           </Card>
@@ -173,8 +187,8 @@ export default function AdminReportPage() {
                     <TableHead>Project Name</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Work Type</TableHead>
-                    <TableHead>Project duration (min)</TableHead>
-                    <TableHead>Completed in (hrs)</TableHead>
+                    <TableHead>Proj. Duration</TableHead>
+                    <TableHead>Work Time</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -187,11 +201,17 @@ export default function AdminReportPage() {
                       <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
                       <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
                       <TableCell>
-                        {record.projectDurationMinutes !== undefined && record.projectDurationMinutes !== null 
-                            ? <span className="flex items-center"><Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>{record.projectDurationMinutes}</span> 
-                            : 'N/A'}
+                        <span className="flex items-center">
+                            <Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
+                            {formatDurationFromTotalMinutes(record.projectDurationMinutes)}
+                        </span>
                       </TableCell>
-                      <TableCell>{record.durationHours.toFixed(1)}</TableCell>
+                      <TableCell>
+                        <span className="flex items-center">
+                            <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
+                            {formatDurationFromDecimalHours(record.durationHours)}
+                        </span>
+                      </TableCell>
                       <TableCell>
                         {record.completedAt ? (
                           <Badge variant="default" className="bg-green-500 hover:bg-green-600">Completed</Badge>
@@ -220,4 +240,3 @@ export default function AdminReportPage() {
     </div>
   );
 }
-
