@@ -87,14 +87,13 @@ export const TimesheetTable: React.FC = () => {
   const handleAddNew = () => {
     setEditingRecord({
       date: selectedDate ? selectedDate.toISOString() : new Date().toISOString(),
-      // Explicitly ensure other fields are undefined so form defaults apply for a new record
       id: undefined,
       projectName: '',
       projectType: '',
-      durationHours: 1, // or whatever your desired default is
+      durationHours: 1, 
       projectDurationMinutes: undefined,
       workType: 'New work',
-    } as unknown as TimeRecord); // Use unknown then TimeRecord to satisfy partial init
+    } as unknown as TimeRecord); 
     setIsFormOpen(true);
   };
 
@@ -144,7 +143,7 @@ export const TimesheetTable: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
-          Welcome, {user ? user.username : 'Editor'}!
+         👋 Welcome, {user ? user.username : 'Editor'}!
         </h1>
         <p className="text-lg text-muted-foreground mt-1">
           This is your personal timesheet dashboard. Track your work efficiently.
