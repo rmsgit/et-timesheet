@@ -9,8 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail } from 'lucide-react'; // Removed LogIn
-import Image from 'next/image'; // Added Image import
+import { Loader2, Mail } from 'lucide-react';
+import Image from 'next/image';
 
 const LOGIN_FORM_LOADER_ID = "login_form_loader";
 
@@ -56,7 +56,7 @@ export const LoginForm: React.FC = () => {
       <CardHeader className="text-center">
         <div className="mx-auto mb-4">
             <Image 
-                src="https://placehold.co/100x100.png" 
+                src="https://editorstable.com/wp-content/uploads/2025/01/et-logo.jpg" 
                 alt="Company Logo" 
                 width={80} 
                 height={80} 
