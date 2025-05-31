@@ -9,15 +9,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { LogIn, Loader2, Mail } from 'lucide-react'; // Added Mail icon
+import { Loader2, Mail } from 'lucide-react'; // Removed LogIn
+import Image from 'next/image'; // Added Image import
 
 const LOGIN_FORM_LOADER_ID = "login_form_loader";
 
 export const LoginForm: React.FC = () => {
-  const [email, setEmail] = useState(''); // Changed from username to email
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { login } = useAuth();
-  const { showLoader, hideLoader } = useLoader(); // useLoader hook
+  const { showLoader, hideLoader } = useLoader();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -32,15 +33,10 @@ export const LoginForm: React.FC = () => {
       return;
     }
     setIsSubmitting(true);
-    // Loader message is now handled by AuthContext's login
-    // showLoader(LOGIN_FORM_LOADER_ID, "Logging in..."); 
     try {
-      const success = await login(email, password); // Pass email and password
+      const success = await login(email, password);
       if (success) {
         // Redirection is handled by AuthContext or page effects after successful login and role fetch
-      } else {
-        // Specific error toasts are handled by the login function in AuthContext
-        // No need to toast here unless for a very generic fallback, but AuthContext should be more specific.
       }
     } catch (error) {
         console.error("Login handleSubmit error:", error);
@@ -51,7 +47,6 @@ export const LoginForm: React.FC = () => {
         });
     }
     finally {
-      // hideLoader(LOGIN_FORM_LOADER_ID);
       setIsSubmitting(false);
     }
   };
@@ -59,8 +54,15 @@ export const LoginForm: React.FC = () => {
   return (
     <Card className="w-full max-w-sm shadow-xl">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 p-3 bg-primary/10 rounded-full inline-block">
-            <LogIn className="h-8 w-8 text-primary" />
+        <div className="mx-auto mb-4">
+            <Image 
+                src="https://placehold.co/100x100.png" 
+                alt="Company Logo" 
+                width={80} 
+                height={80} 
+                className="rounded-md"
+                data-ai-hint="company logo" 
+            />
         </div>
         <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
         <CardDescription>Enter your credentials to access your timesheet.</CardDescription>
@@ -68,12 +70,12 @@ export const LoginForm: React.FC = () => {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label> {/* Changed from username to email */}
+            <Label htmlFor="email">Email</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="email"
-                type="email" // Changed type to email
+                type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="e.g., user@example.com"
@@ -106,7 +108,6 @@ export const LoginForm: React.FC = () => {
             )}
           </Button>
         </form>
-        {/* Removed mock user hint as it's no longer relevant with Firebase Auth */}
       </CardContent>
     </Card>
   );
