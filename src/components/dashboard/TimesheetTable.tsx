@@ -13,6 +13,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter,
 } from '@/components/ui/table';
 import {
   DropdownMenu,
@@ -91,15 +92,13 @@ export const TimesheetTable: React.FC = () => {
   const handleAddNew = () => {
     setEditingRecord({
       date: selectedDate ? selectedDate.toISOString() : new Date().toISOString(),
-      id: undefined, // Important for signaling it's a new record
+      id: undefined, 
       projectName: '',
-      projectType: '', // Default or let form handle
-      durationHours: 1, // Default duration
+      projectType: '', 
+      durationHours: 1, 
       projectDurationMinutes: undefined,
-      workType: 'New work', // Default work type
-      // No userId here, it's added by context
-      // No completedAt here
-    } as unknown as TimeRecord); // Cast because we're intentionally omitting some fields for a new record
+      workType: 'New work', 
+    } as unknown as TimeRecord); 
     setIsFormOpen(true);
   };
 
@@ -160,11 +159,6 @@ export const TimesheetTable: React.FC = () => {
         <div>
           <h2 className="text-2xl font-semibold">
             Entries for {selectedDate ? format(selectedDate, 'PPP') : 'Selected Date'}
-            {userRecords.length > 0 && (
-              <span className="text-base font-normal text-muted-foreground ml-2">
-                ({dailyTotalHours.toFixed(1)} hrs total)
-              </span>
-            )}
           </h2>
           <p className="text-sm text-muted-foreground">
             Use the calendar to view records for a specific day or add new entries.
@@ -318,6 +312,15 @@ export const TimesheetTable: React.FC = () => {
                   </TableRow>
                 ))}
               </TableBody>
+              {userRecords.length > 0 && (
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-right font-semibold text-muted-foreground pr-6">
+                      Total for {selectedDate ? format(selectedDate, 'PPP') : 'selected day'}: {dailyTotalHours.toFixed(1)} hrs
+                    </TableCell>
+                  </TableRow>
+                </TableFooter>
+              )}
             </Table>
           </CardContent>
         </Card>
