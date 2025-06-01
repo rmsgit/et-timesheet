@@ -40,6 +40,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger, // Added missing import
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -128,10 +129,10 @@ export const TimesheetTable: React.FC = () => {
   const handleAddNew = () => {
     setEditingRecord({
       date: selectedDate ? selectedDate.toISOString() : new Date().toISOString(),
-      durationHours: 0, // New records start with 0 duration
+      durationHours: 0, 
       projectDurationMinutes: undefined,
       workType: 'New work', 
-    } as TimeRecord); // Cast required because id, userId etc. are missing here
+    } as TimeRecord); 
     setIsFormOpen(true);
   };
 
