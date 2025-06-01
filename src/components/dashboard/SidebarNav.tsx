@@ -39,13 +39,11 @@ export function SidebarNav() {
 
   const isActive = (href: string) => pathname === href;
   
-  const personalTrackingGroupLabel = isEditor ? "Editor Tools" : "Personal Activity";
-
   return (
     <SidebarMenu>
-      {(isEditor || isAdmin) && ( // Show personal tracking for both editors and admins
+      {isEditor && ( 
         <SidebarGroup>
-          <SidebarGroupLabel>{personalTrackingGroupLabel}</SidebarGroupLabel>
+          <SidebarGroupLabel>Editor Tools</SidebarGroupLabel>
           {personalRoutes.map((route) => (
             <SidebarMenuItem key={route.href}>
               <Link href={route.href} passHref legacyBehavior>
@@ -117,3 +115,4 @@ export function SidebarNav() {
     </SidebarMenu>
   );
 }
+
