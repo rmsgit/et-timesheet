@@ -19,12 +19,12 @@ export function SidebarNav() {
   const pathname = usePathname();
   const { isAdmin, isEditor } = useAuth();
 
-  const editorRoutes = [
+  const personalRoutes = [
     { href: '/dashboard', label: 'My Timesheet', icon: ListChecks },
     { href: '/dashboard/my-report', label: 'My Report', icon: FileText },
   ];
 
-  const adminRoutes = [
+  const adminOnlyRoutes = [
     { href: '/dashboard/admin/users', label: 'User Management', icon: UsersRound },
     { href: '/dashboard/admin/report', label: 'Admin Report', icon: BarChart3 },
     { href: '/dashboard/admin/editor-report', label: 'Editor Specific Report', icon: UserCheck },
@@ -38,13 +38,15 @@ export function SidebarNav() {
 
 
   const isActive = (href: string) => pathname === href;
+  
+  const personalTrackingGroupLabel = isEditor ? "Editor Tools" : "Personal Activity";
 
   return (
     <SidebarMenu>
-      {isEditor && (
+      {(isEditor || isAdmin) && ( // Show personal tracking for both editors and admins
         <SidebarGroup>
-          <SidebarGroupLabel>Editor Tools</SidebarGroupLabel>
-          {editorRoutes.map((route) => (
+          <SidebarGroupLabel>{personalTrackingGroupLabel}</SidebarGroupLabel>
+          {personalRoutes.map((route) => (
             <SidebarMenuItem key={route.href}>
               <Link href={route.href} passHref legacyBehavior>
                 <SidebarMenuButton
@@ -65,10 +67,10 @@ export function SidebarNav() {
         </SidebarGroup>
       )}
 
-      {isAdmin && adminRoutes.length > 0 && (
+      {isAdmin && adminOnlyRoutes.length > 0 && (
          <SidebarGroup>
           <SidebarGroupLabel>Admin Tools</SidebarGroupLabel>
-          {adminRoutes.map((route) => (
+          {adminOnlyRoutes.map((route) => (
             <SidebarMenuItem key={route.href}>
               <Link href={route.href} passHref legacyBehavior>
                 <SidebarMenuButton
@@ -115,5 +117,3 @@ export function SidebarNav() {
     </SidebarMenu>
   );
 }
-
-    
