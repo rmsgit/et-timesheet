@@ -2,10 +2,15 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { useAuth } from '@/hooks/useAuth';
 import type { TimeRecord } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -21,9 +26,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { TimeRecordForm } from './TimeRecordForm';
-import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock } from 'lucide-react';
+import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X } from 'lucide-react';
 import { format, parseISO, isSameDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -35,7 +40,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -44,7 +48,6 @@ import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { Label } from '../ui/label';
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
@@ -60,17 +63,30 @@ const formatDurationFromTotalMinutes = (totalMinutes: number | undefined | null)
   return `${hours}h ${minutes}m`;
 };
 
+const completionDurationSchema = z.object({
+  completedInHoursDialog: z.coerce.number().int().min(0, "Hours must be 0 or more."),
+  completedInMinutesDialog: z.coerce.number().int().min(0, "Minutes must be 0 or more.").max(59, "Minutes must be less than 60."),
+}).refine(data => data.completedInHoursDialog > 0 || data.completedInMinutesDialog > 0, {
+  message: "Total completion time must be greater than 0 minutes.",
+  path: ["completedInMinutesDialog"], 
+});
+type CompletionDurationFormData = z.infer<typeof completionDurationSchema>;
+
 
 export const TimesheetTable: React.FC = () => {
   const { user, isAuthLoading } = useAuth();
-  const { getRecordsForUser, deleteTimeRecord, markAsComplete, isTimesheetLoading } = useTimesheet();
+  const { getRecordsForUser, deleteTimeRecord, setCompletionDetails, isTimesheetLoading } = useTimesheet();
   const { toast } = useToast();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<TimeRecord | undefined>(undefined);
-  const [isActionSubmitting, setIsActionSubmitting] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  
+  const [isSetCompletionDialogOpen, setIsSetCompletionDialogOpen] = useState(false);
+  const [recordForCompletion, setRecordForCompletion] = useState<{ id: string; projectName: string } | null>(null);
+  const [isSubmittingCompletion, setIsSubmittingCompletion] = useState(false);
 
+  const [isActionSubmitting, setIsActionSubmitting] = useState(false); // For delete
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
   const isLoading = isAuthLoading || isTimesheetLoading;
 
@@ -86,9 +102,16 @@ export const TimesheetTable: React.FC = () => {
   }, [user, getRecordsForUser, isLoading, selectedDate]);
 
   const dailyTotalHours = useMemo(() => {
-    return userRecords.reduce((sum, record) => sum + record.durationHours, 0);
+    return userRecords.reduce((sum, record) => record.completedAt ? sum + record.durationHours : sum, 0);
   }, [userRecords]);
 
+  const { control: completionFormControl, handleSubmit: handleCompletionSubmit, reset: resetCompletionForm, formState: { errors: completionFormErrors } } = useForm<CompletionDurationFormData>({
+    resolver: zodResolver(completionDurationSchema),
+    defaultValues: {
+      completedInHoursDialog: 1,
+      completedInMinutesDialog: 0,
+    },
+  });
 
   if (isAuthLoading) { 
     return (
@@ -102,17 +125,13 @@ export const TimesheetTable: React.FC = () => {
     return <p className="text-center p-8">Loading user data or redirecting...</p>;
   }
   
-
   const handleAddNew = () => {
     setEditingRecord({
       date: selectedDate ? selectedDate.toISOString() : new Date().toISOString(),
-      id: undefined, 
-      projectName: '',
-      projectType: '', 
-      durationHours: 1, // Default to 1 hour (will be 1h 0m in new form)
+      durationHours: 0, // New records start with 0 duration
       projectDurationMinutes: undefined,
       workType: 'New work', 
-    } as unknown as TimeRecord); 
+    } as TimeRecord); // Cast required because id, userId etc. are missing here
     setIsFormOpen(true);
   };
 
@@ -133,17 +152,27 @@ export const TimesheetTable: React.FC = () => {
     }
   };
 
-  const handleMarkComplete = async (recordId: string, projectName: string) => {
-    setIsActionSubmitting(true);
+  const openSetCompletionDialog = (record: TimeRecord) => {
+    setRecordForCompletion({ id: record.id, projectName: record.projectName });
+    resetCompletionForm({ completedInHoursDialog: 1, completedInMinutesDialog: 0 });
+    setIsSetCompletionDialogOpen(true);
+  };
+
+  const onSetCompletionSubmit = async (data: CompletionDurationFormData) => {
+    if (!recordForCompletion) return;
+    setIsSubmittingCompletion(true);
     try {
-      await markAsComplete(recordId);
-      toast({ title: "Completion Initiated", description: `Attempting to mark "${projectName}" as complete.` });
+      await setCompletionDetails(recordForCompletion.id, data.completedInHoursDialog, data.completedInMinutesDialog);
+      toast({ title: "Success", description: `Duration set for "${recordForCompletion.projectName}".` });
+      setIsSetCompletionDialogOpen(false);
+      setRecordForCompletion(null);
     } catch (error) {
-      toast({ title: "Error", description: "Failed to mark as complete.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to set completion details.", variant: "destructive" });
     } finally {
-      setIsActionSubmitting(false);
+      setIsSubmittingCompletion(false);
     }
   };
+
 
   const getWorkTypeBadge = (workType: TimeRecord['workType']) => {
     switch (workType) {
@@ -222,6 +251,50 @@ export const TimesheetTable: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isSetCompletionDialogOpen} onOpenChange={(open) => { setIsSetCompletionDialogOpen(open); if(!open) setRecordForCompletion(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Set Completion Time for: {recordForCompletion?.projectName}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCompletionSubmit(onSetCompletionSubmit)} className="space-y-4 pt-2 pb-4">
+            <div>
+              <Label>Completed In</Label>
+              <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-muted-foreground mr-1" />
+                  <div className="flex-1">
+                      <Controller
+                      name="completedInHoursDialog"
+                      control={completionFormControl}
+                      render={({ field }) => <Input type="number" {...field} placeholder="Hours" disabled={isSubmittingCompletion} />}
+                      />
+                      {completionFormErrors.completedInHoursDialog && <p className="text-sm text-destructive mt-1">{completionFormErrors.completedInHoursDialog.message}</p>}
+                  </div>
+                  <span className="text-muted-foreground">:</span>
+                  <div className="flex-1">
+                      <Controller
+                      name="completedInMinutesDialog"
+                      control={completionFormControl}
+                      render={({ field }) => <Input type="number" {...field} placeholder="Minutes" step="1" min="0" max="59" disabled={isSubmittingCompletion} />}
+                      />
+                      {completionFormErrors.completedInMinutesDialog && <p className="text-sm text-destructive mt-1">{completionFormErrors.completedInMinutesDialog.message}</p>}
+                  </div>
+              </div>
+               {completionFormErrors.root?.completedInMinutesDialog && <p className="text-sm text-destructive mt-1">{completionFormErrors.root.completedInMinutesDialog.message}</p>}
+            </div>
+            <DialogFooter className="pt-2">
+              <DialogClose asChild>
+                <Button type="button" variant="outline" disabled={isSubmittingCompletion}><X className="mr-2 h-4 w-4" />Cancel</Button>
+              </DialogClose>
+              <Button type="submit" disabled={isSubmittingCompletion}>
+                {isSubmittingCompletion ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Submit Completion
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+
       {isTimesheetLoading && !isAuthLoading ? ( 
         <TableSkeleton columnCount={8} className="shadow-lg" /> 
       ) : userRecords.length === 0 ? (
@@ -268,7 +341,7 @@ export const TimesheetTable: React.FC = () => {
                     <TableCell>
                         <span className="flex items-center">
                             <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
-                            {formatDurationFromDecimalHours(record.durationHours)}
+                            {record.completedAt ? formatDurationFromDecimalHours(record.durationHours) : 'Pending'}
                         </span>
                     </TableCell>
                     <TableCell>
@@ -283,18 +356,18 @@ export const TimesheetTable: React.FC = () => {
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0" disabled={isActionSubmitting}>
+                          <Button variant="ghost" className="h-8 w-8 p-0" disabled={isActionSubmitting || isSubmittingCompletion}>
                             <span className="sr-only">Open menu</span>
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {!record.completedAt && (
-                            <DropdownMenuItem onClick={() => handleMarkComplete(record.id, record.projectName)} disabled={isActionSubmitting}>
+                            <DropdownMenuItem onClick={() => openSetCompletionDialog(record)} disabled={isActionSubmitting || isSubmittingCompletion}>
                               <CheckCircle className="mr-2 h-4 w-4" /> Mark as Complete
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem onClick={() => handleEdit(record)} disabled={isActionSubmitting}>
+                          <DropdownMenuItem onClick={() => handleEdit(record)} disabled={isActionSubmitting || isSubmittingCompletion}>
                             <Edit className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>
                            <AlertDialog>
@@ -302,7 +375,7 @@ export const TimesheetTable: React.FC = () => {
                                 <DropdownMenuItem 
                                     onSelect={(e) => e.preventDefault()} 
                                     className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
-                                    disabled={isActionSubmitting}
+                                    disabled={isActionSubmitting || isSubmittingCompletion}
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
                                   Delete
@@ -336,7 +409,7 @@ export const TimesheetTable: React.FC = () => {
                 <TableFooter>
                   <TableRow>
                     <TableCell colSpan={5} className="font-semibold text-muted-foreground text-right">
-                      Total for {selectedDate ? format(selectedDate, 'PPP') : 'selected day'}:
+                      Total Completed Work Time for {selectedDate ? format(selectedDate, 'PPP') : 'selected day'}:
                     </TableCell>
                     <TableCell>
                         <span className="flex items-center font-semibold">
@@ -355,3 +428,4 @@ export const TimesheetTable: React.FC = () => {
     </div>
   );
 };
+

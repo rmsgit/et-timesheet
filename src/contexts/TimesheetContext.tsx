@@ -12,10 +12,10 @@ import { useToast } from '@/hooks/use-toast';
 
 interface TimesheetContextType {
   timeRecords: TimeRecord[];
-  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => Promise<void>;
+  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours'>) => Promise<void>;
   updateTimeRecord: (record: TimeRecord) => Promise<void>;
   deleteTimeRecord: (recordId: string) => Promise<void>;
-  markAsComplete: (recordId: string) => Promise<void>;
+  setCompletionDetails: (recordId: string, completedInHours: number, completedInMinutes: number) => Promise<void>;
   getRecordsForUser: (userId: string) => TimeRecord[];
   getRecordsByDateRange: (userId: string, startDate: Date, endDate: Date) => TimeRecord[];
   getAllRecordsByDateRange: (startDate: Date, endDate: Date) => TimeRecord[];
@@ -110,7 +110,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     };
   }, [showLoader, hideLoader, toast]); // `database` is stable
 
-  const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => {
+  const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours'>) => {
     if (!user) {
         toast({ title: "Authentication Error", description: "User not logged in. Cannot add record.", variant: "destructive" });
         return;
@@ -134,10 +134,10 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       ...recordData,
       id: newRecordId,
       userId: user.id,
-      // completedAt will be undefined here, and projectDurationMinutes might be
+      durationHours: 0, // Duration is 0 initially, set upon completion
+      // completedAt is undefined here
     };
     
-    // Clean the object before saving to Firebase to remove any undefined optional fields
     const recordToSave = Object.entries(newRecordObject).reduce((acc, [key, value]) => {
       if (value !== undefined) {
         // @ts-ignore
@@ -154,7 +154,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       console.error("Firebase add time record error:", error);
       toast({ title: "Firebase Error", description: "Failed to add record to Firebase. Check console for details.", variant: "destructive" });
     }
-  }, [user, toast]); // `database` is stable
+  }, [user, toast]);
 
   const updateTimeRecord = useCallback(async (updatedRecord: TimeRecord) => {
     if (!database) {
@@ -162,14 +162,24 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         return;
     }
 
-    // Create a new object that only includes properties with defined values from updatedRecord
-    const recordToSave = Object.entries(updatedRecord).reduce((acc, [key, value]) => {
+    // Ensure all required fields are present, spread original values for safety if not changing duration/completion here
+    const existingRecord = timeRecords.find(r => r.id === updatedRecord.id);
+    const recordWithPreservedCompletion: TimeRecord = {
+        ...(existingRecord || {}), // Spread existing or empty object if not found (should not happen)
+        ...updatedRecord, // Overlay with new values from form
+        // Ensure durationHours and completedAt from existing record are preserved if not explicitly changed
+        durationHours: existingRecord ? existingRecord.durationHours : updatedRecord.durationHours,
+        completedAt: existingRecord ? existingRecord.completedAt : updatedRecord.completedAt,
+    };
+
+
+    const recordToSave = Object.entries(recordWithPreservedCompletion).reduce((acc, [key, value]) => {
       if (value !== undefined) {
-        // @ts-ignore - We are building the object dynamically
+        // @ts-ignore
         acc[key] = value;
       }
       return acc;
-    }, {} as Partial<TimeRecord>); // Use Partial<TimeRecord> as intermediate type
+    }, {} as Partial<TimeRecord>);
 
     try {
       await set(ref(database, `${FIREBASE_TIMESHEET_PATH}/${updatedRecord.id}`), recordToSave);
@@ -178,7 +188,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       console.error("Firebase update time record error:", error);
       toast({ title: "Firebase Error", description: "Failed to update record in Firebase. Check console for details.", variant: "destructive" });
     }
-  }, [toast]); // `database` is stable
+  }, [toast, timeRecords]);
 
   const deleteTimeRecord = useCallback(async (recordId: string) => {
     if (!database) {
@@ -192,9 +202,9 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       console.error("Firebase delete time record error:", error);
       toast({ title: "Firebase Error", description: "Failed to delete record from Firebase. Check console for details.", variant: "destructive" });
     }
-  }, [toast]); // `database` is stable
+  }, [toast]);
 
-  const markAsComplete = useCallback(async (recordId: string) => {
+  const setCompletionDetails = useCallback(async (recordId: string, completedInHoursValue: number, completedInMinutesValue: number) => {
     if (!database) {
         toast({ title: "Configuration Error", description: "Firebase is not connected. Record status not updated.", variant: "destructive" });
         return;
@@ -209,12 +219,16 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       return;
     }
 
-    const completedAt = new Date().toISOString();
-    try {
-      await firebaseUpdate(ref(database, `${FIREBASE_TIMESHEET_PATH}/${recordId}`), { completedAt });
-      toast({ title: "Success", description: `Project "${recordToComplete.projectName}" marked as complete.`});
+    const finalDurationHours = completedInHoursValue + (completedInMinutesValue / 60);
+    const completedAtTimestamp = new Date().toISOString();
 
-      // Send notification to admins via Firebase
+    try {
+      await firebaseUpdate(ref(database, `${FIREBASE_TIMESHEET_PATH}/${recordId}`), { 
+          durationHours: finalDurationHours,
+          completedAt: completedAtTimestamp 
+      });
+      toast({ title: "Success", description: `Project "${recordToComplete.projectName}" marked as complete with duration.`});
+
       const adminNotificationRef = push(ref(database, FIREBASE_ADMIN_NOTIFICATIONS_PATH));
       await set(adminNotificationRef, {
         recordId: recordToComplete.id,
@@ -224,10 +238,10 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       });
 
     } catch (error) {
-      console.error("Firebase mark as complete error or admin notification error:", error);
-      toast({ title: "Firebase Error", description: "Failed to mark record as complete or send admin notification. Check console.", variant: "destructive" });
+      console.error("Firebase set completion details error or admin notification error:", error);
+      toast({ title: "Firebase Error", description: "Failed to set completion details or send admin notification. Check console.", variant: "destructive" });
     }
-  }, [timeRecords, toast, user]); // `database` is stable, user added
+  }, [timeRecords, toast, user]);
 
   const getRecordsForUser = useCallback((userId: string) => {
     return timeRecords.filter(r => r.userId === userId);
@@ -266,7 +280,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         addTimeRecord,
         updateTimeRecord,
         deleteTimeRecord,
-        markAsComplete,
+        setCompletionDetails,
         getRecordsForUser,
         getRecordsByDateRange,
         getAllRecordsByDateRange,
@@ -276,4 +290,5 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     </TimesheetContext.Provider>
   );
 };
+
 
