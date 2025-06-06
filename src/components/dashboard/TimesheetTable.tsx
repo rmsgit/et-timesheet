@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -29,7 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { TimeRecordForm } from './TimeRecordForm';
-import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Hourglass, ListChecks, CheckCircle2 as CheckCircle2Icon } from 'lucide-react';
 import { format, parseISO, isSameDay, differenceInSeconds } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -44,9 +43,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
+import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -201,6 +201,15 @@ export const TimesheetTable: React.FC = () => {
     return fullUserRecordsForDay.reduce((sum, record) => record.completedAt ? sum + record.durationHours : sum, 0);
   }, [fullUserRecordsForDay]);
 
+  const tasksCompletedToday = useMemo(() => {
+    return fullUserRecordsForDay.filter(record => record.completedAt).length;
+  }, [fullUserRecordsForDay]);
+
+  const pendingTasksToday = useMemo(() => {
+    return fullUserRecordsForDay.filter(record => !record.completedAt).length;
+  }, [fullUserRecordsForDay]);
+
+
   const { control: completionFormControl, handleSubmit: handleCompletionSubmit, reset: resetCompletionForm, formState: { errors: completionFormErrors } } = useForm<CompletionDurationFormData>({
     resolver: zodResolver(completionDurationSchema),
     defaultValues: {
@@ -223,6 +232,7 @@ export const TimesheetTable: React.FC = () => {
   }
   
   const handleAddNew = () => {
+    const isEditingMode = false;
     setEditingRecord({
       date: selectedDate ? selectedDate.toISOString() : new Date().toISOString(),
       durationHours: 0, 
@@ -233,6 +243,7 @@ export const TimesheetTable: React.FC = () => {
   };
 
   const handleEdit = (record: TimeRecord) => {
+    const isEditingMode = true;
     setEditingRecord(record);
     setIsFormOpen(true);
   };
@@ -265,12 +276,12 @@ export const TimesheetTable: React.FC = () => {
         initialMinutes = Math.floor((totalSecondsFromDuration % 3600) / 60);
         initialSeconds = totalSecondsFromDuration % 60;
     } else if (!record.completedAt) { 
-      if (record.durationHours > 0) { // Pending, but has time logged in form
+      if (record.durationHours > 0) { 
         const totalSecondsFromDuration = Math.round(record.durationHours * 3600);
         initialHours = Math.floor(totalSecondsFromDuration / 3600);
         initialMinutes = Math.floor((totalSecondsFromDuration % 3600) / 60);
         initialSeconds = totalSecondsFromDuration % 60;
-      } else { // Pending, no time from form, use live timer diff
+      } else { 
         const creationDate = parseISO(record.date);
         const now = new Date();
         const elapsedTotalSeconds = differenceInSeconds(now, creationDate);
@@ -339,6 +350,54 @@ export const TimesheetTable: React.FC = () => {
           This is your personal timesheet dashboard. Track your work efficiently.
         </p>
       </div>
+
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-3 mb-6">
+          <CardSkeleton className="shadow-md" />
+          <CardSkeleton className="shadow-md" />
+          <CardSkeleton className="shadow-md" />
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-3 mb-6">
+          <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Logged Hours Today</CardTitle>
+              <Hourglass className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatDurationFromDecimalHours(dailyTotalHours)}</div>
+              <p className="text-xs text-muted-foreground">
+                For {selectedDate ? format(selectedDate, "PPP") : 'selected day'}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Tasks Completed Today</CardTitle>
+               <CheckCircle2Icon className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{tasksCompletedToday}</div>
+               <p className="text-xs text-muted-foreground">
+                Marked as complete
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Tasks Today</CardTitle>
+              <ListChecks className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{pendingTasksToday}</div>
+               <p className="text-xs text-muted-foreground">
+                Awaiting completion
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
