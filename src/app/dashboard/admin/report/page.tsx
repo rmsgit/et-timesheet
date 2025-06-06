@@ -75,14 +75,6 @@ export default function AdminReportPage() {
     return mockUsers.find(u => u.id === userId)?.username || 'Unknown User';
   };
   
-  const totalHours = useMemo(() => filteredRecords.reduce((sum, r) => sum + r.durationHours, 0), [filteredRecords]);
-  const uniqueActiveEditors = useMemo(() => new Set(filteredRecords.map(r => r.userId)).size, [filteredRecords]);
-  
-  const totalRegisteredEditors = useMemo(() => {
-    if (isLoading || !mockUsers) return 0;
-    return mockUsers.filter(u => u.role === 'editor').length;
-  }, [mockUsers, isLoading]);
-
 
   const projectMetrics = useMemo(() => {
     if (filteredRecords.length === 0) {
@@ -113,14 +105,14 @@ export default function AdminReportPage() {
     const revisionWorkProjectNames = new Set<string>();
 
     filteredRecords.forEach(record => {
-      if (record.workType === 'New work') newWorkProjectNames.add(record.projectName);
+      if (record.workType === 'New work' || record.workType === 'Sample work') newWorkProjectNames.add(record.projectName);
       if (record.workType === 'Revision') revisionWorkProjectNames.add(record.projectName);
     });
     totalNewWorkProjects = newWorkProjectNames.size;
     totalRevisionWorkProjects = revisionWorkProjectNames.size;
 
     projectsMap.forEach((recordsInProject) => {
-      const newWorkRecords = recordsInProject.filter(r => r.workType === 'New work');
+      const newWorkRecords = recordsInProject.filter(r => r.workType === 'New work' || r.workType === 'Sample work');
       if (newWorkRecords.length > 0 && newWorkRecords.every(r => r.completedAt)) {
         completedNewWorkProjects++;
       }
@@ -170,41 +162,11 @@ export default function AdminReportPage() {
       </div>
       
       {isLoading ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => <CardSkeleton key={i} className="shadow-md" />)}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"> {/* Adjusted for 5 cards, might need 2 rows */}
+          {Array.from({ length: 5 }).map((_, i) => <CardSkeleton key={i} className="shadow-md" />)}
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Work Hours</CardTitle>
-              <Clock className="h-5 w-5 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatDurationFromDecimalHours(totalHours)}</div>
-              <p className="text-xs text-muted-foreground">All editors, {filteredRecords.length} entries {dateDisplayString}</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Editors</CardTitle>
-              <Users className="h-5 w-5 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{uniqueActiveEditors}</div>
-              <p className="text-xs text-muted-foreground">With logged time {dateDisplayString}</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Registered Editors</CardTitle>
-              <UsersRound className="h-5 w-5 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalRegisteredEditors}</div>
-              <p className="text-xs text-muted-foreground">Total editor accounts</p>
-            </CardContent>
-          </Card>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"> {/* Displaying 5 cards, might wrap to 2 rows */}
            <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pending Projects</CardTitle>
@@ -222,7 +184,7 @@ export default function AdminReportPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{projectMetrics.totalNewWorkProjects}</div>
-              <p className="text-xs text-muted-foreground">Unique projects with 'New work' {dateDisplayString}</p>
+              <p className="text-xs text-muted-foreground">Unique projects with 'New/Sample' {dateDisplayString}</p>
             </CardContent>
           </Card>
           <Card className="shadow-md">
@@ -242,7 +204,7 @@ export default function AdminReportPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{projectMetrics.completedNewWorkProjects}</div>
-              <p className="text-xs text-muted-foreground">All 'New work' tasks done {dateDisplayString}</p>
+              <p className="text-xs text-muted-foreground">All 'New/Sample' tasks done {dateDisplayString}</p>
             </CardContent>
           </Card>
           <Card className="shadow-md">
