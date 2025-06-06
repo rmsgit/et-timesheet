@@ -57,28 +57,45 @@ const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   return `${hours}h ${minutes}m`;
 };
 
-const formatDurationFromTotalMinutes = (totalMinutes: number | undefined | null): string => {
-  if (totalMinutes === undefined || totalMinutes === null || isNaN(totalMinutes) || totalMinutes < 0) return 'N/A';
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return `${hours}h ${minutes}m`;
+const formatDurationFromTotalSeconds = (totalSeconds: number | undefined | null): string => {
+  if (totalSeconds === undefined || totalSeconds === null || isNaN(totalSeconds) || totalSeconds < 0) return 'N/A';
+  if (totalSeconds === 0) return '0s';
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  // Always show seconds if totalSeconds > 0 and (seconds > 0 or no other parts exist)
+  // Or if totalSeconds is < 60 and > 0
+  if (totalSeconds > 0 && (seconds > 0 || parts.length === 0)) {
+     parts.push(`${seconds}s`);
+  }
+  if (parts.length === 0 && totalSeconds === 0) return "0s"; // Explicitly show 0s
+  if (parts.length === 0 && totalSeconds > 0) return `${totalSeconds}s`; // Should not happen if logic above is correct
+
+  return parts.join(' ') || "0s";
 };
+
 
 const completionDurationSchema = z.object({
   completedInHoursDialog: z.coerce.number().int().min(0, "Hours must be 0 or more."),
   completedInMinutesDialog: z.coerce.number().int().min(0, "Minutes must be 0 or more.").max(59, "Minutes must be less than 60."),
-}).refine(data => data.completedInHoursDialog > 0 || data.completedInMinutesDialog > 0, {
-  message: "Total completion time must be greater than 0 minutes.",
-  path: ["completedInMinutesDialog"], 
+  completedInSecondsDialog: z.coerce.number().int().min(0, "Seconds must be 0 or more.").max(59, "Seconds must be less than 60."),
+}).refine(data => (data.completedInHoursDialog * 3600 + data.completedInMinutesDialog * 60 + data.completedInSecondsDialog) > 0, {
+  message: "Total completion time must be greater than 0 seconds.",
+  path: ["completedInSecondsDialog"], 
 });
 type CompletionDurationFormData = z.infer<typeof completionDurationSchema>;
 
 
-type SortableTimeRecordKeys = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationMinutes' | 'durationHours' | 'completedAt'>;
+type SortableTimeRecordKeys = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationSeconds' | 'durationHours' | 'completedAt'>;
 
 const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): number => {
   if (!tsA && !tsB) return 0;
-  if (!tsA) return -1; // Sort undefined/null first if ascending
+  if (!tsA) return -1; 
   if (!tsB) return 1;
   return new Date(tsA).getTime() - new Date(tsB).getTime();
 };
@@ -123,12 +140,12 @@ export const TimesheetTable: React.FC = () => {
         } else if (typeof valA === 'number' && typeof valB === 'number') {
           comparison = valA - valB;
         } else if (valA === undefined || valA === null) {
-          comparison = -1; // undefined/null values first
+          comparison = -1; 
         } else if (valB === undefined || valB === null) {
-          comparison = 1; // undefined/null values first
+          comparison = 1; 
         } else if (typeof valA === 'string' && typeof valB === 'string') {
           comparison = valA.localeCompare(valB);
-        } else { // Fallback for mixed types or other scenarios
+        } else { 
           const strA = String(valA).toLowerCase();
           const strB = String(valB).toLowerCase();
           comparison = strA.localeCompare(strB);
@@ -173,6 +190,7 @@ export const TimesheetTable: React.FC = () => {
     defaultValues: {
       completedInHoursDialog: 1,
       completedInMinutesDialog: 0,
+      completedInSecondsDialog: 0,
     },
   });
 
@@ -192,7 +210,7 @@ export const TimesheetTable: React.FC = () => {
     setEditingRecord({
       date: selectedDate ? selectedDate.toISOString() : new Date().toISOString(),
       durationHours: 0, 
-      projectDurationMinutes: undefined,
+      projectDurationSeconds: undefined,
       workType: 'New work', 
     } as TimeRecord); 
     setIsFormOpen(true);
@@ -220,7 +238,7 @@ export const TimesheetTable: React.FC = () => {
 
   const openSetCompletionDialog = (record: TimeRecord) => {
     setRecordForCompletion({ id: record.id, projectName: record.projectName });
-    resetCompletionForm({ completedInHoursDialog: 1, completedInMinutesDialog: 0 });
+    resetCompletionForm({ completedInHoursDialog: 1, completedInMinutesDialog: 0, completedInSecondsDialog: 0 });
     setIsSetCompletionDialogOpen(true);
   };
 
@@ -228,7 +246,7 @@ export const TimesheetTable: React.FC = () => {
     if (!recordForCompletion) return;
     setIsSubmittingCompletion(true);
     try {
-      await setCompletionDetails(recordForCompletion.id, data.completedInHoursDialog, data.completedInMinutesDialog);
+      await setCompletionDetails(recordForCompletion.id, data.completedInHoursDialog, data.completedInMinutesDialog, data.completedInSecondsDialog);
       toast({ title: "Success", description: `Duration set for "${recordForCompletion.projectName}".` });
       setIsSetCompletionDialogOpen(false);
       setRecordForCompletion(null);
@@ -340,21 +358,30 @@ export const TimesheetTable: React.FC = () => {
                       <Controller
                       name="completedInHoursDialog"
                       control={completionFormControl}
-                      render={({ field }) => <Input type="number" {...field} placeholder="Hours" disabled={isSubmittingCompletion} />}
+                      render={({ field }) => <Input type="number" {...field} placeholder="H" disabled={isSubmittingCompletion} />}
                       />
-                      {completionFormErrors.completedInHoursDialog && <p className="text-sm text-destructive mt-1">{completionFormErrors.completedInHoursDialog.message}</p>}
                   </div>
                   <span className="text-muted-foreground">:</span>
                   <div className="flex-1">
                       <Controller
                       name="completedInMinutesDialog"
                       control={completionFormControl}
-                      render={({ field }) => <Input type="number" {...field} placeholder="Minutes" step="1" min="0" max="59" disabled={isSubmittingCompletion} />}
+                      render={({ field }) => <Input type="number" {...field} placeholder="M" step="1" min="0" max="59" disabled={isSubmittingCompletion} />}
                       />
-                      {completionFormErrors.completedInMinutesDialog && <p className="text-sm text-destructive mt-1">{completionFormErrors.completedInMinutesDialog.message}</p>}
+                  </div>
+                   <span className="text-muted-foreground">:</span>
+                  <div className="flex-1">
+                      <Controller
+                      name="completedInSecondsDialog"
+                      control={completionFormControl}
+                      render={({ field }) => <Input type="number" {...field} placeholder="S" step="1" min="0" max="59" disabled={isSubmittingCompletion} />}
+                      />
                   </div>
               </div>
-               {completionFormErrors.root?.completedInMinutesDialog && <p className="text-sm text-destructive mt-1">{completionFormErrors.root.completedInMinutesDialog.message}</p>}
+               {completionFormErrors.completedInHoursDialog && <p className="text-sm text-destructive mt-1">{completionFormErrors.completedInHoursDialog.message}</p>}
+               {completionFormErrors.completedInMinutesDialog && <p className="text-sm text-destructive mt-1">{completionFormErrors.completedInMinutesDialog.message}</p>}
+               {completionFormErrors.completedInSecondsDialog && <p className="text-sm text-destructive mt-1">{completionFormErrors.completedInSecondsDialog.message}</p>}
+               {completionFormErrors.root?.completedInSecondsDialog && <p className="text-sm text-destructive mt-1">{completionFormErrors.root.completedInSecondsDialog.message}</p>}
             </div>
             <DialogFooter className="pt-2">
               <DialogClose asChild>
@@ -394,7 +421,7 @@ export const TimesheetTable: React.FC = () => {
                     {renderSortableHeader("Project Name", "projectName")}
                     {renderSortableHeader("Category", "projectType")}
                     {renderSortableHeader("Work Type", "workType")}
-                    {renderSortableHeader("Proj. Duration", "projectDurationMinutes")}
+                    {renderSortableHeader("Proj. Duration", "projectDurationSeconds")}
                     {renderSortableHeader("Work Time", "durationHours")}
                     {renderSortableHeader("Status", "completedAt")}
                     <TableHead className="text-right">Actions</TableHead>
@@ -410,7 +437,7 @@ export const TimesheetTable: React.FC = () => {
                       <TableCell>
                           <span className="flex items-center">
                               <Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
-                              {formatDurationFromTotalMinutes(record.projectDurationMinutes)}
+                              {formatDurationFromTotalSeconds(record.projectDurationSeconds)}
                           </span>
                       </TableCell>
                       <TableCell>
@@ -529,4 +556,3 @@ export const TimesheetTable: React.FC = () => {
     </div>
   );
 };
-

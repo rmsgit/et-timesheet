@@ -15,7 +15,7 @@ interface TimesheetContextType {
   addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours'>) => Promise<void>;
   updateTimeRecord: (record: TimeRecord) => Promise<void>;
   deleteTimeRecord: (recordId: string) => Promise<void>;
-  setCompletionDetails: (recordId: string, completedInHours: number, completedInMinutes: number) => Promise<void>;
+  setCompletionDetails: (recordId: string, completedInHours: number, completedInMinutes: number, completedInSeconds: number) => Promise<void>;
   getRecordsForUser: (userId: string) => TimeRecord[];
   getRecordsByDateRange: (userId: string, startDate: Date, endDate: Date) => TimeRecord[];
   getAllRecordsByDateRange: (startDate: Date, endDate: Date) => TimeRecord[];
@@ -131,10 +131,10 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     }
 
     const newRecordObject: TimeRecord = {
-      ...recordData,
+      ...recordData, // This includes projectDurationSeconds if provided from form
       id: newRecordId,
       userId: user.id,
-      durationHours: 0, // Duration is 0 initially, set upon completion
+      durationHours: 0, 
       // completedAt is undefined here
     };
     
@@ -161,17 +161,13 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         toast({ title: "Configuration Error", description: "Firebase is not connected. Record not updated.", variant: "destructive" });
         return;
     }
-
-    // Ensure all required fields are present, spread original values for safety if not changing duration/completion here
     const existingRecord = timeRecords.find(r => r.id === updatedRecord.id);
     const recordWithPreservedCompletion: TimeRecord = {
-        ...(existingRecord || {}), // Spread existing or empty object if not found (should not happen)
-        ...updatedRecord, // Overlay with new values from form
-        // Ensure durationHours and completedAt from existing record are preserved if not explicitly changed
+        ...(existingRecord || {}), 
+        ...updatedRecord, 
         durationHours: existingRecord ? existingRecord.durationHours : updatedRecord.durationHours,
         completedAt: existingRecord ? existingRecord.completedAt : updatedRecord.completedAt,
     };
-
 
     const recordToSave = Object.entries(recordWithPreservedCompletion).reduce((acc, [key, value]) => {
       if (value !== undefined) {
@@ -204,7 +200,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     }
   }, [toast]);
 
-  const setCompletionDetails = useCallback(async (recordId: string, completedInHoursValue: number, completedInMinutesValue: number) => {
+  const setCompletionDetails = useCallback(async (recordId: string, completedInHoursValue: number, completedInMinutesValue: number, completedInSecondsValue: number) => {
     if (!database) {
         toast({ title: "Configuration Error", description: "Firebase is not connected. Record status not updated.", variant: "destructive" });
         return;
@@ -219,7 +215,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       return;
     }
 
-    const finalDurationHours = completedInHoursValue + (completedInMinutesValue / 60);
+    const finalDurationHours = completedInHoursValue + (completedInMinutesValue / 60) + (completedInSecondsValue / 3600);
     const completedAtTimestamp = new Date().toISOString();
 
     try {
@@ -290,5 +286,3 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     </TimesheetContext.Provider>
   );
 };
-
-

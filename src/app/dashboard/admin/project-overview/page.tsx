@@ -26,11 +26,23 @@ const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   return `${hours}h ${minutes}m`;
 };
 
-const formatDurationFromTotalMinutes = (totalMinutes: number | undefined | null): string => {
-  if (totalMinutes === undefined || totalMinutes === null || isNaN(totalMinutes) || totalMinutes < 0) return 'N/A';
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return `${hours}h ${minutes}m`;
+const formatDurationFromTotalSeconds = (totalSeconds: number | undefined | null): string => {
+  if (totalSeconds === undefined || totalSeconds === null || isNaN(totalSeconds) || totalSeconds < 0) return 'N/A';
+  if (totalSeconds === 0) return '0s';
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (totalSeconds > 0 && (seconds > 0 || parts.length === 0)) {
+     parts.push(`${seconds}s`);
+  }
+  if (parts.length === 0 && totalSeconds === 0) return "0s";
+  
+  return parts.join(' ') || "0s";
 };
 
 interface ProjectSummary {
@@ -43,7 +55,7 @@ interface ProjectSummary {
 }
 
 type SortableProjectSummaryKeys = keyof ProjectSummary;
-type SortableAppTimeRecordKeys = keyof Pick<AppTimeRecord, 'date' | 'projectType' | 'workType' | 'projectDurationMinutes' | 'durationHours' | 'completedAt'> | 'editorUsername';
+type SortableAppTimeRecordKeys = keyof Pick<AppTimeRecord, 'date' | 'projectType' | 'workType' | 'projectDurationSeconds' | 'durationHours' | 'completedAt'> | 'editorUsername';
 
 export default function ProjectOverviewPage() {
   const { timeRecords: allTimeRecords, isTimesheetLoading } = useTimesheet(); 
@@ -68,7 +80,7 @@ export default function ProjectOverviewPage() {
   const isLoading = isTimesheetLoading || isUsersApiLoading;
 
   const filteredTimeRecordsByDate = useMemo(() => {
-    if (!allTimeRecords || !dateRange?.from) return [];
+    if (isLoading || !allTimeRecords || !dateRange?.from) return [];
     
     const effectiveStartDate = new Date(dateRange.from);
     effectiveStartDate.setHours(0, 0, 0, 0); 
@@ -80,7 +92,7 @@ export default function ProjectOverviewPage() {
       const recordDate = parseISO(record.date);
       return recordDate >= effectiveStartDate && recordDate <= effectiveEndDate;
     });
-  }, [allTimeRecords, dateRange]);
+  }, [allTimeRecords, dateRange, isLoading]);
 
   const projectSummariesFull = useMemo((): ProjectSummary[] => {
     if (isLoading || filteredTimeRecordsByDate.length === 0) return [];
@@ -446,7 +458,7 @@ export default function ProjectOverviewPage() {
                       {renderModalTableSortableHeader("Editor", "editorUsername")}
                       {renderModalTableSortableHeader("Category", "projectType")}
                       {renderModalTableSortableHeader("Work Type", "workType")}
-                      {renderModalTableSortableHeader("Proj. Duration", "projectDurationMinutes")}
+                      {renderModalTableSortableHeader("Proj. Duration", "projectDurationSeconds")}
                       {renderModalTableSortableHeader("Work Time", "durationHours")}
                       {renderModalTableSortableHeader("Status", "completedAt")}
                     </TableRow>
@@ -461,7 +473,7 @@ export default function ProjectOverviewPage() {
                         <TableCell>
                           <span className="flex items-center">
                             <Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
-                            {formatDurationFromTotalMinutes(record.projectDurationMinutes)}
+                            {formatDurationFromTotalSeconds(record.projectDurationSeconds)}
                           </span>
                         </TableCell>
                         <TableCell>

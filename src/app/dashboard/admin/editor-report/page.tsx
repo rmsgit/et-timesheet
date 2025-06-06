@@ -28,14 +28,26 @@ const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   return `${hours}h ${minutes}m`;
 };
 
-const formatDurationFromTotalMinutes = (totalMinutes: number | undefined | null): string => {
-  if (totalMinutes === undefined || totalMinutes === null || isNaN(totalMinutes) || totalMinutes < 0) return 'N/A';
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return `${hours}h ${minutes}m`;
+const formatDurationFromTotalSeconds = (totalSeconds: number | undefined | null): string => {
+  if (totalSeconds === undefined || totalSeconds === null || isNaN(totalSeconds) || totalSeconds < 0) return 'N/A';
+  if (totalSeconds === 0) return '0s';
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+   if (totalSeconds > 0 && (seconds > 0 || parts.length === 0)) {
+     parts.push(`${seconds}s`);
+  }
+  if (parts.length === 0 && totalSeconds === 0) return "0s";
+
+  return parts.join(' ') || "0s";
 };
 
-type SortableTimeRecordKeysEditor = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationMinutes' | 'durationHours' | 'completedAt'>;
+type SortableTimeRecordKeysEditor = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationSeconds' | 'durationHours' | 'completedAt'>;
 
 
 export default function AdminEditorReportPage() {
@@ -66,7 +78,7 @@ export default function AdminEditorReportPage() {
     } else {
       setSelectedEditor(null);
     }
-    setCurrentPage(1); // Reset page when editor changes
+    setCurrentPage(1); 
   }, [selectedUserId, allUsers]);
 
 
@@ -77,6 +89,7 @@ export default function AdminEditorReportPage() {
     effectiveStartDate.setHours(0, 0, 0, 0); 
     
     const effectiveEndDate = dateRange.to || dateRange.from;
+    effectiveEndDate.setHours(23, 59, 59, 999);
 
     return getRecordsByDateRange(selectedUserId, effectiveStartDate, effectiveEndDate);
   }, [selectedUserId, dateRange, getRecordsByDateRange, isLoading]);
@@ -387,7 +400,7 @@ export default function AdminEditorReportPage() {
                         {renderSortableHeader("Project Name", "projectName")}
                         {renderSortableHeader("Category", "projectType")}
                         {renderSortableHeader("Work Type", "workType")}
-                        {renderSortableHeader("Proj. Duration", "projectDurationMinutes")}
+                        {renderSortableHeader("Proj. Duration", "projectDurationSeconds")}
                         {renderSortableHeader("Work Time", "durationHours")}
                         {renderSortableHeader("Status", "completedAt")}
                       </TableRow>
@@ -402,7 +415,7 @@ export default function AdminEditorReportPage() {
                           <TableCell>
                             <span className="flex items-center">
                                 <Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
-                                {formatDurationFromTotalMinutes(record.projectDurationMinutes)}
+                                {formatDurationFromTotalSeconds(record.projectDurationSeconds)}
                             </span>
                           </TableCell>
                           <TableCell>
