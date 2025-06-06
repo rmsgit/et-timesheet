@@ -49,6 +49,12 @@ const formatDateDisplay = (range?: DateRange): string => {
 
 type SortableTimeRecordKeysAdmin = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationMinutes' | 'durationHours' | 'completedAt'> | 'editorUsername';
 
+const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): number => {
+  if (!tsA && !tsB) return 0;
+  if (!tsA) return -1;
+  if (!tsB) return 1;
+  return new Date(tsA).getTime() - new Date(tsB).getTime();
+};
 
 export default function AdminReportPage() {
   const { getAllRecordsByDateRange, timeRecords: allTimeRecordsFromContext, isTimesheetLoading } = useTimesheet();
@@ -119,12 +125,6 @@ export default function AdminReportPage() {
     return sortableItems;
   }, [recordsWithEditorNames, sortConfig]);
   
-  const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): number => {
-    if (!tsA && !tsB) return 0;
-    if (!tsA) return -1; 
-    if (!tsB) return 1;
-    return new Date(tsA).getTime() - new Date(tsB).getTime();
-  };
 
   const paginatedRecords = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
@@ -533,4 +533,3 @@ export default function AdminReportPage() {
     </div>
   );
 }
-
