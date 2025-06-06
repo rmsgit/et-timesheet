@@ -11,10 +11,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { FileText, AlertCircle, Hourglass, Loader2, Package, RefreshCw, FilePlus2, Film, Clock } from 'lucide-react';
+import { FileText, AlertCircle, Hourglass, Loader2, Package, RefreshCw, FilePlus2, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import type { TimeRecord } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
@@ -30,6 +32,9 @@ const formatDurationFromTotalMinutes = (totalMinutes: number | undefined | null)
   return `${hours}h ${minutes}m`;
 };
 
+type SortableTimeRecordKeysMyReport = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationMinutes' | 'durationHours' | 'completedAt'>;
+
+
 export default function MyReportPage() {
   const { user, isAuthLoading } = useAuth();
   const { getRecordsByDateRange, isTimesheetLoading } = useTimesheet();
@@ -39,31 +44,86 @@ export default function MyReportPage() {
     to: new Date(),
   });
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 15;
+  const [sortConfig, setSortConfig] = useState<{ key: SortableTimeRecordKeysMyReport | null; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
+
+
   const isLoading = isAuthLoading || isTimesheetLoading;
 
-  const filteredRecords = useMemo(() => {
+  const allRecordsForUserInRange = useMemo(() => {
     if (isLoading || !user || !dateRange?.from) return [];
     
     const effectiveStartDate = new Date(dateRange.from);
-    effectiveStartDate.setHours(0, 0, 0, 0); // Ensure start date is from the beginning of the day
+    effectiveStartDate.setHours(0, 0, 0, 0); 
 
     const effectiveEndDate = dateRange.to || dateRange.from;
 
-    return getRecordsByDateRange(user.id, effectiveStartDate, effectiveEndDate)
-      .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return getRecordsByDateRange(user.id, effectiveStartDate, effectiveEndDate);
   }, [user, dateRange, getRecordsByDateRange, isLoading]);
 
+  const sortedRecords = useMemo(() => {
+    let sortableItems = [...allRecordsForUserInRange];
+    if (sortConfig.key !== null) {
+      sortableItems.sort((a, b) => {
+        const valA = a[sortConfig.key!];
+        const valB = b[sortConfig.key!];
+        
+        let comparison = 0;
+         if (sortConfig.key === 'date' || sortConfig.key === 'completedAt') {
+          comparison = (new Date(valA as string).getTime() || 0) - (new Date(valB as string).getTime() || 0);
+        } else if (typeof valA === 'number' && typeof valB === 'number') {
+          comparison = valA - valB;
+        } else if (valA === undefined || valA === null) {
+          comparison = -1;
+        } else if (valB === undefined || valB === null) {
+          comparison = 1;
+        } else if (typeof valA === 'string' && typeof valB === 'string') {
+          comparison = valA.localeCompare(valB);
+        } else {
+          const strA = String(valA).toLowerCase();
+          const strB = String(valB).toLowerCase();
+          comparison = strA.localeCompare(strB);
+        }
+        return sortConfig.direction === 'ascending' ? comparison : -comparison;
+      });
+    }
+    return sortableItems;
+  }, [allRecordsForUserInRange, sortConfig]);
+
+  const paginatedRecords = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    return sortedRecords.slice(startIndex, startIndex + rowsPerPage);
+  }, [sortedRecords, currentPage, rowsPerPage]);
+
+  const totalPages = Math.ceil(sortedRecords.length / rowsPerPage);
+
+  const requestSort = (key: SortableTimeRecordKeysMyReport) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+    setCurrentPage(1);
+  };
+
+  const getSortIcon = (columnKey: SortableTimeRecordKeysMyReport) => {
+    if (sortConfig.key !== columnKey) return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
+  };
+
+
   const totalHours = useMemo(() => {
-    return filteredRecords.reduce((sum, record) => sum + record.durationHours, 0);
-  }, [filteredRecords]);
+    return allRecordsForUserInRange.reduce((sum, record) => sum + record.durationHours, 0);
+  }, [allRecordsForUserInRange]);
 
   const totalProjects = useMemo(() => {
-    return new Set(filteredRecords.map(record => record.projectName)).size;
-  }, [filteredRecords]);
+    return new Set(allRecordsForUserInRange.map(record => record.projectName)).size;
+  }, [allRecordsForUserInRange]);
   
   const totalCompletedTasks = useMemo(() => {
-    return filteredRecords.filter(record => record.completedAt).length;
-  }, [filteredRecords]);
+    return allRecordsForUserInRange.filter(record => record.completedAt).length;
+  }, [allRecordsForUserInRange]);
 
   if (isAuthLoading) {
     return (
@@ -90,6 +150,14 @@ export default function MyReportPage() {
     }
   };
 
+  const renderSortableHeader = (label: string, columnKey: SortableTimeRecordKeysMyReport, className?: string) => (
+    <TableHead className={cn("cursor-pointer hover:bg-muted/50", className)} onClick={() => requestSort(columnKey)}>
+      <div className="flex items-center">
+        {label}
+        {getSortIcon(columnKey)}
+      </div>
+    </TableHead>
+  );
 
   return (
     <div className="space-y-6">
@@ -97,7 +165,7 @@ export default function MyReportPage() {
         <h1 className="text-3xl font-bold tracking-tight flex items-center">
           <FileText className="mr-3 h-8 w-8 text-primary" /> My Time Report
         </h1>
-        <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} disabled={isLoading} />
+        <DateRangePicker dateRange={dateRange} onDateChange={(range) => { setDateRange(range); setCurrentPage(1);}} disabled={isLoading} />
       </div>
 
       {isLoading && !isAuthLoading ? ( 
@@ -116,7 +184,7 @@ export default function MyReportPage() {
             <CardContent>
               <div className="text-2xl font-bold">{formatDurationFromDecimalHours(totalHours)}</div>
               <p className="text-xs text-muted-foreground">
-                Across {filteredRecords.length} entries
+                Across {allRecordsForUserInRange.length} entries
               </p>
             </CardContent>
           </Card>
@@ -149,7 +217,7 @@ export default function MyReportPage() {
 
       {isLoading && !isAuthLoading ? (
         <TableSkeleton columnCount={7} className="shadow-lg h-[480px]" />
-      ) : filteredRecords.length > 0 ? (
+      ) : sortedRecords.length > 0 ? (
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>Detailed Log</CardTitle>
@@ -162,17 +230,17 @@ export default function MyReportPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Project Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Work Type</TableHead>
-                    <TableHead>Proj. Duration</TableHead>
-                    <TableHead>Work Time</TableHead>
-                    <TableHead>Status</TableHead>
+                    {renderSortableHeader("Date", "date")}
+                    {renderSortableHeader("Project Name", "projectName")}
+                    {renderSortableHeader("Category", "projectType")}
+                    {renderSortableHeader("Work Type", "workType")}
+                    {renderSortableHeader("Proj. Duration", "projectDurationMinutes")}
+                    {renderSortableHeader("Work Time", "durationHours")}
+                    {renderSortableHeader("Status", "completedAt")}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRecords.map((record) => (
+                  {paginatedRecords.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell>{format(parseISO(record.date), 'MMM d, yyyy')}</TableCell>
                       <TableCell className="font-medium">{record.projectName}</TableCell>
@@ -203,9 +271,41 @@ export default function MyReportPage() {
               </Table>
             </ScrollArea>
           </CardContent>
-          <CardFooter className="justify-end pt-4">
-            <p className="text-sm text-muted-foreground">Total entries in selected range: {filteredRecords.length}</p>
-          </CardFooter>
+          {totalPages > 1 && (
+            <CardFooter className="justify-between pt-4">
+               <span className="text-sm text-muted-foreground">
+                Total entries: {sortedRecords.length}
+              </span>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1 || isLoading}
+                >
+                  <ChevronLeft className="mr-1 h-4 w-4" />
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages || isLoading}
+                >
+                  Next
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
+            </CardFooter>
+          )}
+          {totalPages <= 1 && sortedRecords.length > 0 && (
+             <CardFooter className="justify-end pt-4">
+                <p className="text-sm text-muted-foreground">Total entries in selected range: {sortedRecords.length}</p>
+            </CardFooter>
+          )}
         </Card>
       ) : (
         <Card className="shadow-md text-center py-10">
@@ -221,4 +321,3 @@ export default function MyReportPage() {
     </div>
   );
 }
-

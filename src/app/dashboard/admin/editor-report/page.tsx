@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
@@ -13,11 +13,13 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { UserCheck, AlertCircle, Hourglass, CheckCircle2, Briefcase, Loader2, BarChart2, Package, RefreshCw, FilePlus2, Film, Clock } from 'lucide-react';
+import { UserCheck, AlertCircle, Hourglass, CheckCircle2, Briefcase, Loader2, BarChart2, Package, RefreshCw, FilePlus2, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import type { User, TimeRecord } from '@/lib/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
@@ -33,6 +35,9 @@ const formatDurationFromTotalMinutes = (totalMinutes: number | undefined | null)
   return `${hours}h ${minutes}m`;
 };
 
+type SortableTimeRecordKeysEditor = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationMinutes' | 'durationHours' | 'completedAt'>;
+
+
 export default function AdminEditorReportPage() {
   const { getRecordsByDateRange, isTimesheetLoading } = useTimesheet();
   const { users: allUsers, isUsersLoading } = useMockUsers();
@@ -43,6 +48,10 @@ export default function AdminEditorReportPage() {
     from: new Date(),
     to: new Date(),
   });
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 15;
+  const [sortConfig, setSortConfig] = useState<{ key: SortableTimeRecordKeysEditor | null; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
 
   const isLoading = isUsersLoading || isTimesheetLoading;
 
@@ -57,34 +66,94 @@ export default function AdminEditorReportPage() {
     } else {
       setSelectedEditor(null);
     }
+    setCurrentPage(1); // Reset page when editor changes
   }, [selectedUserId, allUsers]);
 
-  const filteredRecords = useMemo(() => {
+
+  const allRecordsForEditorInRange = useMemo(() => {
     if (isLoading || !selectedUserId || !dateRange?.from) return [];
     
     const effectiveStartDate = new Date(dateRange.from);
-    effectiveStartDate.setHours(0, 0, 0, 0); // Ensure start date is from the beginning of the day
+    effectiveStartDate.setHours(0, 0, 0, 0); 
     
     const effectiveEndDate = dateRange.to || dateRange.from;
 
-    return getRecordsByDateRange(selectedUserId, effectiveStartDate, effectiveEndDate)
-      .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return getRecordsByDateRange(selectedUserId, effectiveStartDate, effectiveEndDate);
   }, [selectedUserId, dateRange, getRecordsByDateRange, isLoading]);
 
+  const sortedRecords = useMemo(() => {
+    let sortableItems = [...allRecordsForEditorInRange];
+    if (sortConfig.key !== null) {
+      sortableItems.sort((a, b) => {
+        const valA = a[sortConfig.key!];
+        const valB = b[sortConfig.key!];
+        
+        let comparison = 0;
+        if (sortConfig.key === 'date' || sortConfig.key === 'completedAt') {
+          comparison = compareTimestamps(valA as string | undefined, valB as string | undefined);
+        } else if (typeof valA === 'number' && typeof valB === 'number') {
+          comparison = valA - valB;
+        } else if (valA === undefined || valA === null) {
+          comparison = -1;
+        } else if (valB === undefined || valB === null) {
+          comparison = 1;
+        } else if (typeof valA === 'string' && typeof valB === 'string') {
+          comparison = valA.localeCompare(valB);
+        } else {
+          const strA = String(valA).toLowerCase();
+          const strB = String(valB).toLowerCase();
+          comparison = strA.localeCompare(strB);
+        }
+        return sortConfig.direction === 'ascending' ? comparison : -comparison;
+      });
+    }
+    return sortableItems;
+  }, [allRecordsForEditorInRange, sortConfig]);
+
+  const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): number => {
+    if (!tsA && !tsB) return 0;
+    if (!tsA) return -1; 
+    if (!tsB) return 1;
+    return new Date(tsA).getTime() - new Date(tsB).getTime();
+  };
+  
+  const paginatedRecords = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    return sortedRecords.slice(startIndex, startIndex + rowsPerPage);
+  }, [sortedRecords, currentPage, rowsPerPage]);
+
+  const totalPages = Math.ceil(sortedRecords.length / rowsPerPage);
+
+  const requestSort = (key: SortableTimeRecordKeysEditor) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+    setCurrentPage(1);
+  };
+
+  const getSortIcon = (columnKey: SortableTimeRecordKeysEditor) => {
+    if (sortConfig.key !== columnKey) {
+      return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    }
+    return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
+  };
+
   const totalHours = useMemo(() => {
-    return filteredRecords.reduce((sum, record) => sum + record.durationHours, 0);
-  }, [filteredRecords]);
+    return allRecordsForEditorInRange.reduce((sum, record) => sum + record.durationHours, 0);
+  }, [allRecordsForEditorInRange]);
 
   const totalProjects = useMemo(() => {
-    return new Set(filteredRecords.map(record => record.projectName)).size;
-  }, [filteredRecords]);
+    return new Set(allRecordsForEditorInRange.map(record => record.projectName)).size;
+  }, [allRecordsForEditorInRange]);
   
   const totalCompletedTasks = useMemo(() => {
-    return filteredRecords.filter(record => record.completedAt).length;
-  }, [filteredRecords]);
+    return allRecordsForEditorInRange.filter(record => record.completedAt).length;
+  }, [allRecordsForEditorInRange]);
 
   const dailyHoursChartData = useMemo(() => {
-    if (isLoading || !dateRange?.from || filteredRecords.length === 0) return [];
+    if (isLoading || !dateRange?.from || allRecordsForEditorInRange.length === 0) return [];
 
     const chartStartDate = new Date(dateRange.from);
     chartStartDate.setHours(0,0,0,0);
@@ -98,7 +167,7 @@ export default function AdminEditorReportPage() {
       dailyData[format(day, 'yyyy-MM-dd')] = { normalHours: 0, revisionHours: 0 };
     });
 
-    filteredRecords.forEach(record => {
+    allRecordsForEditorInRange.forEach(record => {
       const recordDateStr = format(parseISO(record.date), 'yyyy-MM-dd');
       if (dailyData[recordDateStr] !== undefined) {
         if (record.workType === 'Revision') {
@@ -117,7 +186,7 @@ export default function AdminEditorReportPage() {
         revisionHours: parseFloat(hoursData.revisionHours.toFixed(1)),
       }))
       .sort((a,b) => compareAsc(parseISO(a.fullDate), parseISO(b.fullDate)));
-  }, [filteredRecords, dateRange, isLoading]);
+  }, [allRecordsForEditorInRange, dateRange, isLoading]);
 
   const getWorkTypeBadge = (workType: TimeRecord['workType']) => {
     switch (workType) {
@@ -131,6 +200,15 @@ export default function AdminEditorReportPage() {
         return <Badge variant="secondary">{workType}</Badge>;
     }
   };
+
+  const renderSortableHeader = (label: string, columnKey: SortableTimeRecordKeysEditor, className?: string) => (
+    <TableHead className={cn("cursor-pointer hover:bg-muted/50", className)} onClick={() => requestSort(columnKey)}>
+      <div className="flex items-center">
+        {label}
+        {getSortIcon(columnKey)}
+      </div>
+    </TableHead>
+  );
 
 
   return (
@@ -156,7 +234,7 @@ export default function AdminEditorReportPage() {
             ) : editorUsers.length > 0 ? (
                 <Select
                     value={selectedUserId}
-                    onValueChange={setSelectedUserId}
+                    onValueChange={(value) => { setSelectedUserId(value); setCurrentPage(1); }}
                     disabled={isLoading}
                 >
                     <SelectTrigger id="editor-select">
@@ -176,7 +254,7 @@ export default function AdminEditorReportPage() {
           </div>
           <div className="space-y-2">
             <Label>Date Range</Label>
-            <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} disabled={isLoading || !selectedUserId} />
+            <DateRangePicker dateRange={dateRange} onDateChange={(range) => { setDateRange(range); setCurrentPage(1);}} disabled={isLoading || !selectedUserId} />
           </div>
         </CardContent>
       </Card>
@@ -292,7 +370,7 @@ export default function AdminEditorReportPage() {
 
           {isLoading ? (
             <TableSkeleton columnCount={7} className="shadow-lg mt-6 h-[480px]" />
-          ) : filteredRecords.length > 0 ? (
+          ) : sortedRecords.length > 0 ? (
             <Card className="shadow-lg mt-6">
               <CardHeader>
                 <CardTitle>Detailed Log for {selectedEditor?.username || 'Editor'}</CardTitle>
@@ -305,17 +383,17 @@ export default function AdminEditorReportPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Project Name</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Work Type</TableHead>
-                        <TableHead>Proj. Duration</TableHead>
-                        <TableHead>Work Time</TableHead>
-                        <TableHead>Status</TableHead>
+                        {renderSortableHeader("Date", "date")}
+                        {renderSortableHeader("Project Name", "projectName")}
+                        {renderSortableHeader("Category", "projectType")}
+                        {renderSortableHeader("Work Type", "workType")}
+                        {renderSortableHeader("Proj. Duration", "projectDurationMinutes")}
+                        {renderSortableHeader("Work Time", "durationHours")}
+                        {renderSortableHeader("Status", "completedAt")}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredRecords.map((record) => (
+                      {paginatedRecords.map((record) => (
                         <TableRow key={record.id}>
                           <TableCell>{format(parseISO(record.date), 'MMM d, yyyy')}</TableCell>
                           <TableCell className="font-medium">{record.projectName}</TableCell>
@@ -346,9 +424,41 @@ export default function AdminEditorReportPage() {
                   </Table>
                 </ScrollArea>
               </CardContent>
-              <CardFooter className="justify-end pt-4">
-                <p className="text-sm text-muted-foreground">Total entries for {selectedEditor?.username || 'editor'} in range: {filteredRecords.length}</p>
-              </CardFooter>
+              {totalPages > 1 && (
+                <CardFooter className="justify-between pt-4">
+                   <span className="text-sm text-muted-foreground">
+                    Total entries: {sortedRecords.length}
+                  </span>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1 || isLoading}
+                    >
+                      <ChevronLeft className="mr-1 h-4 w-4" />
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages || isLoading}
+                    >
+                      Next
+                      <ChevronRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardFooter>
+              )}
+               {totalPages <=1 && sortedRecords.length > 0 && (
+                 <CardFooter className="justify-end pt-4">
+                    <p className="text-sm text-muted-foreground">Total entries for {selectedEditor?.username || 'editor'} in range: {sortedRecords.length}</p>
+                 </CardFooter>
+               )}
             </Card>
           ) : !isLoading && selectedUserId && ( 
             <Card className="shadow-md text-center py-10 mt-6">
@@ -366,4 +476,3 @@ export default function AdminEditorReportPage() {
     </div>
   );
 }
-

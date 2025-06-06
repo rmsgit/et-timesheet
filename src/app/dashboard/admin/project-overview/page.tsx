@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import { useTimesheet } from '@/hooks/useTimesheet';
-import { Layers, Hourglass, CheckCircle2, ListChecks, AlertCircle, ListTree, FilePlus2, RefreshCw, Package, Film, Clock } from 'lucide-react';
+import { Layers, Hourglass, CheckCircle2, ListChecks, AlertCircle, ListTree, FilePlus2, RefreshCw, Package, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,8 @@ import { format, parseISO } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useMockUsers } from '@/hooks/useMockUsers';
-import type { TimeRecord as AppTimeRecord } from '@/lib/types';
+import type { TimeRecord as AppTimeRecord, User } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
@@ -41,8 +42,11 @@ interface ProjectSummary {
   status: 'Completed' | 'In Progress' | 'Pending';
 }
 
+type SortableProjectSummaryKeys = keyof ProjectSummary;
+type SortableAppTimeRecordKeys = keyof Pick<AppTimeRecord, 'date' | 'projectType' | 'workType' | 'projectDurationMinutes' | 'durationHours' | 'completedAt'> | 'editorUsername';
+
 export default function ProjectOverviewPage() {
-  const { timeRecords: allTimeRecords, isTimesheetLoading } = useTimesheet(); // Renamed to avoid conflict
+  const { timeRecords: allTimeRecords, isTimesheetLoading } = useTimesheet(); 
   const { users: allUsers, isUsersLoading: isUsersApiLoading } = useMockUsers();
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -52,6 +56,14 @@ export default function ProjectOverviewPage() {
 
   const [selectedProjectForDetails, setSelectedProjectForDetails] = useState<ProjectSummary | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+
+  const [mainTableCurrentPage, setMainTableCurrentPage] = useState(1);
+  const [modalTableCurrentPage, setModalTableCurrentPage] = useState(1);
+  const rowsPerPage = 15;
+
+  const [mainTableSortConfig, setMainTableSortConfig] = useState<{ key: SortableProjectSummaryKeys | null; direction: 'ascending' | 'descending' }>({ key: 'projectName', direction: 'ascending' });
+  const [modalTableSortConfig, setModalTableSortConfig] = useState<{ key: SortableAppTimeRecordKeys | null; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
+
 
   const isLoading = isTimesheetLoading || isUsersApiLoading;
 
@@ -70,7 +82,7 @@ export default function ProjectOverviewPage() {
     });
   }, [allTimeRecords, dateRange]);
 
-  const projectSummaries = useMemo((): ProjectSummary[] => {
+  const projectSummariesFull = useMemo((): ProjectSummary[] => {
     if (isLoading || filteredTimeRecordsByDate.length === 0) return [];
 
     const projectsData: { [key: string]: {
@@ -112,8 +124,47 @@ export default function ProjectOverviewPage() {
         pendingTasks: pendingTasks,
         status: status,
       };
-    }).sort((a, b) => a.projectName.localeCompare(b.projectName));
+    });
   }, [filteredTimeRecordsByDate, isLoading]);
+
+  const sortedProjectSummaries = useMemo(() => {
+    let sortableItems = [...projectSummariesFull];
+    if (mainTableSortConfig.key !== null) {
+      sortableItems.sort((a, b) => {
+        const valA = a[mainTableSortConfig.key!];
+        const valB = b[mainTableSortConfig.key!];
+        let comparison = 0;
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          comparison = valA - valB;
+        } else if (typeof valA === 'string' && typeof valB === 'string') {
+          comparison = valA.localeCompare(valB);
+        }
+        return mainTableSortConfig.direction === 'ascending' ? comparison : -comparison;
+      });
+    }
+    return sortableItems;
+  }, [projectSummariesFull, mainTableSortConfig]);
+
+  const paginatedProjectSummaries = useMemo(() => {
+    const startIndex = (mainTableCurrentPage - 1) * rowsPerPage;
+    return sortedProjectSummaries.slice(startIndex, startIndex + rowsPerPage);
+  }, [sortedProjectSummaries, mainTableCurrentPage, rowsPerPage]);
+  const mainTableTotalPages = Math.ceil(sortedProjectSummaries.length / rowsPerPage);
+
+  const requestMainTableSort = (key: SortableProjectSummaryKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (mainTableSortConfig.key === key && mainTableSortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setMainTableSortConfig({ key, direction });
+    setMainTableCurrentPage(1);
+  };
+
+  const getMainTableSortIcon = (columnKey: SortableProjectSummaryKeys) => {
+    if (mainTableSortConfig.key !== columnKey) return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    return mainTableSortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
+  };
+
 
   const getUsernameById = useCallback((userId: string): string => {
     if (isUsersApiLoading || !allUsers) return 'Loading...';
@@ -133,15 +184,58 @@ export default function ProjectOverviewPage() {
     }
   };
   
-  const detailedRecordsForModal = useMemo(() => {
+  const detailedRecordsForModalFull = useMemo(() => {
     if (!selectedProjectForDetails || filteredTimeRecordsByDate.length === 0) return [];
     return filteredTimeRecordsByDate
       .filter(record => record.projectName === selectedProjectForDetails.projectName)
-      .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [selectedProjectForDetails, filteredTimeRecordsByDate]);
+      .map(record => ({...record, editorUsername: getUsernameById(record.userId)}));
+  }, [selectedProjectForDetails, filteredTimeRecordsByDate, getUsernameById]);
+
+  const sortedDetailedRecordsForModal = useMemo(() => {
+    let sortableItems = [...detailedRecordsForModalFull];
+    if (modalTableSortConfig.key !== null) {
+      sortableItems.sort((a, b) => {
+        const valA = a[modalTableSortConfig.key!];
+        const valB = b[modalTableSortConfig.key!];
+        let comparison = 0;
+        if (modalTableSortConfig.key === 'date' || modalTableSortConfig.key === 'completedAt') {
+           comparison = (new Date(valA as string).getTime() || 0) - (new Date(valB as string).getTime() || 0);
+        } else if (typeof valA === 'number' && typeof valB === 'number') {
+          comparison = valA - valB;
+        } else if (typeof valA === 'string' && typeof valB === 'string') {
+          comparison = valA.localeCompare(valB);
+        }
+        return modalTableSortConfig.direction === 'ascending' ? comparison : -comparison;
+      });
+    }
+    return sortableItems;
+  },[detailedRecordsForModalFull, modalTableSortConfig]);
+
+  const paginatedDetailedRecordsForModal = useMemo(() => {
+    const startIndex = (modalTableCurrentPage - 1) * rowsPerPage;
+    return sortedDetailedRecordsForModal.slice(startIndex, startIndex + rowsPerPage);
+  }, [sortedDetailedRecordsForModal, modalTableCurrentPage, rowsPerPage]);
+  const modalTableTotalPages = Math.ceil(sortedDetailedRecordsForModal.length / rowsPerPage);
+
+  const requestModalTableSort = (key: SortableAppTimeRecordKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (modalTableSortConfig.key === key && modalTableSortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setModalTableSortConfig({ key, direction });
+    setModalTableCurrentPage(1);
+  };
+
+  const getModalTableSortIcon = (columnKey: SortableAppTimeRecordKeys) => {
+    if (modalTableSortConfig.key !== columnKey) return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    return modalTableSortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
+  };
+
 
   const handleViewProjectDetails = (project: ProjectSummary) => {
     setSelectedProjectForDetails(project);
+    setModalTableCurrentPage(1);
+    setModalTableSortConfig({ key: 'date', direction: 'descending' });
     setIsDetailsModalOpen(true);
   };
 
@@ -158,10 +252,28 @@ export default function ProjectOverviewPage() {
     }
   };
 
-  const totalProjectsCount = projectSummaries.length;
-  const completedProjectsCount = projectSummaries.filter(p => p.status === 'Completed').length;
-  const inProgressProjectsCount = projectSummaries.filter(p => p.status === 'In Progress').length;
-  const pendingProjectsCount = projectSummaries.filter(p => p.status === 'Pending').length;
+  const totalProjectsCount = projectSummariesFull.length;
+  const completedProjectsCount = projectSummariesFull.filter(p => p.status === 'Completed').length;
+  const inProgressProjectsCount = projectSummariesFull.filter(p => p.status === 'In Progress').length;
+  const pendingProjectsCount = projectSummariesFull.filter(p => p.status === 'Pending').length;
+
+  const renderMainTableSortableHeader = (label: string, columnKey: SortableProjectSummaryKeys, className?: string) => (
+    <TableHead className={cn("cursor-pointer hover:bg-muted/50", className)} onClick={() => requestMainTableSort(columnKey)}>
+      <div className="flex items-center">
+        {label}
+        {getMainTableSortIcon(columnKey)}
+      </div>
+    </TableHead>
+  );
+  
+  const renderModalTableSortableHeader = (label: string, columnKey: SortableAppTimeRecordKeys, className?: string) => (
+    <TableHead className={cn("cursor-pointer hover:bg-muted/50", className)} onClick={() => requestModalTableSort(columnKey)}>
+      <div className="flex items-center">
+        {label}
+        {getModalTableSortIcon(columnKey)}
+      </div>
+    </TableHead>
+  );
 
   return (
     <div className="space-y-6">
@@ -174,7 +286,7 @@ export default function ProjectOverviewPage() {
                 Summary of all projects {dateRange?.from && dateRange.to ? `from ${format(dateRange.from, "PPP")} to ${format(dateRange.to, "PPP")}` : 'for all time'}.
             </CardDescription>
         </div>
-        <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} disabled={isLoading} />
+        <DateRangePicker dateRange={dateRange} onDateChange={(range) => { setDateRange(range); setMainTableCurrentPage(1); }} disabled={isLoading} />
       </div>
       
       {isLoading ? (
@@ -184,7 +296,7 @@ export default function ProjectOverviewPage() {
             <CardSkeleton className="shadow-md" />
             <CardSkeleton className="shadow-md" />
         </div>
-      ) : projectSummaries.length > 0 ? (
+      ) : projectSummariesFull.length > 0 ? (
          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card className="shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -249,7 +361,7 @@ export default function ProjectOverviewPage() {
 
       {isLoading ? (
         <TableSkeleton columnCount={7} className="shadow-lg mt-6 h-[480px]" />
-      ) : projectSummaries.length > 0 ? (
+      ) : projectSummariesFull.length > 0 ? (
         <Card className="shadow-lg mt-6">
           <CardHeader>
             <CardTitle>Project Status Details</CardTitle>
@@ -262,17 +374,17 @@ export default function ProjectOverviewPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[25%]">Project Name</TableHead>
-                    <TableHead className="w-[15%]">Status</TableHead>
-                    <TableHead className="text-right w-[15%]">Total Work Time</TableHead>
-                    <TableHead className="text-right w-[15%]">Total Tasks</TableHead>
-                    <TableHead className="text-right w-[10%]">Completed</TableHead>
-                    <TableHead className="text-right w-[10%]">Pending</TableHead>
+                    {renderMainTableSortableHeader("Project Name", "projectName", "w-[25%]")}
+                    {renderMainTableSortableHeader("Status", "status", "w-[15%]")}
+                    {renderMainTableSortableHeader("Total Work Time", "totalHours", "text-right w-[15%]")}
+                    {renderMainTableSortableHeader("Total Tasks", "totalTasks", "text-right w-[15%]")}
+                    {renderMainTableSortableHeader("Completed", "completedTasks", "text-right w-[10%]")}
+                    {renderMainTableSortableHeader("Pending", "pendingTasks", "text-right w-[10%]")}
                     <TableHead className="text-center w-[10%]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {projectSummaries.map((project) => (
+                  {paginatedProjectSummaries.map((project) => (
                     <TableRow key={project.projectName}>
                       <TableCell className="font-medium">{project.projectName}</TableCell>
                       <TableCell>{getStatusBadge(project.status)}</TableCell>
@@ -297,6 +409,17 @@ export default function ProjectOverviewPage() {
               </Table>
             </ScrollArea>
           </CardContent>
+          {mainTableTotalPages > 1 && (
+            <div className="flex items-center justify-between space-x-2 p-4 border-t">
+              <Button variant="outline" size="sm" onClick={() => setMainTableCurrentPage(prev => Math.max(1, prev - 1))} disabled={mainTableCurrentPage === 1}>
+                <ChevronLeft className="mr-1 h-4 w-4" /> Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">Page {mainTableCurrentPage} of {mainTableTotalPages}</span>
+              <Button variant="outline" size="sm" onClick={() => setMainTableCurrentPage(prev => Math.min(mainTableTotalPages, prev + 1))} disabled={mainTableCurrentPage === mainTableTotalPages}>
+                Next <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </Card>
       ) : !isLoading && (
         <></> 
@@ -313,25 +436,26 @@ export default function ProjectOverviewPage() {
                 Showing records {dateRange?.from && dateRange.to ? `from ${format(dateRange.from, "PPP")} to ${format(dateRange.to, "PPP")}` : 'for all time'}.
               </CardDescription>
             </DialogHeader>
-            {detailedRecordsForModal.length > 0 ? (
+            {paginatedDetailedRecordsForModal.length > 0 ? (
+              <>
               <ScrollArea className="flex-grow">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Editor</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Work Type</TableHead>
-                      <TableHead>Proj. Duration</TableHead>
-                      <TableHead>Work Time</TableHead>
-                      <TableHead>Status</TableHead>
+                      {renderModalTableSortableHeader("Date", "date")}
+                      {renderModalTableSortableHeader("Editor", "editorUsername")}
+                      {renderModalTableSortableHeader("Category", "projectType")}
+                      {renderModalTableSortableHeader("Work Type", "workType")}
+                      {renderModalTableSortableHeader("Proj. Duration", "projectDurationMinutes")}
+                      {renderModalTableSortableHeader("Work Time", "durationHours")}
+                      {renderModalTableSortableHeader("Status", "completedAt")}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {detailedRecordsForModal.map((record) => (
+                    {paginatedDetailedRecordsForModal.map((record) => (
                       <TableRow key={record.id}>
                         <TableCell>{format(parseISO(record.date), 'MMM d, yyyy')}</TableCell>
-                        <TableCell>{getUsernameById(record.userId)}</TableCell>
+                        <TableCell>{record.editorUsername}</TableCell>
                         <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
                         <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
                         <TableCell>
@@ -358,6 +482,18 @@ export default function ProjectOverviewPage() {
                   </TableBody>
                 </Table>
               </ScrollArea>
+              {modalTableTotalPages > 1 && (
+                <div className="flex items-center justify-between space-x-2 pt-4 border-t">
+                  <Button variant="outline" size="sm" onClick={() => setModalTableCurrentPage(prev => Math.max(1, prev - 1))} disabled={modalTableCurrentPage === 1}>
+                    <ChevronLeft className="mr-1 h-4 w-4" /> Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">Page {modalTableCurrentPage} of {modalTableTotalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setModalTableCurrentPage(prev => Math.min(modalTableTotalPages, prev + 1))} disabled={modalTableCurrentPage === modalTableTotalPages}>
+                    Next <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              </>
             ) : (
               <div className="text-center py-10">
                 <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground" />
@@ -375,4 +511,3 @@ export default function ProjectOverviewPage() {
     </div>
   );
 }
-

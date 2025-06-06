@@ -1,9 +1,9 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useProjectTypes } from '@/hooks/useProjectTypes';
-import { useTimesheet } from '@/hooks/useTimesheet'; // To check if type is in use
+import { useTimesheet } from '@/hooks/useTimesheet'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,11 +32,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, PlusCircle, Trash2, Edit2, Save, X, AlertTriangle, Loader2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Trash2, Edit2, Save, X, AlertTriangle, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export const ProjectTypesManagementTable: React.FC = () => {
   const { projectTypes, addProjectType, updateProjectType, deleteProjectType, isLoadingProjectTypes, isProjectTypeInUse } = useProjectTypes();
@@ -50,7 +51,44 @@ export const ProjectTypesManagementTable: React.FC = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 15;
+  const [sortConfig, setSortConfig] = useState<{ key: 'projectTypeName'; direction: 'ascending' | 'descending' }>({ key: 'projectTypeName', direction: 'ascending' });
+
+
   const isLoading = isLoadingProjectTypes || isTimesheetLoading;
+
+  const sortedProjectTypes = useMemo(() => {
+    let sortableItems = [...projectTypes];
+    if (sortConfig.key === 'projectTypeName') {
+      sortableItems.sort((a, b) => {
+        const comparison = a.localeCompare(b);
+        return sortConfig.direction === 'ascending' ? comparison : -comparison;
+      });
+    }
+    return sortableItems;
+  }, [projectTypes, sortConfig]);
+
+  const paginatedProjectTypes = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    return sortedProjectTypes.slice(startIndex, startIndex + rowsPerPage);
+  }, [sortedProjectTypes, currentPage, rowsPerPage]);
+
+  const totalPages = Math.ceil(sortedProjectTypes.length / rowsPerPage);
+
+  const requestSort = () => { // Only one sortable column
+    setSortConfig(prev => ({
+      key: 'projectTypeName',
+      direction: prev.direction === 'ascending' ? 'descending' : 'ascending'
+    }));
+    setCurrentPage(1);
+  };
+
+  const getSortIcon = () => {
+    if (sortConfig.key !== 'projectTypeName') return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
+  };
+
 
   const handleAddNew = () => {
     setEditingType(undefined);
@@ -121,6 +159,9 @@ export const ProjectTypesManagementTable: React.FC = () => {
               title: "Project Type Deleted",
               description: `"${typeToDelete}" has been deleted.`,
             });
+            if (currentPage > 1 && paginatedProjectTypes.length === 1 && sortedProjectTypes.length -1 <= (currentPage -1) * rowsPerPage) {
+              setCurrentPage(currentPage - 1);
+            }
           } else {
              toast({
               title: "Error",
@@ -161,7 +202,7 @@ export const ProjectTypesManagementTable: React.FC = () => {
               headerTexts={["Project Type Name", "Actions"]} 
               cellWidths={["w-4/5", "w-1/5 text-right"]} 
             />
-          ) : projectTypes.length === 0 ? (
+          ) : sortedProjectTypes.length === 0 ? (
              <div className="text-center py-10 border-2 border-dashed rounded-lg bg-card">
                 <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-2 text-xl font-medium">No Project Types Defined</h3>
@@ -171,15 +212,21 @@ export const ProjectTypesManagementTable: React.FC = () => {
                 </Button>
             </div>
           ) : (
+            <>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Project Type Name</TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/50" onClick={requestSort}>
+                    <div className="flex items-center">
+                      Project Type Name
+                      {getSortIcon()}
+                    </div>
+                  </TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {projectTypes.map((type) => (
+                {paginatedProjectTypes.map((type) => (
                   <TableRow key={type}>
                     <TableCell className="font-medium">{type}</TableCell>
                     <TableCell className="text-right">
@@ -208,6 +255,18 @@ export const ProjectTypesManagementTable: React.FC = () => {
                 ))}
               </TableBody>
             </Table>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between space-x-2 p-4 border-t">
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1}>
+                  <ChevronLeft className="mr-1 h-4 w-4" /> Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages}>
+                  Next <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            </>
           )}
         </CardContent>
       </Card>

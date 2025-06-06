@@ -1,13 +1,13 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { useAuth } from '@/hooks/useAuth';
-import type { TimeRecord } from '@/lib/types';
+import type { TimeRecord, WorkType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { TimeRecordForm } from './TimeRecordForm';
-import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X } from 'lucide-react';
+import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, parseISO, isSameDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -40,7 +40,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger, // Added missing import
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -74,6 +74,9 @@ const completionDurationSchema = z.object({
 type CompletionDurationFormData = z.infer<typeof completionDurationSchema>;
 
 
+type SortableTimeRecordKeys = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationMinutes' | 'durationHours' | 'completedAt'>;
+
+
 export const TimesheetTable: React.FC = () => {
   const { user, isAuthLoading } = useAuth();
   const { getRecordsForUser, deleteTimeRecord, setCompletionDetails, isTimesheetLoading } = useTimesheet();
@@ -86,25 +89,84 @@ export const TimesheetTable: React.FC = () => {
   const [recordForCompletion, setRecordForCompletion] = useState<{ id: string; projectName: string } | null>(null);
   const [isSubmittingCompletion, setIsSubmittingCompletion] = useState(false);
 
-  const [isActionSubmitting, setIsActionSubmitting] = useState(false); // For delete
+  const [isActionSubmitting, setIsActionSubmitting] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 15;
+  const [sortConfig, setSortConfig] = useState<{ key: SortableTimeRecordKeys | null; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
 
   const isLoading = isAuthLoading || isTimesheetLoading;
 
-  const userRecords = useMemo(() => {
-    if (isLoading || !user) return [];
-    const allUserRecords = getRecordsForUser(user.id)
-      .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
-    if (selectedDate) {
-      return allUserRecords.filter(record => isSameDay(parseISO(record.date), selectedDate));
-    }
-    return allUserRecords; 
+  const fullUserRecordsForDay = useMemo(() => {
+    if (isLoading || !user || !selectedDate) return [];
+    return getRecordsForUser(user.id)
+      .filter(record => isSameDay(parseISO(record.date), selectedDate));
   }, [user, getRecordsForUser, isLoading, selectedDate]);
 
+  const sortedRecords = useMemo(() => {
+    let sortableItems = [...fullUserRecordsForDay];
+    if (sortConfig.key !== null) {
+      sortableItems.sort((a, b) => {
+        const valA = a[sortConfig.key!];
+        const valB = b[sortConfig.key!];
+
+        let comparison = 0;
+        if (sortConfig.key === 'date' || sortConfig.key === 'completedAt') {
+          comparison = compareTimestamps(valA as string | undefined, valB as string | undefined);
+        } else if (typeof valA === 'number' && typeof valB === 'number') {
+          comparison = valA - valB;
+        } else if (valA === undefined || valA === null) {
+          comparison = -1; // undefined/null values first
+        } else if (valB === undefined || valB === null) {
+          comparison = 1; // undefined/null values first
+        } else if (typeof valA === 'string' && typeof valB === 'string') {
+          comparison = valA.localeCompare(valB);
+        } else { // Fallback for mixed types or other scenarios
+          const strA = String(valA).toLowerCase();
+          const strB = String(valB).toLowerCase();
+          comparison = strA.localeCompare(strB);
+        }
+        return sortConfig.direction === 'ascending' ? comparison : -comparison;
+      });
+    }
+    return sortableItems;
+  }, [fullUserRecordsForDay, sortConfig]);
+  
+  const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): number => {
+    if (!tsA && !tsB) return 0;
+    if (!tsA) return -1; // Sort undefined/null first if ascending
+    if (!tsB) return 1;
+    return new Date(tsA).getTime() - new Date(tsB).getTime();
+  };
+
+  const paginatedRecords = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    return sortedRecords.slice(startIndex, startIndex + rowsPerPage);
+  }, [sortedRecords, currentPage, rowsPerPage]);
+
+  const totalPages = Math.ceil(sortedRecords.length / rowsPerPage);
+
+  const requestSort = (key: SortableTimeRecordKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+    setCurrentPage(1);
+  };
+
+  const getSortIcon = (columnKey: SortableTimeRecordKeys) => {
+    if (sortConfig.key !== columnKey) {
+      return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    }
+    return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
+  };
+
+
   const dailyTotalHours = useMemo(() => {
-    return userRecords.reduce((sum, record) => record.completedAt ? sum + record.durationHours : sum, 0);
-  }, [userRecords]);
+    return fullUserRecordsForDay.reduce((sum, record) => record.completedAt ? sum + record.durationHours : sum, 0);
+  }, [fullUserRecordsForDay]);
 
   const { control: completionFormControl, handleSubmit: handleCompletionSubmit, reset: resetCompletionForm, formState: { errors: completionFormErrors } } = useForm<CompletionDurationFormData>({
     resolver: zodResolver(completionDurationSchema),
@@ -146,6 +208,9 @@ export const TimesheetTable: React.FC = () => {
     try {
       await deleteTimeRecord(recordId);
       toast({ title: "Record Deletion Initiated", description: `Attempting to delete record for "${projectName}".` });
+      if (currentPage > 1 && paginatedRecords.length === 1 && sortedRecords.length -1 <= (currentPage -1) * rowsPerPage) {
+        setCurrentPage(currentPage - 1);
+      }
     } catch (error) {
       toast({ title: "Error", description: "Failed to delete record.", variant: "destructive" });
     } finally {
@@ -187,6 +252,15 @@ export const TimesheetTable: React.FC = () => {
         return <Badge variant="secondary">{workType}</Badge>;
     }
   };
+
+  const renderSortableHeader = (label: string, columnKey: SortableTimeRecordKeys, className?: string) => (
+    <TableHead className={cn("cursor-pointer hover:bg-muted/50", className)} onClick={() => requestSort(columnKey)}>
+      <div className="flex items-center">
+        {label}
+        {getSortIcon(columnKey)}
+      </div>
+    </TableHead>
+  );
 
   return (
     <div className="space-y-6">
@@ -230,7 +304,7 @@ export const TimesheetTable: React.FC = () => {
                 <Calendar
                   mode="single"
                   selected={selectedDate}
-                  onSelect={setSelectedDate}
+                  onSelect={(date) => {setSelectedDate(date); setCurrentPage(1);}}
                   initialFocus
                   disabled={isLoading || isActionSubmitting}
                 />
@@ -298,13 +372,12 @@ export const TimesheetTable: React.FC = () => {
 
       {isTimesheetLoading && !isAuthLoading ? ( 
         <TableSkeleton columnCount={8} className="shadow-lg" /> 
-      ) : userRecords.length === 0 ? (
+      ) : sortedRecords.length === 0 && selectedDate ? (
         <div className="text-center py-10 border-2 border-dashed rounded-lg bg-card">
             <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-2 text-xl font-medium">No time records for {selectedDate ? format(selectedDate, 'PPP') : 'this period'}</h3>
+            <h3 className="mt-2 text-xl font-medium">No time records for {format(selectedDate, 'PPP')}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-                {selectedDate ? "Try selecting a different date or " : ""}
-                Add a new time entry.
+                Try selecting a different date or add a new time entry.
             </p>
             <Button className="mt-6" onClick={handleAddNew} disabled={isActionSubmitting}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Record
@@ -313,117 +386,144 @@ export const TimesheetTable: React.FC = () => {
       ) : (
         <Card className="shadow-lg">
           <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Project Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Work Type</TableHead>
-                  <TableHead>Proj. Duration</TableHead>
-                  <TableHead>Work Time</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {userRecords.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell>{format(parseISO(record.date), 'MMM d, yyyy')}</TableCell>
-                    <TableCell className="font-medium">{record.projectName}</TableCell>
-                    <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
-                    <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
-                    <TableCell>
-                        <span className="flex items-center">
-                            <Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
-                            {formatDurationFromTotalMinutes(record.projectDurationMinutes)}
-                        </span>
-                    </TableCell>
-                    <TableCell>
-                        <span className="flex items-center">
-                            <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
-                            {record.completedAt ? formatDurationFromDecimalHours(record.durationHours) : 'Pending'}
-                        </span>
-                    </TableCell>
-                    <TableCell>
-                      {record.completedAt ? (
-                        <Badge variant="default" className="bg-green-500 hover:bg-green-600">
-                          <CheckCircle className="mr-1 h-3 w-3" /> Completed
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">Pending</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0" disabled={isActionSubmitting || isSubmittingCompletion}>
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {!record.completedAt && (
-                            <DropdownMenuItem onClick={() => openSetCompletionDialog(record)} disabled={isActionSubmitting || isSubmittingCompletion}>
-                              <CheckCircle className="mr-2 h-4 w-4" /> Mark as Complete
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => handleEdit(record)} disabled={isActionSubmitting || isSubmittingCompletion}>
-                            <Edit className="mr-2 h-4 w-4" /> Edit
-                          </DropdownMenuItem>
-                           <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem 
-                                    onSelect={(e) => e.preventDefault()} 
-                                    className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
-                                    disabled={isActionSubmitting || isSubmittingCompletion}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This action cannot be undone. This will permanently delete the time record for "{record.projectName}".
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(record.id, record.projectName)}
-                                    className={buttonVariants({ variant: "destructive" })}
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-              {userRecords.length > 0 && (
-                <TableFooter>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="font-semibold text-muted-foreground text-right">
-                      Total Completed Work Time for {selectedDate ? format(selectedDate, 'PPP') : 'selected day'}:
-                    </TableCell>
-                    <TableCell>
-                        <span className="flex items-center font-semibold">
-                            <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
-                            {formatDurationFromDecimalHours(dailyTotalHours)}
-                        </span>
-                    </TableCell>
-                    <TableCell colSpan={2}></TableCell>
+                    {renderSortableHeader("Date", "date")}
+                    {renderSortableHeader("Project Name", "projectName")}
+                    {renderSortableHeader("Category", "projectType")}
+                    {renderSortableHeader("Work Type", "workType")}
+                    {renderSortableHeader("Proj. Duration", "projectDurationMinutes")}
+                    {renderSortableHeader("Work Time", "durationHours")}
+                    {renderSortableHeader("Status", "completedAt")}
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                </TableFooter>
-              )}
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {paginatedRecords.map((record) => (
+                    <TableRow key={record.id}>
+                      <TableCell>{format(parseISO(record.date), 'MMM d, yyyy')}</TableCell>
+                      <TableCell className="font-medium">{record.projectName}</TableCell>
+                      <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
+                      <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
+                      <TableCell>
+                          <span className="flex items-center">
+                              <Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
+                              {formatDurationFromTotalMinutes(record.projectDurationMinutes)}
+                          </span>
+                      </TableCell>
+                      <TableCell>
+                          <span className="flex items-center">
+                              <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
+                              {record.completedAt ? formatDurationFromDecimalHours(record.durationHours) : 'Pending'}
+                          </span>
+                      </TableCell>
+                      <TableCell>
+                        {record.completedAt ? (
+                          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                            <CheckCircle className="mr-1 h-3 w-3" /> Completed
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">Pending</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0" disabled={isActionSubmitting || isSubmittingCompletion}>
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {!record.completedAt && (
+                              <DropdownMenuItem onClick={() => openSetCompletionDialog(record)} disabled={isActionSubmitting || isSubmittingCompletion}>
+                                <CheckCircle className="mr-2 h-4 w-4" /> Mark as Complete
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem onClick={() => handleEdit(record)} disabled={isActionSubmitting || isSubmittingCompletion}>
+                              <Edit className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem 
+                                      onSelect={(e) => e.preventDefault()} 
+                                      className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
+                                      disabled={isActionSubmitting || isSubmittingCompletion}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This action cannot be undone. This will permanently delete the time record for "{record.projectName}".
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(record.id, record.projectName)}
+                                      className={buttonVariants({ variant: "destructive" })}
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+                {fullUserRecordsForDay.length > 0 && (
+                  <TableFooter>
+                    <TableRow>
+                      <TableCell colSpan={5} className="font-semibold text-muted-foreground text-right">
+                        Total Completed Work Time for {selectedDate ? format(selectedDate, 'PPP') : 'selected day'}:
+                      </TableCell>
+                      <TableCell>
+                          <span className="flex items-center font-semibold">
+                              <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
+                              {formatDurationFromDecimalHours(dailyTotalHours)}
+                          </span>
+                      </TableCell>
+                      <TableCell colSpan={2}></TableCell>
+                    </TableRow>
+                  </TableFooter>
+                )}
+              </Table>
+            </div>
           </CardContent>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between space-x-2 p-4 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1 || isLoading}
+              >
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages || isLoading}
+              >
+                Next
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </Card>
       )}
     </div>

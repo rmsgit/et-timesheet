@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useMockUsers } from '@/hooks/useMockUsers'; // Manages RTDB user profiles
+import React, { useState, useEffect, useMemo } from 'react';
+import { useMockUsers } from '@/hooks/useMockUsers'; 
 import type { User } from '@/lib/types';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,19 +34,21 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound } from 'lucide-react';
+import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
-import { auth } from '@/lib/firebase'; // Import Firebase Auth
-import { createUserWithEmailAndPassword, deleteUser as deleteAuthUser, sendPasswordResetEmail } from 'firebase/auth'; // For managing Auth users
-import { FormDescription } from '@/components/ui/form';
+import { auth } from '@/lib/firebase'; 
+import { createUserWithEmailAndPassword, deleteUser as deleteAuthUser, sendPasswordResetEmail } from 'firebase/auth'; 
+import { cn } from '@/lib/utils';
 
+
+type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role'>;
 
 export const UserManagementTable: React.FC = () => {
-  const { users, addUserProfileToRTDB, deleteUserProfileFromRTDB, isUsersLoading } = useMockUsers();
+  const { users: allUsers, addUserProfileToRTDB, deleteUserProfileFromRTDB, isUsersLoading } = useMockUsers();
   const { toast } = useToast();
 
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
@@ -70,6 +72,54 @@ export const UserManagementTable: React.FC = () => {
     email: '',
     role: 'editor',
   });
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 15;
+  const [sortConfig, setSortConfig] = useState<{ key: SortableUserKeys | null; direction: 'ascending' | 'descending' }>({ key: 'username', direction: 'ascending' });
+
+  const sortedUsers = useMemo(() => {
+    let sortableItems = [...allUsers];
+    if (sortConfig.key !== null) {
+      sortableItems.sort((a, b) => {
+        const valA = a[sortConfig.key!];
+        const valB = b[sortConfig.key!];
+        
+        let comparison = 0;
+        if (valA === null || valA === undefined) comparison = -1;
+        else if (valB === null || valB === undefined) comparison = 1;
+        else if (typeof valA === 'string' && typeof valB === 'string') {
+          comparison = valA.localeCompare(valB);
+        } else {
+          const strA = String(valA).toLowerCase();
+          const strB = String(valB).toLowerCase();
+          comparison = strA.localeCompare(strB);
+        }
+        return sortConfig.direction === 'ascending' ? comparison : -comparison;
+      });
+    }
+    return sortableItems;
+  }, [allUsers, sortConfig]);
+
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    return sortedUsers.slice(startIndex, startIndex + rowsPerPage);
+  }, [sortedUsers, currentPage, rowsPerPage]);
+
+  const totalPages = Math.ceil(sortedUsers.length / rowsPerPage);
+
+  const requestSort = (key: SortableUserKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+    setCurrentPage(1);
+  };
+
+  const getSortIcon = (columnKey: SortableUserKeys) => {
+    if (sortConfig.key !== columnKey) return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
+  };
 
 
   const handleOpenAddUserDialog = () => {
@@ -112,8 +162,6 @@ export const UserManagementTable: React.FC = () => {
           description: profileResult.message || "Failed to add user profile to RTDB.",
           variant: "destructive",
         });
-        // Attempt to roll back Firebase Auth user creation if RTDB profile fails
-        // This check ensures we are dealing with the newly created user
         if (auth.currentUser && auth.currentUser.uid === firebaseUser.uid) {
             await deleteAuthUser(firebaseUser).catch(delError => console.error("Failed to roll back Auth user:", delError));
         }
@@ -146,9 +194,8 @@ export const UserManagementTable: React.FC = () => {
         return;
     }
 
-    // Prevent self-deletion of the primary admin if they are the only admin
     if (auth.currentUser && userToDelete.id === auth.currentUser.uid && userToDelete.role === 'admin') {
-      const adminUsersCount = users.filter(u => u.role === 'admin').length;
+      const adminUsersCount = allUsers.filter(u => u.role === 'admin').length;
       if (adminUsersCount <= 1) {
         toast({
           title: "Action Restricted",
@@ -163,15 +210,15 @@ export const UserManagementTable: React.FC = () => {
     
     setIsSubmittingForm(true);
     try {
-      // Note: Deleting from RTDB first. Firebase Auth user deletion is more destructive
-      // and often handled manually or via backend functions for safety.
-      // This UI currently only removes the RTDB profile.
       const profileDeleteResult = await deleteUserProfileFromRTDB(userToDelete.id);
       if (profileDeleteResult.success) {
         toast({
           title: "User Profile Deleted",
           description: `Profile for "${userToDelete.username}" deleted from RTDB. Corresponding Firebase Auth user account still exists and needs manual deletion via Firebase Console if required.`,
         });
+         if (currentPage > 1 && paginatedUsers.length === 1 && sortedUsers.length -1 <= (currentPage -1) * rowsPerPage) {
+            setCurrentPage(currentPage - 1);
+         }
       } else {
          toast({
           title: "Failed to Delete Profile",
@@ -252,7 +299,6 @@ export const UserManagementTable: React.FC = () => {
         toast({ title: "Validation Error", description: "Profile email cannot be empty.", variant: "destructive" });
         return;
     }
-    // Basic email format check (not exhaustive)
     if (!/\S+@\S+\.\S+/.test(editUserFormState.email)) {
         toast({ title: "Validation Error", description: "Please enter a valid profile email format.", variant: "destructive" });
         return;
@@ -276,6 +322,15 @@ export const UserManagementTable: React.FC = () => {
     }
     setIsSubmittingForm(false);
   };
+
+  const renderSortableHeader = (label: string, columnKey: SortableUserKeys, className?: string) => (
+    <TableHead className={cn("cursor-pointer hover:bg-muted/50", className)} onClick={() => requestSort(columnKey)}>
+      <div className="flex items-center">
+        {label}
+        {getSortIcon(columnKey)}
+      </div>
+    </TableHead>
+  );
 
 
   return (
@@ -301,7 +356,7 @@ export const UserManagementTable: React.FC = () => {
               headerTexts={["User", "Email", "Role", "Actions"]} 
               cellWidths={["w-2/6", "w-2/6", "w-1/6", "w-1/6 text-right"]} 
             />
-          ) : users.length === 0 ? (
+          ) : sortedUsers.length === 0 ? (
             <div className="text-center py-10 border-2 border-dashed rounded-lg bg-card">
                 <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-2 text-xl font-medium">No User Profiles Found</h3>
@@ -311,17 +366,18 @@ export const UserManagementTable: React.FC = () => {
                 </Button>
             </div>
           ) : (
+            <>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
+                  {renderSortableHeader("User", "username")}
+                  {renderSortableHeader("Email", "email")}
+                  {renderSortableHeader("Role", "role")}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => (
+                {paginatedUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -358,7 +414,7 @@ export const UserManagementTable: React.FC = () => {
                           <DropdownMenuItem 
                             onClick={() => openDeleteDialog(user)} 
                             className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
-                            disabled={isSubmittingForm || (auth?.currentUser?.email === user.email && user.role === 'admin' && users.filter(u=>u.role === 'admin').length <=1)}
+                            disabled={isSubmittingForm || (auth?.currentUser?.email === user.email && user.role === 'admin' && allUsers.filter(u=>u.role === 'admin').length <=1)}
                           >
                             <Trash2 className="mr-2 h-4 w-4" /> Delete User
                           </DropdownMenuItem>
@@ -369,11 +425,22 @@ export const UserManagementTable: React.FC = () => {
                 ))}
               </TableBody>
             </Table>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between space-x-2 p-4 border-t">
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1}>
+                  <ChevronLeft className="mr-1 h-4 w-4" /> Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages}>
+                  Next <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            </>
           )}
         </CardContent>
       </Card>
 
-      {/* Add User Dialog */}
       <Dialog open={isAddUserDialogOpen} onOpenChange={(open) => { setIsAddUserDialogOpen(open); if (!open) { setNewUserName(''); setNewUserRole('editor'); setNewUserEmail(''); setNewUserPassword('');} }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -442,7 +509,6 @@ export const UserManagementTable: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit User Dialog */}
       <Dialog open={isEditUserDialogOpen} onOpenChange={(open) => { setIsEditUserDialogOpen(open); if (!open) setEditingUser(null); }}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
@@ -505,8 +571,6 @@ export const UserManagementTable: React.FC = () => {
             </DialogContent>
         </Dialog>
 
-
-      {/* Delete User Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -528,7 +592,6 @@ export const UserManagementTable: React.FC = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Password Reset Dialog */}
       <AlertDialog open={isPasswordResetDialogOpen} onOpenChange={setIsPasswordResetDialogOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
@@ -549,5 +612,3 @@ export const UserManagementTable: React.FC = () => {
     </>
   );
 };
-
-    
