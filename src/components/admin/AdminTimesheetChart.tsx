@@ -3,7 +3,7 @@
 
 import React, { useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import type { TimeRecord, User } from '@/lib/types';
+import type { TimeRecord } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMockUsers } from '@/hooks/useMockUsers'; // To get editor names
 import { useProjectTypes } from '@/hooks/useProjectTypes'; // To get dynamic project types
@@ -16,7 +16,7 @@ interface AdminTimesheetChartProps {
 // Define a type for chart data items
 type ChartDataItem = {
   name: string; // Project Type or Editor Name
-  hours: number;
+  count: number; // Changed from hours to count
   [key: string]: string | number; // For dynamic keys if needed
 };
 
@@ -28,50 +28,53 @@ export const AdminTimesheetChart: React.FC<AdminTimesheetChartProps> = ({ record
   const isLoading = isUsersLoading || isLoadingProjectTypes;
 
   const dataByProjectType = useMemo(() => {
-    if (isLoading || !projectTypes) return [];
-    const aggregated: { [key: string]: number } = {};
-    projectTypes.forEach(type => aggregated[type] = 0); // Initialize with dynamic types
+    if (isLoading || !projectTypes || records.length === 0) return [];
+    
+    const projectCountsByType: { [key: string]: Set<string> } = {};
+    projectTypes.forEach(type => projectCountsByType[type] = new Set());
 
     records.forEach(record => {
-      if (aggregated[record.projectType] !== undefined) {
-        aggregated[record.projectType] += record.durationHours;
+      if (projectCountsByType[record.projectType]) {
+        projectCountsByType[record.projectType].add(record.projectName);
       } else {
-        aggregated[record.projectType] = (aggregated[record.projectType] || 0) + record.durationHours;
+        // Handle case where a record's projectType might not be in the dynamic list (should be rare)
+        projectCountsByType[record.projectType] = new Set([record.projectName]);
       }
     });
     
-    return Object.keys(aggregated).map(type => ({
-      name: type,
-      hours: parseFloat(aggregated[type].toFixed(1)),
-    })).filter(item => item.hours > 0); 
+    return Object.entries(projectCountsByType)
+      .map(([type, projectSet]) => ({
+        name: type,
+        count: projectSet.size,
+      }))
+      .filter(item => item.count > 0); 
   }, [records, projectTypes, isLoading]);
 
   const dataByEditor = useMemo(() => {
-    if (isLoading || !users) return [];
-    const aggregated: { [userId: string]: number } = {};
+    if (isLoading || !users || records.length === 0) return [];
+    
+    const projectCountsByEditor: { [userId: string]: Set<string> } = {};
     const editorUsers = users.filter(u => u.role === 'editor');
     
-    editorUsers.forEach(editor => aggregated[editor.id] = 0);
+    editorUsers.forEach(editor => projectCountsByEditor[editor.id] = new Set());
 
     records.forEach(record => {
-      // Ensure we only aggregate for users present in the editorUsers list
-      // and who have an initialized entry in 'aggregated'.
-      if (aggregated[record.userId] !== undefined) { 
-        aggregated[record.userId] += record.durationHours;
+      if (projectCountsByEditor[record.userId]) { // Ensure editor is in our list and initialized
+        projectCountsByEditor[record.userId].add(record.projectName);
       }
     });
     
     return editorUsers.map(editor => ({
       name: editor.username,
-      hours: parseFloat((aggregated[editor.id] || 0).toFixed(1)),
-    })); // Removed filter: .filter(item => item.hours > 0);
+      count: projectCountsByEditor[editor.id]?.size || 0,
+    })); // Do not filter here, show all editors, even with 0 projects in range
   }, [records, users, isLoading]);
 
   if (isLoading) {
     return (
       <Card className="shadow-md">
         <CardHeader>
-          <CardTitle>Time Distribution Charts</CardTitle>
+          <CardTitle>Project Distribution Charts</CardTitle>
           <CardDescription>Loading chart data...</CardDescription>
         </CardHeader>
         <CardContent className="h-[300px] flex items-center justify-center">
@@ -81,16 +84,15 @@ export const AdminTimesheetChart: React.FC<AdminTimesheetChartProps> = ({ record
     )
   }
 
-
-  if (records.length === 0 && (dataByProjectType.length === 0 || dataByEditor.length === 0)) { // Adjusted condition slightly
+  if (records.length === 0) {
     return (
       <Card className="shadow-md">
         <CardHeader>
-          <CardTitle>Time Distribution Charts</CardTitle>
+          <CardTitle>Project Distribution Charts</CardTitle>
           <CardDescription>No data available for the selected period to display charts.</CardDescription>
         </CardHeader>
         <CardContent className="h-[300px] flex items-center justify-center">
-          <p className="text-muted-foreground">Awaiting data or no active editors...</p>
+          <p className="text-muted-foreground">Awaiting data...</p>
         </CardContent>
       </Card>
     );
@@ -101,8 +103,8 @@ export const AdminTimesheetChart: React.FC<AdminTimesheetChartProps> = ({ record
     <div className="grid md:grid-cols-2 gap-6">
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Hours by Project Type</CardTitle>
-          <CardDescription>Total hours logged for each project type.</CardDescription>
+          <CardTitle>Projects by Type</CardTitle>
+          <CardDescription>Total unique projects for each project type.</CardDescription>
         </CardHeader>
         <CardContent>
           {dataByProjectType.length > 0 ? (
@@ -110,14 +112,15 @@ export const AdminTimesheetChart: React.FC<AdminTimesheetChartProps> = ({ record
               <BarChart data={dataByProjectType} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}h`} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} tickFormatter={(value) => `${value}`} />
                 <Tooltip
                   contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
                   labelStyle={{ color: 'hsl(var(--foreground))' }}
                   itemStyle={{ color: 'hsl(var(--foreground))' }}
+                  formatter={(value: number) => [`${value} projects`, "Count"]}
                 />
                 <Legend wrapperStyle={{fontSize: "12px"}} />
-                <Bar dataKey="hours" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Hours Logged" />
+                <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Project Count" />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -130,8 +133,8 @@ export const AdminTimesheetChart: React.FC<AdminTimesheetChartProps> = ({ record
       
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Hours by Editor</CardTitle>
-          <CardDescription>Total hours logged by each editor.</CardDescription>
+          <CardTitle>Projects by Editor</CardTitle>
+          <CardDescription>Total unique projects worked on by each editor.</CardDescription>
         </CardHeader>
         <CardContent>
          {dataByEditor.length > 0 ? (
@@ -139,19 +142,20 @@ export const AdminTimesheetChart: React.FC<AdminTimesheetChartProps> = ({ record
               <BarChart data={dataByEditor} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}h`} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} tickFormatter={(value) => `${value}`} />
                 <Tooltip
                   contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
                   labelStyle={{ color: 'hsl(var(--foreground))' }}
                   itemStyle={{ color: 'hsl(var(--foreground))' }}
+                   formatter={(value: number) => [`${value} projects`, "Count"]}
                 />
                 <Legend wrapperStyle={{fontSize: "12px"}}/>
-                <Bar dataKey="hours" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} name="Hours Logged" />
+                <Bar dataKey="count" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} name="Project Count" />
               </BarChart>
             </ResponsiveContainer>
           ) : (
              <div className="h-[300px] flex items-center justify-center">
-                <p className="text-muted-foreground">No editor data or no editors found.</p>
+                <p className="text-muted-foreground">No editor data or no editors found for this period.</p>
              </div>
           )}
         </CardContent>
@@ -159,3 +163,4 @@ export const AdminTimesheetChart: React.FC<AdminTimesheetChartProps> = ({ record
     </div>
   );
 };
+
