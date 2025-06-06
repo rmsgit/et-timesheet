@@ -154,7 +154,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log("AuthContext: Firebase signInWithEmailAndPassword successful for", email);
       return true;
     } catch (error: any) {
-      console.error("AuthContext: Firebase login error:", error, "Code:", error.code);
+      const isExpectedLoginFailure = 
+        error.code === 'auth/user-not-found' || 
+        error.code === 'auth/wrong-password' || 
+        error.code === 'auth/invalid-credential' ||
+        error.code === 'auth/invalid-email';
+
+      if (!isExpectedLoginFailure) {
+        console.error("AuthContext: Unexpected Firebase login error:", error, "Code:", error.code);
+      } else {
+        // Log expected failures with console.info to potentially reduce dev overlay noise
+        console.info(`AuthContext: Handled Firebase login attempt for email "${email}" with code: ${error.code}`);
+      }
+      
       let toastTitle = "Login Failed";
       let toastMessage = "An unexpected error occurred. Please try again.";
 
@@ -222,3 +234,4 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+
