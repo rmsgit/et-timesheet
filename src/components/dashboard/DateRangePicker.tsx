@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { format } from "date-fns"
+import { format, isSameDay } from "date-fns" // Added isSameDay
 import type { DateRange } from "react-day-picker"
 import { Calendar as CalendarIcon } from "lucide-react"
 
@@ -36,18 +36,18 @@ export function DateRangePicker({
             variant={"outline"}
             className={cn(
               "w-full sm:w-[300px] justify-start text-left font-normal",
-              !dateRange && "text-muted-foreground"
+              !dateRange?.from && "text-muted-foreground" // Check dateRange.from instead of just dateRange
             )}
             disabled={disabled}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {dateRange?.from ? (
-              dateRange.to ? (
+              dateRange.to && !isSameDay(dateRange.from, dateRange.to) ? ( // If 'to' exists and is different from 'from'
                 <>
                   {format(dateRange.from, "LLL dd, y")} -{" "}
                   {format(dateRange.to, "LLL dd, y")}
                 </>
-              ) : (
+              ) : ( // If 'to' is undefined OR 'to' is the same as 'from'
                 format(dateRange.from, "LLL dd, y")
               )
             ) : (
