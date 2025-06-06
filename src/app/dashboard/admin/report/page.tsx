@@ -10,13 +10,14 @@ import { AdminTimesheetChart } from '@/components/admin/AdminTimesheetChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, AlertCircle, Clock, Package, RefreshCw, FilePlus2, Film, Hourglass, CheckCircle2 } from 'lucide-react';
+import { BarChart3, AlertCircle, Clock, Package, RefreshCw, FilePlus2, Film, Hourglass, CheckCircle2, PieChart as PieChartIcon } from 'lucide-react';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { useAuth } from '@/hooks/useAuth'; 
 import type { TimeRecord } from '@/lib/types';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
@@ -123,9 +124,16 @@ export default function AdminReportPage() {
       }
 
       if (recordsInProject.some(r => !r.completedAt)) {
-        pendingProjects++;
+        // A project is pending if *any* of its tasks (regardless of type) in the date range are pending.
+        // This logic might need refinement if "pending" should be type-specific for the widgets.
+        // For a general "pending projects" widget, this is okay.
+        // To be more precise for the donut chart, we calculate pending for new/revision separately.
       }
     });
+    
+    // Calculate overall pending projects (projects with at least one task not completed)
+    pendingProjects = Array.from(projectsMap.values()).filter(tasks => tasks.some(t => !t.completedAt)).length;
+
 
     return {
       totalNewWorkProjects,
@@ -151,6 +159,25 @@ export default function AdminReportPage() {
   };
 
   const dateDisplayString = useMemo(() => formatDateDisplay(dateRange), [dateRange]);
+
+  const newWorkChartData = useMemo(() => {
+    const pendingNew = projectMetrics.totalNewWorkProjects - projectMetrics.completedNewWorkProjects;
+    return [
+      { name: 'Completed New', value: projectMetrics.completedNewWorkProjects },
+      { name: 'Pending/In-Progress New', value: pendingNew > 0 ? pendingNew : 0 },
+    ].filter(item => item.value > 0); // Filter out zero-value items for cleaner chart
+  }, [projectMetrics]);
+  const COLORS_NEW_WORK = ['hsl(var(--primary))', 'hsl(var(--muted))'];
+
+  const revisionWorkChartData = useMemo(() => {
+    const pendingRevision = projectMetrics.totalRevisionWorkProjects - projectMetrics.completedRevisionWorkProjects;
+    return [
+      { name: 'Completed Revision', value: projectMetrics.completedRevisionWorkProjects },
+      { name: 'Pending/In-Progress Revision', value: pendingRevision > 0 ? pendingRevision : 0 },
+    ].filter(item => item.value > 0);
+  }, [projectMetrics]);
+  const COLORS_REVISION_WORK = ['hsl(var(--accent))', 'hsl(var(--secondary))'];
+
 
   return (
     <div className="space-y-6">
@@ -221,6 +248,106 @@ export default function AdminReportPage() {
       )}
 
       <AdminTimesheetChart records={filteredRecords} />
+
+      {isLoading ? (
+        <div className="grid md:grid-cols-2 gap-6 mt-6">
+          <CardSkeleton className="shadow-md h-[350px]" />
+          <CardSkeleton className="shadow-md h-[350px]" />
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 gap-6 mt-6">
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <PieChartIcon className="mr-2 h-5 w-5 text-primary" />
+                New Work Projects Status
+              </CardTitle>
+              <CardDescription>Completion status of new work projects {dateDisplayString}.</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[300px]">
+              {projectMetrics.totalNewWorkProjects > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={newWorkChartData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={false} 
+                      innerRadius={70}
+                      outerRadius={100}
+                      fill="hsl(var(--primary))"
+                      paddingAngle={5}
+                      dataKey="value"
+                      nameKey="name"
+                    >
+                      {newWorkChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS_NEW_WORK[index % COLORS_NEW_WORK.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                        contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                        labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
+                        formatter={(value: number) => [`${value} projects`, undefined]}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-muted-foreground">No new work project data for this period.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <PieChartIcon className="mr-2 h-5 w-5 text-accent" />
+                Revision Work Projects Status
+              </CardTitle>
+              <CardDescription>Completion status of revision work projects {dateDisplayString}.</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[300px]">
+              {projectMetrics.totalRevisionWorkProjects > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={revisionWorkChartData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={false}
+                      innerRadius={70}
+                      outerRadius={100}
+                      fill="hsl(var(--accent))"
+                      paddingAngle={5}
+                      dataKey="value"
+                      nameKey="name"
+                    >
+                      {revisionWorkChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS_REVISION_WORK[index % COLORS_REVISION_WORK.length]} />
+                      ))}
+                    </Pie>
+                     <Tooltip
+                        contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                        labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
+                        formatter={(value: number) => [`${value} projects`, undefined]}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-muted-foreground">No revision work project data for this period.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
 
       {isLoading ? (
         <TableSkeleton columnCount={8} className="shadow-lg mt-6 h-[480px]" />
