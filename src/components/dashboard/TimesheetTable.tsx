@@ -29,7 +29,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { TimeRecordForm } from './TimeRecordForm';
 import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, parseISO, isSameDay } from 'date-fns';
+import { format, parseISO, isSameDay, differenceInSeconds } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
@@ -82,8 +82,8 @@ const completionDurationSchema = z.object({
   completedInHoursDialog: z.coerce.number().int().min(0, "Hours must be 0 or more."),
   completedInMinutesDialog: z.coerce.number().int().min(0, "Minutes must be 0 or more.").max(59, "Minutes must be less than 60."),
   completedInSecondsDialog: z.coerce.number().int().min(0, "Seconds must be 0 or more.").max(59, "Seconds must be less than 60."),
-}).refine(data => (data.completedInHoursDialog * 3600 + data.completedInMinutesDialog * 60 + data.completedInSecondsDialog) > 0, {
-  message: "Total completion time must be greater than 0 seconds.",
+}).refine(data => (data.completedInHoursDialog * 3600 + data.completedInMinutesDialog * 60 + data.completedInSecondsDialog) >= 0, { // Allow 0 seconds
+  message: "Total completion time must be 0 seconds or more.",
   path: ["completedInSecondsDialog"], 
 });
 type CompletionDurationFormData = z.infer<typeof completionDurationSchema>;
@@ -107,7 +107,7 @@ export const TimesheetTable: React.FC = () => {
   const [editingRecord, setEditingRecord] = useState<TimeRecord | undefined>(undefined);
   
   const [isSetCompletionDialogOpen, setIsSetCompletionDialogOpen] = useState(false);
-  const [recordForCompletion, setRecordForCompletion] = useState<{ id: string; projectName: string } | null>(null);
+  const [recordForCompletion, setRecordForCompletion] = useState<{ id: string; projectName: string; date: string; } | null>(null);
   const [isSubmittingCompletion, setIsSubmittingCompletion] = useState(false);
 
   const [isActionSubmitting, setIsActionSubmitting] = useState(false);
@@ -186,7 +186,7 @@ export const TimesheetTable: React.FC = () => {
   const { control: completionFormControl, handleSubmit: handleCompletionSubmit, reset: resetCompletionForm, formState: { errors: completionFormErrors } } = useForm<CompletionDurationFormData>({
     resolver: zodResolver(completionDurationSchema),
     defaultValues: {
-      completedInHoursDialog: 1,
+      completedInHoursDialog: 0,
       completedInMinutesDialog: 0,
       completedInSecondsDialog: 0,
     },
@@ -235,8 +235,27 @@ export const TimesheetTable: React.FC = () => {
   };
 
   const openSetCompletionDialog = (record: TimeRecord) => {
-    setRecordForCompletion({ id: record.id, projectName: record.projectName });
-    resetCompletionForm({ completedInHoursDialog: 1, completedInMinutesDialog: 0, completedInSecondsDialog: 0 });
+    setRecordForCompletion({ id: record.id, projectName: record.projectName, date: record.date });
+    
+    let initialHours = 0;
+    let initialMinutes = 0;
+    let initialSeconds = 0;
+
+    if (!record.completedAt) { // Only pre-fill if task is pending
+        const creationDate = parseISO(record.date);
+        const now = new Date();
+        const elapsedTotalSeconds = differenceInSeconds(now, creationDate);
+        
+        initialHours = Math.max(0, Math.floor(elapsedTotalSeconds / 3600));
+        initialMinutes = Math.max(0, Math.floor((elapsedTotalSeconds % 3600) / 60));
+        initialSeconds = Math.max(0, elapsedTotalSeconds % 60);
+    }
+    
+    resetCompletionForm({ 
+      completedInHoursDialog: initialHours, 
+      completedInMinutesDialog: initialMinutes, 
+      completedInSecondsDialog: initialSeconds 
+    });
     setIsSetCompletionDialogOpen(true);
   };
 
@@ -558,3 +577,4 @@ export const TimesheetTable: React.FC = () => {
     </div>
   );
 };
+
