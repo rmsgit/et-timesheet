@@ -49,14 +49,31 @@ import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { PendingTaskTimer } from './PendingTaskTimer'; // Import the new component
+import { PendingTaskTimer } from './PendingTaskTimer'; 
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
-  const hours = Math.floor(totalDecimalHours);
-  const minutes = Math.round((totalDecimalHours % 1) * 60);
-  return `${hours}h ${minutes}m`;
+   if (totalDecimalHours === 0) return '0s'; // Handle case where duration is exactly 0
+
+  const totalSeconds = Math.round(totalDecimalHours * 3600);
+  if (totalSeconds === 0 && totalDecimalHours > 0) return '<1s'; // Very small duration
+  if (totalSeconds === 0) return '0s';
+
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (seconds > 0 || parts.length === 0) { // Show seconds if it's the only unit or > 0
+     parts.push(`${seconds}s`);
+  }
+  
+  return parts.join(' ') || "0s";
 };
+
 
 const formatDurationFromTotalSeconds = (totalSeconds: number | undefined | null): string => {
   if (totalSeconds === undefined || totalSeconds === null || isNaN(totalSeconds) || totalSeconds < 0) return 'N/A';
@@ -82,7 +99,7 @@ const completionDurationSchema = z.object({
   completedInHoursDialog: z.coerce.number().int().min(0, "Hours must be 0 or more."),
   completedInMinutesDialog: z.coerce.number().int().min(0, "Minutes must be 0 or more.").max(59, "Minutes must be less than 60."),
   completedInSecondsDialog: z.coerce.number().int().min(0, "Seconds must be 0 or more.").max(59, "Seconds must be less than 60."),
-}).refine(data => (data.completedInHoursDialog * 3600 + data.completedInMinutesDialog * 60 + data.completedInSecondsDialog) >= 0, { // Allow 0 seconds
+}).refine(data => (data.completedInHoursDialog * 3600 + data.completedInMinutesDialog * 60 + data.completedInSecondsDialog) >= 0, { 
   message: "Total completion time must be 0 seconds or more.",
   path: ["completedInSecondsDialog"], 
 });
@@ -107,7 +124,7 @@ export const TimesheetTable: React.FC = () => {
   const [editingRecord, setEditingRecord] = useState<TimeRecord | undefined>(undefined);
   
   const [isSetCompletionDialogOpen, setIsSetCompletionDialogOpen] = useState(false);
-  const [recordForCompletion, setRecordForCompletion] = useState<{ id: string; projectName: string; date: string; } | null>(null);
+  const [recordForCompletion, setRecordForCompletion] = useState<TimeRecord | null>(null);
   const [isSubmittingCompletion, setIsSubmittingCompletion] = useState(false);
 
   const [isActionSubmitting, setIsActionSubmitting] = useState(false);
@@ -235,13 +252,23 @@ export const TimesheetTable: React.FC = () => {
   };
 
   const openSetCompletionDialog = (record: TimeRecord) => {
-    setRecordForCompletion({ id: record.id, projectName: record.projectName, date: record.date });
+    setRecordForCompletion(record);
     
     let initialHours = 0;
     let initialMinutes = 0;
     let initialSeconds = 0;
 
-    if (!record.completedAt) { // Only pre-fill if task is pending
+    if (record.completedAt && record.durationHours > 0) { // Already completed, pre-fill from stored duration
+        const totalSecondsFromDuration = Math.round(record.durationHours * 3600);
+        initialHours = Math.floor(totalSecondsFromDuration / 3600);
+        initialMinutes = Math.floor((totalSecondsFromDuration % 3600) / 60);
+        initialSeconds = totalSecondsFromDuration % 60;
+    } else if (!record.completedAt && record.durationHours > 0) { // Pending, but has duration from form
+        const totalSecondsFromDuration = Math.round(record.durationHours * 3600);
+        initialHours = Math.floor(totalSecondsFromDuration / 3600);
+        initialMinutes = Math.floor((totalSecondsFromDuration % 3600) / 60);
+        initialSeconds = totalSecondsFromDuration % 60;
+    } else if (!record.completedAt) { // Pending, no duration from form, use live timer
         const creationDate = parseISO(record.date);
         const now = new Date();
         const elapsedTotalSeconds = differenceInSeconds(now, creationDate);
@@ -250,6 +277,7 @@ export const TimesheetTable: React.FC = () => {
         initialMinutes = Math.max(0, Math.floor((elapsedTotalSeconds % 3600) / 60));
         initialSeconds = Math.max(0, elapsedTotalSeconds % 60);
     }
+    // Else, if completed but durationHours is 0, it defaults to 0,0,0 which is fine.
     
     resetCompletionForm({ 
       completedInHoursDialog: initialHours, 
@@ -264,7 +292,7 @@ export const TimesheetTable: React.FC = () => {
     setIsSubmittingCompletion(true);
     try {
       await setCompletionDetails(recordForCompletion.id, data.completedInHoursDialog, data.completedInMinutesDialog, data.completedInSecondsDialog);
-      toast({ title: "Success", description: `Duration set for "${recordForCompletion.projectName}".` });
+      toast({ title: "Success", description: `Completion details set for "${recordForCompletion.projectName}".` });
       setIsSetCompletionDialogOpen(false);
       setRecordForCompletion(null);
     } catch (error) {
@@ -364,7 +392,10 @@ export const TimesheetTable: React.FC = () => {
       <Dialog open={isSetCompletionDialogOpen} onOpenChange={(open) => { setIsSetCompletionDialogOpen(open); if(!open) setRecordForCompletion(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Set Completion Time for: {recordForCompletion?.projectName}</DialogTitle>
+            <DialogTitle>
+              {recordForCompletion?.completedAt ? 'Edit Completion Time for: ' : 'Set Completion Time for: '} 
+              {recordForCompletion?.projectName}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleCompletionSubmit(onSetCompletionSubmit)} className="space-y-4 pt-2 pb-4">
             <div>
@@ -463,7 +494,12 @@ export const TimesheetTable: React.FC = () => {
                             <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
                             {formatDurationFromDecimalHours(record.durationHours)}
                           </span>
-                        ) : (
+                        ) : record.durationHours > 0 ? ( // Pending but has some logged time from form
+                           <span className="flex items-center text-blue-500">
+                             <Clock className="mr-1.5 h-3.5 w-3.5" />
+                             Logged: {formatDurationFromDecimalHours(record.durationHours)}
+                           </span>
+                        ) : ( // Pending, no time logged from form yet
                           <PendingTaskTimer recordCreationDateISO={record.date} />
                         )}
                       </TableCell>
@@ -485,11 +521,10 @@ export const TimesheetTable: React.FC = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {!record.completedAt && (
-                              <DropdownMenuItem onClick={() => openSetCompletionDialog(record)} disabled={isActionSubmitting || isSubmittingCompletion}>
-                                <CheckCircle className="mr-2 h-4 w-4" /> Mark as Complete
-                              </DropdownMenuItem>
-                            )}
+                            <DropdownMenuItem onClick={() => openSetCompletionDialog(record)} disabled={isActionSubmitting || isSubmittingCompletion}>
+                                <CheckCircle className="mr-2 h-4 w-4" /> 
+                                {record.completedAt ? "Edit Completion Time" : "Mark as Complete"}
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleEdit(record)} disabled={isActionSubmitting || isSubmittingCompletion}>
                               <Edit className="mr-2 h-4 w-4" /> Edit
                             </DropdownMenuItem>
@@ -578,3 +613,4 @@ export const TimesheetTable: React.FC = () => {
   );
 };
 
+    

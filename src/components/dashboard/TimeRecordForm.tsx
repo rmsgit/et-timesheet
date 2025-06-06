@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, Save, X, Loader2, Film } from 'lucide-react';
+import { CalendarIcon, Save, X, Loader2, Film, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -38,6 +38,18 @@ const timeRecordSchema = z.object({
     val => (val === '' || val === null || val === undefined ? undefined : Number(val)),
     z.number().int().min(0, "Seconds must be 0 or more.").max(59, "Seconds must be less than 60.").optional()
   ),
+  workTimeInputHours: z.preprocess(
+    val => (val === '' || val === null || val === undefined ? undefined : Number(val)),
+    z.number().int().min(0, "Hours must be 0 or more.").optional()
+  ),
+  workTimeInputMinutes: z.preprocess(
+    val => (val === '' || val === null || val === undefined ? undefined : Number(val)),
+    z.number().int().min(0, "Minutes must be 0 or more.").max(59, "Minutes must be less than 60.").optional()
+  ),
+  workTimeInputSeconds: z.preprocess(
+    val => (val === '' || val === null || val === undefined ? undefined : Number(val)),
+    z.number().int().min(0, "Seconds must be 0 or more.").max(59, "Seconds must be less than 60.").optional()
+  ),
 });
 
 
@@ -47,6 +59,36 @@ interface TimeRecordFormProps {
   record?: TimeRecord; 
   onClose: () => void;
 }
+
+const convertSecondsToHMS = (totalSeconds: number | undefined | null) => {
+  if (totalSeconds === undefined || totalSeconds === null || isNaN(totalSeconds) || totalSeconds < 0) {
+    return { h: undefined, m: undefined, s: undefined };
+  }
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return { h, m, s };
+};
+
+const convertDecimalHoursToHMS = (decimalHours: number | undefined | null) => {
+  if (decimalHours === undefined || decimalHours === null || isNaN(decimalHours) || decimalHours < 0) {
+    return { h: undefined, m: undefined, s: undefined };
+  }
+  const totalSeconds = Math.round(decimalHours * 3600);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return { h, m, s };
+};
+
+const convertHMSToDecimalHours = (h?: number, m?: number, s?: number): number => {
+  const hours = h || 0;
+  const minutes = m || 0;
+  const seconds = s || 0;
+  if (hours < 0 || minutes < 0 || seconds < 0 || minutes > 59 || seconds > 59) return 0; // Invalid input
+  return hours + (minutes / 60) + (seconds / 3600);
+};
+
 
 export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose }) => {
   const { addTimeRecord, updateTimeRecord } = useTimesheet();
@@ -62,16 +104,6 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
     return 'New work'; 
   };
 
-  const convertSecondsToHMS = (totalSeconds: number | undefined | null) => {
-    if (totalSeconds === undefined || totalSeconds === null || isNaN(totalSeconds) || totalSeconds < 0) {
-      return { h: undefined, m: undefined, s: undefined };
-    }
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
-    return { h, m, s };
-  };
-
   const { control, handleSubmit, reset, formState: { errors }, getValues } = useForm<TimeRecordFormData>({
     resolver: zodResolver(timeRecordSchema),
     defaultValues: {
@@ -82,6 +114,9 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
       projectDurationInputHours: (record?.id && record.projectDurationSeconds != null) ? convertSecondsToHMS(record.projectDurationSeconds).h : undefined,
       projectDurationInputMinutes: (record?.id && record.projectDurationSeconds != null) ? convertSecondsToHMS(record.projectDurationSeconds).m : undefined,
       projectDurationInputSeconds: (record?.id && record.projectDurationSeconds != null) ? convertSecondsToHMS(record.projectDurationSeconds).s : undefined,
+      workTimeInputHours: (record?.id && record.durationHours != null) ? convertDecimalHoursToHMS(record.durationHours).h : undefined,
+      workTimeInputMinutes: (record?.id && record.durationHours != null) ? convertDecimalHoursToHMS(record.durationHours).m : undefined,
+      workTimeInputSeconds: (record?.id && record.durationHours != null) ? convertDecimalHoursToHMS(record.durationHours).s : undefined,
     },
   });
 
@@ -91,14 +126,23 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
     let defaultPD_H: number | undefined = undefined;
     let defaultPD_M: number | undefined = undefined;
     let defaultPD_S: number | undefined = undefined;
-
     const durationInSeconds = isEditing ? record.projectDurationSeconds : record?.projectDurationSeconds;
-
     if (durationInSeconds != null) {
         const hms = convertSecondsToHMS(durationInSeconds);
         defaultPD_H = hms.h;
         defaultPD_M = hms.m;
         defaultPD_S = hms.s;
+    }
+
+    let defaultWT_H: number | undefined = undefined;
+    let defaultWT_M: number | undefined = undefined;
+    let defaultWT_S: number | undefined = undefined;
+    const workTimeDecimalHours = isEditing ? record.durationHours : record?.durationHours;
+    if (workTimeDecimalHours != null) {
+        const hms = convertDecimalHoursToHMS(workTimeDecimalHours);
+        defaultWT_H = hms.h;
+        defaultWT_M = hms.m;
+        defaultWT_S = hms.s;
     }
 
     let resetToValues: Partial<TimeRecordFormData> = {
@@ -109,6 +153,9 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
         projectDurationInputHours: defaultPD_H,
         projectDurationInputMinutes: defaultPD_M,
         projectDurationInputSeconds: defaultPD_S,
+        workTimeInputHours: defaultWT_H,
+        workTimeInputMinutes: defaultWT_M,
+        workTimeInputSeconds: defaultWT_S,
     };
     
     if (!isEditing) {
@@ -144,17 +191,21 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
     setIsSubmittingForm(true);
     
     let finalProjectDurationSeconds: number | undefined = undefined;
-    const h = data.projectDurationInputHours ?? 0;
-    const m = data.projectDurationInputMinutes ?? 0;
-    const s = data.projectDurationInputSeconds ?? 0;
+    const pd_h = data.projectDurationInputHours ?? 0;
+    const pd_m = data.projectDurationInputMinutes ?? 0;
+    const pd_s = data.projectDurationInputSeconds ?? 0;
 
-    if (h > 0 || m > 0 || s > 0) {
-      finalProjectDurationSeconds = (h * 3600) + (m * 60) + s;
+    if (pd_h > 0 || pd_m > 0 || pd_s > 0) {
+      finalProjectDurationSeconds = (pd_h * 3600) + (pd_m * 60) + pd_s;
     } else if (data.projectDurationInputHours !== undefined || data.projectDurationInputMinutes !== undefined || data.projectDurationInputSeconds !== undefined) {
-      // If any field was touched (even if set to 0), and all are 0, store 0.
       finalProjectDurationSeconds = 0;
     }
 
+    const finalWorkDurationHours = convertHMSToDecimalHours(
+      data.workTimeInputHours,
+      data.workTimeInputMinutes,
+      data.workTimeInputSeconds
+    );
 
     const recordDataToSaveBase = {
       date: data.date.toISOString(),
@@ -162,18 +213,22 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
       projectType: data.projectType,
       workType: data.workType,
       projectDurationSeconds: finalProjectDurationSeconds,
+      durationHours: finalWorkDurationHours, // Always include durationHours
     };
     
     try {
-      if (record && record.id) {
+      if (record && record.id) { // Editing existing record
         const fullExistingRecord: TimeRecord = {
             ...record, 
-            ...recordDataToSaveBase, 
+            ...recordDataToSaveBase,
+            // completedAt is preserved from the original 'record' if it exists
+            completedAt: record.completedAt, 
         };
         await updateTimeRecord(fullExistingRecord); 
         toast({ title: "Success", description: "Time record updated." });
-      } else {
-        await addTimeRecord(recordDataToSaveBase as Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours'>);
+      } else { // Adding new record
+        // For new records, completedAt is not set here.
+        await addTimeRecord(recordDataToSaveBase as Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>);
         toast({ title: "Success", description: "Time record added." });
       }
       onClose();
@@ -186,7 +241,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 p-1">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-1">
       <div>
         <Label htmlFor="date">Date</Label>
         <Controller
@@ -314,7 +369,41 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
         {errors.projectDurationInputSeconds && <p className="text-sm text-destructive mt-1">{errors.projectDurationInputSeconds.message}</p>}
       </div>
 
-      <div className="flex justify-end space-x-2 pt-4">
+      <div>
+        <Label>Actual Work Time (HH:MM:SS)</Label>
+        <div className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-muted-foreground mr-1" />
+            <div className="flex-1">
+                <Controller
+                name="workTimeInputHours"
+                control={control}
+                render={({ field }) => <Input type="number" {...field} placeholder="H" value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} disabled={isSubmittingForm} />}
+                />
+            </div>
+            <span className="text-muted-foreground">:</span>
+            <div className="flex-1">
+                <Controller
+                name="workTimeInputMinutes"
+                control={control}
+                render={({ field }) => <Input type="number" {...field} placeholder="M" value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} step="1" min="0" max="59" disabled={isSubmittingForm} />}
+                />
+            </div>
+             <span className="text-muted-foreground">:</span>
+            <div className="flex-1">
+                <Controller
+                name="workTimeInputSeconds"
+                control={control}
+                render={({ field }) => <Input type="number" {...field} placeholder="S" value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} step="1" min="0" max="59" disabled={isSubmittingForm} />}
+                />
+            </div>
+        </div>
+        {errors.workTimeInputHours && <p className="text-sm text-destructive mt-1">{errors.workTimeInputHours.message}</p>}
+        {errors.workTimeInputMinutes && <p className="text-sm text-destructive mt-1">{errors.workTimeInputMinutes.message}</p>}
+        {errors.workTimeInputSeconds && <p className="text-sm text-destructive mt-1">{errors.workTimeInputSeconds.message}</p>}
+      </div>
+
+
+      <div className="flex justify-end space-x-2 pt-2">
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmittingForm}>
           <X className="mr-2 h-4 w-4" /> Cancel
         </Button>
@@ -326,3 +415,5 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
     </form>
   );
 };
+
+    
