@@ -76,6 +76,12 @@ type CompletionDurationFormData = z.infer<typeof completionDurationSchema>;
 
 type SortableTimeRecordKeys = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationMinutes' | 'durationHours' | 'completedAt'>;
 
+const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): number => {
+  if (!tsA && !tsB) return 0;
+  if (!tsA) return -1; // Sort undefined/null first if ascending
+  if (!tsB) return 1;
+  return new Date(tsA).getTime() - new Date(tsB).getTime();
+};
 
 export const TimesheetTable: React.FC = () => {
   const { user, isAuthLoading } = useAuth();
@@ -133,12 +139,6 @@ export const TimesheetTable: React.FC = () => {
     return sortableItems;
   }, [fullUserRecordsForDay, sortConfig]);
   
-  const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): number => {
-    if (!tsA && !tsB) return 0;
-    if (!tsA) return -1; // Sort undefined/null first if ascending
-    if (!tsB) return 1;
-    return new Date(tsA).getTime() - new Date(tsB).getTime();
-  };
 
   const paginatedRecords = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
