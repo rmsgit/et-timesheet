@@ -35,8 +35,11 @@ const formatDurationFromTotalMinutes = (totalMinutes: number | undefined | null)
 
 const formatDateDisplay = (range?: DateRange): string => {
   if (!range?.from) return 'the selected period';
-  const fromDateFormatted = format(range.from, "PPP");
-  if (range.to && !isSameDay(range.from, range.to)) {
+  const effectiveStartDate = new Date(range.from);
+  effectiveStartDate.setHours(0,0,0,0);
+
+  const fromDateFormatted = format(effectiveStartDate, "PPP");
+  if (range.to && !isSameDay(effectiveStartDate, range.to)) {
     const toDateFormatted = format(range.to, "PPP");
     return `from ${fromDateFormatted} to ${toDateFormatted}`;
   }
@@ -124,17 +127,10 @@ export default function AdminReportPage() {
       }
 
       if (recordsInProject.some(r => !r.completedAt)) {
-        // A project is pending if *any* of its tasks (regardless of type) in the date range are pending.
-        // This logic might need refinement if "pending" should be type-specific for the widgets.
-        // For a general "pending projects" widget, this is okay.
-        // To be more precise for the donut chart, we calculate pending for new/revision separately.
+        pendingProjects++;
       }
     });
     
-    // Calculate overall pending projects (projects with at least one task not completed)
-    pendingProjects = Array.from(projectsMap.values()).filter(tasks => tasks.some(t => !t.completedAt)).length;
-
-
     return {
       totalNewWorkProjects,
       totalRevisionWorkProjects,
@@ -165,7 +161,7 @@ export default function AdminReportPage() {
     return [
       { name: 'Completed New', value: projectMetrics.completedNewWorkProjects },
       { name: 'Pending/In-Progress New', value: pendingNew > 0 ? pendingNew : 0 },
-    ].filter(item => item.value > 0); // Filter out zero-value items for cleaner chart
+    ].filter(item => item.value > 0); 
   }, [projectMetrics]);
   const COLORS_NEW_WORK = ['hsl(var(--primary))', 'hsl(var(--muted))'];
 
@@ -176,7 +172,7 @@ export default function AdminReportPage() {
       { name: 'Pending/In-Progress Revision', value: pendingRevision > 0 ? pendingRevision : 0 },
     ].filter(item => item.value > 0);
   }, [projectMetrics]);
-  const COLORS_REVISION_WORK = ['hsl(var(--accent))', 'hsl(var(--secondary))'];
+  const COLORS_REVISION_WORK = ['hsl(var(--accent))', 'hsl(var(--muted-foreground))'];
 
 
   return (
@@ -285,6 +281,12 @@ export default function AdminReportPage() {
                         <Cell key={`cell-${index}`} fill={COLORS_NEW_WORK[index % COLORS_NEW_WORK.length]} />
                       ))}
                     </Pie>
+                    <text x="50%" y="48%" textAnchor="middle" dominantBaseline="middle" style={{ fontSize: "1.75rem", fontWeight: "bold", fill: "hsl(var(--foreground))" }}>
+                        {projectMetrics.totalNewWorkProjects}
+                    </text>
+                    <text x="50%" y="60%" textAnchor="middle" dominantBaseline="middle" style={{ fontSize: "0.875rem", fill: "hsl(var(--muted-foreground))" }}>
+                        Projects
+                    </text>
                     <Tooltip
                         contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
                         labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
@@ -330,6 +332,12 @@ export default function AdminReportPage() {
                         <Cell key={`cell-${index}`} fill={COLORS_REVISION_WORK[index % COLORS_REVISION_WORK.length]} />
                       ))}
                     </Pie>
+                    <text x="50%" y="48%" textAnchor="middle" dominantBaseline="middle" style={{ fontSize: "1.75rem", fontWeight: "bold", fill: "hsl(var(--foreground))" }}>
+                        {projectMetrics.totalRevisionWorkProjects}
+                    </text>
+                    <text x="50%" y="60%" textAnchor="middle" dominantBaseline="middle" style={{ fontSize: "0.875rem", fill: "hsl(var(--muted-foreground))" }}>
+                        Projects
+                    </text>
                      <Tooltip
                         contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
                         labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
