@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import type { DateRange } from 'react-day-picker';
-import { format, parseISO, startOfMonth } from 'date-fns';
+import { format, parseISO, startOfMonth, isSameDay } from 'date-fns';
 import { AdminTimesheetChart } from '@/components/admin/AdminTimesheetChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -31,6 +31,18 @@ const formatDurationFromTotalMinutes = (totalMinutes: number | undefined | null)
   const minutes = totalMinutes % 60;
   return `${hours}h ${minutes}m`;
 };
+
+const formatDateDisplay = (range?: DateRange): string => {
+  if (!range?.from) return 'the selected period';
+  const fromDateFormatted = format(range.from, "PPP");
+  if (range.to && !isSameDay(range.from, range.to)) {
+    const toDateFormatted = format(range.to, "PPP");
+    return `from ${fromDateFormatted} to ${toDateFormatted}`;
+  }
+  // Handles case where range.to is undefined OR range.to is the same day as range.from
+  return `for ${fromDateFormatted}`;
+};
+
 
 export default function AdminReportPage() {
   const { getAllRecordsByDateRange, timeRecords: allTimeRecordsFromContext, isTimesheetLoading } = useTimesheet();
@@ -64,8 +76,11 @@ export default function AdminReportPage() {
   const isLoading = isTimesheetLoading || isUsersLoading;
 
   const filteredRecords = useMemo(() => {
-    if (isLoading || !dateRange?.from || !dateRange?.to || !allTimeRecordsFromContext || !mockUsers) return [];
-    const recordsToDisplay = getAllRecordsByDateRange(dateRange.from, dateRange.to)
+    if (isLoading || !dateRange?.from || !allTimeRecordsFromContext || !mockUsers) return [];
+    
+    const effectiveEndDate = dateRange.to || dateRange.from; // Use 'from' date if 'to' is not defined
+
+    const recordsToDisplay = getAllRecordsByDateRange(dateRange.from, effectiveEndDate)
       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
     // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - filteredRecords for display (after date filter). Count: ${recordsToDisplay.length}`);
@@ -103,6 +118,7 @@ export default function AdminReportPage() {
     }
   };
 
+  const dateDisplayString = useMemo(() => formatDateDisplay(dateRange), [dateRange]);
 
   return (
     <div className="space-y-6">
@@ -129,7 +145,7 @@ export default function AdminReportPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{formatDurationFromDecimalHours(totalHours)}</div>
-              <p className="text-xs text-muted-foreground">Across {filteredRecords.length} entries</p>
+              <p className="text-xs text-muted-foreground">{filteredRecords.length} entries {dateDisplayString}</p>
             </CardContent>
           </Card>
           <Card className="shadow-md">
@@ -139,7 +155,7 @@ export default function AdminReportPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{uniqueActiveEditors}</div>
-              <p className="text-xs text-muted-foreground">Editors with logged time</p>
+              <p className="text-xs text-muted-foreground">Editors with logged time {dateDisplayString}</p>
             </CardContent>
           </Card>
           <Card className="shadow-md">
@@ -159,7 +175,7 @@ export default function AdminReportPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{uniqueProjects}</div>
-              <p className="text-xs text-muted-foreground">Unique projects worked on</p>
+              <p className="text-xs text-muted-foreground">Unique projects active {dateDisplayString}</p>
             </CardContent>
           </Card>
         </div>
@@ -174,7 +190,7 @@ export default function AdminReportPage() {
           <CardHeader>
             <CardTitle>All Time Entries</CardTitle>
             <CardDescription>
-              Showing all records from {dateRange?.from ? format(dateRange.from, "PPP") : ''} to {dateRange?.to ? format(dateRange.to, "PPP") : ''}.
+              Showing all records {dateDisplayString}.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -232,7 +248,7 @@ export default function AdminReportPage() {
             <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-4 text-xl font-medium">No Records Found</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              There are no time records for the selected date range.
+              There are no time records {dateDisplayString}.
             </p>
           </CardContent>
         </Card>
@@ -240,3 +256,4 @@ export default function AdminReportPage() {
     </div>
   );
 }
+
