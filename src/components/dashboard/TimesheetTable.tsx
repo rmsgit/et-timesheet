@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -258,17 +259,18 @@ export const TimesheetTable: React.FC = () => {
     let initialMinutes = 0;
     let initialSeconds = 0;
 
-    if (record.completedAt && record.durationHours > 0) { // Already completed, pre-fill from stored duration
+    if (record.completedAt && record.durationHours > 0) { 
         const totalSecondsFromDuration = Math.round(record.durationHours * 3600);
         initialHours = Math.floor(totalSecondsFromDuration / 3600);
         initialMinutes = Math.floor((totalSecondsFromDuration % 3600) / 60);
         initialSeconds = totalSecondsFromDuration % 60;
-    } else if (!record.completedAt && record.durationHours > 0) { // Pending, but has duration from form
+    } else if (!record.completedAt) { 
+      if (record.durationHours > 0) { // Pending, but has time logged in form
         const totalSecondsFromDuration = Math.round(record.durationHours * 3600);
         initialHours = Math.floor(totalSecondsFromDuration / 3600);
         initialMinutes = Math.floor((totalSecondsFromDuration % 3600) / 60);
         initialSeconds = totalSecondsFromDuration % 60;
-    } else if (!record.completedAt) { // Pending, no duration from form, use live timer
+      } else { // Pending, no time from form, use live timer diff
         const creationDate = parseISO(record.date);
         const now = new Date();
         const elapsedTotalSeconds = differenceInSeconds(now, creationDate);
@@ -276,8 +278,8 @@ export const TimesheetTable: React.FC = () => {
         initialHours = Math.max(0, Math.floor(elapsedTotalSeconds / 3600));
         initialMinutes = Math.max(0, Math.floor((elapsedTotalSeconds % 3600) / 60));
         initialSeconds = Math.max(0, elapsedTotalSeconds % 60);
+      }
     }
-    // Else, if completed but durationHours is 0, it defaults to 0,0,0 which is fine.
     
     resetCompletionForm({ 
       completedInHoursDialog: initialHours, 
@@ -324,6 +326,8 @@ export const TimesheetTable: React.FC = () => {
       </div>
     </TableHead>
   );
+  
+  const isDialogEditingMode = !!(editingRecord && editingRecord.id);
 
   return (
     <div className="space-y-6">
@@ -383,9 +387,9 @@ export const TimesheetTable: React.FC = () => {
       <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) setEditingRecord(undefined);}}>
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
-            <DialogTitle>{editingRecord && editingRecord.id ? 'Edit Time Record' : 'Add New Time Record'}</DialogTitle>
+            <DialogTitle>{isDialogEditingMode ? 'Edit Time Record' : 'Add New Time Record'}</DialogTitle>
           </DialogHeader>
-          <TimeRecordForm record={editingRecord} onClose={() => setIsFormOpen(false)} />
+          <TimeRecordForm record={editingRecord} isEditing={isDialogEditingMode} onClose={() => setIsFormOpen(false)} />
         </DialogContent>
       </Dialog>
 
@@ -494,12 +498,12 @@ export const TimesheetTable: React.FC = () => {
                             <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
                             {formatDurationFromDecimalHours(record.durationHours)}
                           </span>
-                        ) : record.durationHours > 0 ? ( // Pending but has some logged time from form
+                        ) : record.durationHours > 0 ? ( 
                            <span className="flex items-center text-blue-500">
                              <Clock className="mr-1.5 h-3.5 w-3.5" />
                              Logged: {formatDurationFromDecimalHours(record.durationHours)}
                            </span>
-                        ) : ( // Pending, no time logged from form yet
+                        ) : ( 
                           <PendingTaskTimer recordCreationDateISO={record.date} />
                         )}
                       </TableCell>

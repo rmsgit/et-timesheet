@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useEffect, useState, useRef } from 'react';
@@ -57,6 +58,7 @@ type TimeRecordFormData = z.infer<typeof timeRecordSchema>;
 
 interface TimeRecordFormProps {
   record?: TimeRecord; 
+  isEditing: boolean; // Explicitly pass if it's edit mode
   onClose: () => void;
 }
 
@@ -85,12 +87,12 @@ const convertHMSToDecimalHours = (h?: number, m?: number, s?: number): number =>
   const hours = h || 0;
   const minutes = m || 0;
   const seconds = s || 0;
-  if (hours < 0 || minutes < 0 || seconds < 0 || minutes > 59 || seconds > 59) return 0; // Invalid input
+  if (hours < 0 || minutes < 0 || seconds < 0 || minutes > 59 || seconds > 59) return 0; 
   return hours + (minutes / 60) + (seconds / 3600);
 };
 
 
-export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose }) => {
+export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditing, onClose }) => {
   const { addTimeRecord, updateTimeRecord } = useTimesheet();
   const { projectTypes, isLoadingProjectTypes } = useProjectTypes();
   const { toast } = useToast();
@@ -98,9 +100,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
   const prevRecordRef = useRef(record);
   
   const getInitialWorkType = (): WorkType => {
-    if (record && record.id) {
-      if (record.workType) return record.workType;
-    }
+    if (record && record.workType) return record.workType;
     return 'New work'; 
   };
 
@@ -108,25 +108,23 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
     resolver: zodResolver(timeRecordSchema),
     defaultValues: {
       date: record?.date ? parseISO(record.date) : new Date(),
-      projectName: (record?.id ? record.projectName : (record?.projectName || '')),
-      projectType: (record?.id ? record.projectType : (record?.projectType || '')),
-      workType: (record?.id ? getInitialWorkType() : (record?.workType || 'New work')),
-      projectDurationInputHours: (record?.id && record.projectDurationSeconds != null) ? convertSecondsToHMS(record.projectDurationSeconds).h : undefined,
-      projectDurationInputMinutes: (record?.id && record.projectDurationSeconds != null) ? convertSecondsToHMS(record.projectDurationSeconds).m : undefined,
-      projectDurationInputSeconds: (record?.id && record.projectDurationSeconds != null) ? convertSecondsToHMS(record.projectDurationSeconds).s : undefined,
-      workTimeInputHours: (record?.id && record.durationHours != null) ? convertDecimalHoursToHMS(record.durationHours).h : undefined,
-      workTimeInputMinutes: (record?.id && record.durationHours != null) ? convertDecimalHoursToHMS(record.durationHours).m : undefined,
-      workTimeInputSeconds: (record?.id && record.durationHours != null) ? convertDecimalHoursToHMS(record.durationHours).s : undefined,
+      projectName: isEditing ? record.projectName : (record?.projectName || ''),
+      projectType: isEditing ? record.projectType : (record?.projectType || ''),
+      workType: isEditing ? getInitialWorkType() : (record?.workType || 'New work'),
+      projectDurationInputHours: (isEditing && record.projectDurationSeconds != null) ? convertSecondsToHMS(record.projectDurationSeconds).h : undefined,
+      projectDurationInputMinutes: (isEditing && record.projectDurationSeconds != null) ? convertSecondsToHMS(record.projectDurationSeconds).m : undefined,
+      projectDurationInputSeconds: (isEditing && record.projectDurationSeconds != null) ? convertSecondsToHMS(record.projectDurationSeconds).s : undefined,
+      workTimeInputHours: (isEditing && record.durationHours != null) ? convertDecimalHoursToHMS(record.durationHours).h : undefined,
+      workTimeInputMinutes: (isEditing && record.durationHours != null) ? convertDecimalHoursToHMS(record.durationHours).m : undefined,
+      workTimeInputSeconds: (isEditing && record.durationHours != null) ? convertDecimalHoursToHMS(record.durationHours).s : undefined,
     },
   });
 
   useEffect(() => {
-    const isEditing = record && record.id;
-    
     let defaultPD_H: number | undefined = undefined;
     let defaultPD_M: number | undefined = undefined;
     let defaultPD_S: number | undefined = undefined;
-    const durationInSeconds = isEditing ? record.projectDurationSeconds : record?.projectDurationSeconds;
+    const durationInSeconds = isEditing ? record?.projectDurationSeconds : record?.projectDurationSeconds;
     if (durationInSeconds != null) {
         const hms = convertSecondsToHMS(durationInSeconds);
         defaultPD_H = hms.h;
@@ -137,13 +135,14 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
     let defaultWT_H: number | undefined = undefined;
     let defaultWT_M: number | undefined = undefined;
     let defaultWT_S: number | undefined = undefined;
-    const workTimeDecimalHours = isEditing ? record.durationHours : record?.durationHours;
-    if (workTimeDecimalHours != null) {
+    const workTimeDecimalHours = isEditing ? record?.durationHours : record?.durationHours;
+     if (isEditing && workTimeDecimalHours != null) { // Only populate for editing
         const hms = convertDecimalHoursToHMS(workTimeDecimalHours);
         defaultWT_H = hms.h;
         defaultWT_M = hms.m;
         defaultWT_S = hms.s;
     }
+
 
     let resetToValues: Partial<TimeRecordFormData> = {
         date: record?.date ? parseISO(record.date) : new Date(),
@@ -178,13 +177,16 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
       resetToValues.projectType = isEditing ? record.projectType : (record?.projectType || '');
     }
     
-    if (prevRecordRef.current !== record || (prevRecordRef.current === record && isLoadingProjectTypes && !getValues().projectType && projectTypes.length > 0)) {
+    // Check if record prop or isEditing prop changed, or if project types loaded when form type was unset
+    const projectTypeWasUnsetAndNowLoaded = isLoadingProjectTypes && !getValues().projectType && projectTypes.length > 0;
+
+    if (prevRecordRef.current !== record || projectTypeWasUnsetAndNowLoaded) {
         reset(resetToValues as TimeRecordFormData);
     }
     prevRecordRef.current = record;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [record, reset, projectTypes, isLoadingProjectTypes, getValues]);
+  }, [record, isEditing, reset, projectTypes, isLoadingProjectTypes, getValues]);
 
 
   const onSubmit = async (data: TimeRecordFormData) => {
@@ -201,11 +203,17 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
       finalProjectDurationSeconds = 0;
     }
 
-    const finalWorkDurationHours = convertHMSToDecimalHours(
-      data.workTimeInputHours,
-      data.workTimeInputMinutes,
-      data.workTimeInputSeconds
-    );
+    let finalWorkDurationHours = 0;
+    if (isEditing) { // Only calculate from form if editing and fields were visible
+        finalWorkDurationHours = convertHMSToDecimalHours(
+        data.workTimeInputHours,
+        data.workTimeInputMinutes,
+        data.workTimeInputSeconds
+      );
+    } else if (record && record.id && record.durationHours) { // Preserve existing durationHours if editing but fields somehow not used
+        finalWorkDurationHours = record.durationHours;
+    }
+
 
     const recordDataToSaveBase = {
       date: data.date.toISOString(),
@@ -213,21 +221,19 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
       projectType: data.projectType,
       workType: data.workType,
       projectDurationSeconds: finalProjectDurationSeconds,
-      durationHours: finalWorkDurationHours, // Always include durationHours
+      durationHours: finalWorkDurationHours,
     };
     
     try {
-      if (record && record.id) { // Editing existing record
+      if (isEditing && record && record.id) { 
         const fullExistingRecord: TimeRecord = {
             ...record, 
             ...recordDataToSaveBase,
-            // completedAt is preserved from the original 'record' if it exists
             completedAt: record.completedAt, 
         };
         await updateTimeRecord(fullExistingRecord); 
         toast({ title: "Success", description: "Time record updated." });
-      } else { // Adding new record
-        // For new records, completedAt is not set here.
+      } else { 
         await addTimeRecord(recordDataToSaveBase as Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>);
         toast({ title: "Success", description: "Time record added." });
       }
@@ -369,38 +375,40 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
         {errors.projectDurationInputSeconds && <p className="text-sm text-destructive mt-1">{errors.projectDurationInputSeconds.message}</p>}
       </div>
 
-      <div>
-        <Label>Actual Work Time (HH:MM:SS)</Label>
-        <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-muted-foreground mr-1" />
-            <div className="flex-1">
-                <Controller
-                name="workTimeInputHours"
-                control={control}
-                render={({ field }) => <Input type="number" {...field} placeholder="H" value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} disabled={isSubmittingForm} />}
-                />
+      {isEditing && (
+        <div>
+            <Label>Actual Work Time (HH:MM:SS)</Label>
+            <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-muted-foreground mr-1" />
+                <div className="flex-1">
+                    <Controller
+                    name="workTimeInputHours"
+                    control={control}
+                    render={({ field }) => <Input type="number" {...field} placeholder="H" value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} disabled={isSubmittingForm} />}
+                    />
+                </div>
+                <span className="text-muted-foreground">:</span>
+                <div className="flex-1">
+                    <Controller
+                    name="workTimeInputMinutes"
+                    control={control}
+                    render={({ field }) => <Input type="number" {...field} placeholder="M" value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} step="1" min="0" max="59" disabled={isSubmittingForm} />}
+                    />
+                </div>
+                <span className="text-muted-foreground">:</span>
+                <div className="flex-1">
+                    <Controller
+                    name="workTimeInputSeconds"
+                    control={control}
+                    render={({ field }) => <Input type="number" {...field} placeholder="S" value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} step="1" min="0" max="59" disabled={isSubmittingForm} />}
+                    />
+                </div>
             </div>
-            <span className="text-muted-foreground">:</span>
-            <div className="flex-1">
-                <Controller
-                name="workTimeInputMinutes"
-                control={control}
-                render={({ field }) => <Input type="number" {...field} placeholder="M" value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} step="1" min="0" max="59" disabled={isSubmittingForm} />}
-                />
-            </div>
-             <span className="text-muted-foreground">:</span>
-            <div className="flex-1">
-                <Controller
-                name="workTimeInputSeconds"
-                control={control}
-                render={({ field }) => <Input type="number" {...field} placeholder="S" value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} step="1" min="0" max="59" disabled={isSubmittingForm} />}
-                />
-            </div>
+            {errors.workTimeInputHours && <p className="text-sm text-destructive mt-1">{errors.workTimeInputHours.message}</p>}
+            {errors.workTimeInputMinutes && <p className="text-sm text-destructive mt-1">{errors.workTimeInputMinutes.message}</p>}
+            {errors.workTimeInputSeconds && <p className="text-sm text-destructive mt-1">{errors.workTimeInputSeconds.message}</p>}
         </div>
-        {errors.workTimeInputHours && <p className="text-sm text-destructive mt-1">{errors.workTimeInputHours.message}</p>}
-        {errors.workTimeInputMinutes && <p className="text-sm text-destructive mt-1">{errors.workTimeInputMinutes.message}</p>}
-        {errors.workTimeInputSeconds && <p className="text-sm text-destructive mt-1">{errors.workTimeInputSeconds.message}</p>}
-      </div>
+      )}
 
 
       <div className="flex justify-end space-x-2 pt-2">
@@ -409,7 +417,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, onClose 
         </Button>
         <Button type="submit" disabled={isSubmittingForm || isLoadingProjectTypes}>
            {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-           {record && record.id ? "Update Record" : "Add Record"}
+           {isEditing ? "Update Record" : "Add Record"}
         </Button>
       </div>
     </form>
