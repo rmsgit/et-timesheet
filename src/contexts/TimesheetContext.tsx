@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface TimesheetContextType {
   timeRecords: TimeRecord[];
-  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => Promise<void>; // durationHours is now part of this
+  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours'> & { durationHours?: number }) => Promise<void>;
   updateTimeRecord: (record: TimeRecord) => Promise<void>;
   deleteTimeRecord: (recordId: string) => Promise<void>;
   setCompletionDetails: (recordId: string, completedInHours: number, completedInMinutes: number, completedInSeconds: number) => Promise<void>;
@@ -110,7 +110,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     };
   }, [showLoader, hideLoader, toast]); 
 
-  const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>) => {
+  const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours'> & { durationHours?: number }) => {
     if (!user) {
         toast({ title: "Authentication Error", description: "User not logged in. Cannot add record.", variant: "destructive" });
         return;
@@ -131,10 +131,10 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     }
 
     const newRecordObject: TimeRecord = {
-      ...recordData, // This includes projectDurationSeconds and durationHours if provided from form
+      ...recordData, 
       id: newRecordId,
       userId: user.id,
-      durationHours: recordData.durationHours || 0, // Default to 0 if not provided by form
+      durationHours: 0, // Always initialize to 0 for new records
       // completedAt is undefined here for new records
     };
     
@@ -161,8 +161,10 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         toast({ title: "Configuration Error", description: "Firebase is not connected. Record not updated.", variant: "destructive" });
         return;
     }
-    // When updating, updatedRecord comes directly from TimeRecordForm and should have all necessary fields,
-    // including potentially modified durationHours and preserved completedAt.
+    // When updating, updatedRecord comes directly from TimeRecordForm.
+    // Since TimeRecordForm no longer modifies durationHours,
+    // updatedRecord.durationHours will be the value from the original record.
+    // completedAt is also preserved from the original record within updatedRecord.
     const recordToSave = Object.entries(updatedRecord).reduce((acc, [key, value]) => {
       if (value !== undefined) {
         // @ts-ignore
