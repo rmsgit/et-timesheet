@@ -10,7 +10,7 @@ import { AdminTimesheetChart } from '@/components/admin/AdminTimesheetChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, AlertCircle, Users, Clock, Loader2, UsersRound, Package, RefreshCw, FilePlus2, Film } from 'lucide-react';
+import { BarChart3, AlertCircle, Users, Clock, Loader2, UsersRound, Package, RefreshCw, FilePlus2, Film, Hourglass, CheckCircle2 } from 'lucide-react';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
@@ -53,28 +53,16 @@ export default function AdminReportPage() {
     to: new Date(),
   });
 
-  useEffect(() => {
-    if (!isTimesheetLoading && allTimeRecordsFromContext) {
-      if (allTimeRecordsFromContext.length > 0) {
-        const uniqueUserIdsInContextData = Array.from(new Set(allTimeRecordsFromContext.map(r => r.userId)));
-        if (loggedInUser) {
-        }
-      } else {
-      }
-    } else if (isTimesheetLoading) {
-    } else if (!allTimeRecordsFromContext) {
-    }
-  }, [allTimeRecordsFromContext, isTimesheetLoading, loggedInUser]);
-
   const isLoading = isTimesheetLoading || isUsersLoading;
 
   const filteredRecords = useMemo(() => {
     if (isLoading || !dateRange?.from || !allTimeRecordsFromContext || !mockUsers) return [];
     
     const effectiveStartDate = new Date(dateRange.from);
-    effectiveStartDate.setHours(0, 0, 0, 0); // Ensure start date is from the beginning of the day
+    effectiveStartDate.setHours(0, 0, 0, 0); 
 
     const effectiveEndDate = dateRange.to || dateRange.from; 
+    effectiveEndDate.setHours(23, 59, 59, 999);
 
     const recordsToDisplay = getAllRecordsByDateRange(effectiveStartDate, effectiveEndDate)
       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -89,12 +77,73 @@ export default function AdminReportPage() {
   
   const totalHours = useMemo(() => filteredRecords.reduce((sum, r) => sum + r.durationHours, 0), [filteredRecords]);
   const uniqueActiveEditors = useMemo(() => new Set(filteredRecords.map(r => r.userId)).size, [filteredRecords]);
-  const uniqueProjects = useMemo(() => new Set(filteredRecords.map(r => r.projectName)).size, [filteredRecords]);
   
   const totalRegisteredEditors = useMemo(() => {
     if (isLoading || !mockUsers) return 0;
     return mockUsers.filter(u => u.role === 'editor').length;
   }, [mockUsers, isLoading]);
+
+
+  const projectMetrics = useMemo(() => {
+    if (filteredRecords.length === 0) {
+      return {
+        totalNewWorkProjects: 0,
+        totalRevisionWorkProjects: 0,
+        completedNewWorkProjects: 0,
+        completedRevisionWorkProjects: 0,
+        pendingProjects: 0,
+      };
+    }
+
+    const projectsMap = new Map<string, TimeRecord[]>();
+    filteredRecords.forEach(record => {
+      if (!projectsMap.has(record.projectName)) {
+        projectsMap.set(record.projectName, []);
+      }
+      projectsMap.get(record.projectName)!.push(record);
+    });
+
+    let totalNewWorkProjects = 0;
+    let totalRevisionWorkProjects = 0;
+    let completedNewWorkProjects = 0;
+    let completedRevisionWorkProjects = 0;
+    let pendingProjects = 0;
+
+    const newWorkProjectNames = new Set<string>();
+    const revisionWorkProjectNames = new Set<string>();
+
+    filteredRecords.forEach(record => {
+      if (record.workType === 'New work') newWorkProjectNames.add(record.projectName);
+      if (record.workType === 'Revision') revisionWorkProjectNames.add(record.projectName);
+    });
+    totalNewWorkProjects = newWorkProjectNames.size;
+    totalRevisionWorkProjects = revisionWorkProjectNames.size;
+
+    projectsMap.forEach((recordsInProject) => {
+      const newWorkRecords = recordsInProject.filter(r => r.workType === 'New work');
+      if (newWorkRecords.length > 0 && newWorkRecords.every(r => r.completedAt)) {
+        completedNewWorkProjects++;
+      }
+
+      const revisionRecords = recordsInProject.filter(r => r.workType === 'Revision');
+      if (revisionRecords.length > 0 && revisionRecords.every(r => r.completedAt)) {
+        completedRevisionWorkProjects++;
+      }
+
+      if (recordsInProject.some(r => !r.completedAt)) {
+        pendingProjects++;
+      }
+    });
+
+    return {
+      totalNewWorkProjects,
+      totalRevisionWorkProjects,
+      completedNewWorkProjects,
+      completedRevisionWorkProjects,
+      pendingProjects,
+    };
+  }, [filteredRecords]);
+
 
   const getWorkTypeBadge = (workType: TimeRecord['workType']) => {
     switch (workType) {
@@ -122,21 +171,18 @@ export default function AdminReportPage() {
       
       {isLoading ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <CardSkeleton className="shadow-md" />
-          <CardSkeleton className="shadow-md" />
-          <CardSkeleton className="shadow-md" />
-          <CardSkeleton className="shadow-md" />
+          {Array.from({ length: 8 }).map((_, i) => <CardSkeleton key={i} className="shadow-md" />)}
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Work Hours (All Editors)</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Work Hours</CardTitle>
               <Clock className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{formatDurationFromDecimalHours(totalHours)}</div>
-              <p className="text-xs text-muted-foreground">{filteredRecords.length} entries {dateDisplayString}</p>
+              <p className="text-xs text-muted-foreground">All editors, {filteredRecords.length} entries {dateDisplayString}</p>
             </CardContent>
           </Card>
           <Card className="shadow-md">
@@ -146,7 +192,7 @@ export default function AdminReportPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{uniqueActiveEditors}</div>
-              <p className="text-xs text-muted-foreground">Editors with logged time {dateDisplayString}</p>
+              <p className="text-xs text-muted-foreground">With logged time {dateDisplayString}</p>
             </CardContent>
           </Card>
           <Card className="shadow-md">
@@ -161,12 +207,52 @@ export default function AdminReportPage() {
           </Card>
            <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-muted-foreground lucide lucide-layout-grid"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 12h18"/><path d="M12 3v18"/></svg>
+              <CardTitle className="text-sm font-medium">Pending Projects</CardTitle>
+              <Hourglass className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{uniqueProjects}</div>
-              <p className="text-xs text-muted-foreground">Unique projects active {dateDisplayString}</p>
+              <div className="text-2xl font-bold">{projectMetrics.pendingProjects}</div>
+              <p className="text-xs text-muted-foreground">With uncompleted tasks {dateDisplayString}</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total New Work Projects</CardTitle>
+              <FilePlus2 className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{projectMetrics.totalNewWorkProjects}</div>
+              <p className="text-xs text-muted-foreground">Unique projects with 'New work' {dateDisplayString}</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Revision Projects</CardTitle>
+              <RefreshCw className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{projectMetrics.totalRevisionWorkProjects}</div>
+              <p className="text-xs text-muted-foreground">Unique projects with 'Revision' {dateDisplayString}</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Completed New Work Projects</CardTitle>
+              <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{projectMetrics.completedNewWorkProjects}</div>
+              <p className="text-xs text-muted-foreground">All 'New work' tasks done {dateDisplayString}</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Completed Revision Projects</CardTitle>
+              <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{projectMetrics.completedRevisionWorkProjects}</div>
+              <p className="text-xs text-muted-foreground">All 'Revision' tasks done {dateDisplayString}</p>
             </CardContent>
           </Card>
         </div>
@@ -216,7 +302,7 @@ export default function AdminReportPage() {
                       <TableCell>
                         <span className="flex items-center">
                             <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
-                            {formatDurationFromDecimalHours(record.durationHours)}
+                            {record.completedAt ? formatDurationFromDecimalHours(record.durationHours) : 'Pending'}
                         </span>
                       </TableCell>
                       <TableCell>
