@@ -6,7 +6,6 @@ import { useTimesheet } from '@/hooks/useTimesheet';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import type { DateRange } from 'react-day-picker';
 import { format, parseISO, isSameDay } from 'date-fns';
-import { AdminTimesheetChart } from '@/components/admin/AdminTimesheetChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -333,7 +332,6 @@ export default function AdminReportPage() {
         </div>
       )}
 
-      <AdminTimesheetChart records={allRecordsInRange} />
 
       {isLoading ? (
         <div className="grid md:grid-cols-2 gap-6 mt-6">
@@ -545,3 +543,4 @@ export default function AdminReportPage() {
     </div>
   );
 }
+

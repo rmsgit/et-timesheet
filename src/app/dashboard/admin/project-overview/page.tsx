@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import { useTimesheet } from '@/hooks/useTimesheet';
-import { Layers, Hourglass, CheckCircle2, ListChecks, AlertCircle, ListTree, FilePlus2, RefreshCw, Package, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Layers, Hourglass, CheckCircle2, ListChecks, AlertCircle, ListTree, FilePlus2, RefreshCw, Package, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, BarChart2, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -16,8 +16,10 @@ import { format, parseISO } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useMockUsers } from '@/hooks/useMockUsers';
+import { useProjectTypes } from '@/hooks/useProjectTypes';
 import type { TimeRecord as AppTimeRecord, User } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
@@ -60,6 +62,7 @@ type SortableAppTimeRecordKeys = keyof Pick<AppTimeRecord, 'date' | 'projectType
 export default function ProjectOverviewPage() {
   const { timeRecords: allTimeRecords, isTimesheetLoading } = useTimesheet(); 
   const { users: allUsers, isUsersLoading: isUsersApiLoading } = useMockUsers();
+  const { projectTypes, isLoadingProjectTypes } = useProjectTypes();
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(),
@@ -77,10 +80,10 @@ export default function ProjectOverviewPage() {
   const [modalTableSortConfig, setModalTableSortConfig] = useState<{ key: SortableAppTimeRecordKeys | null; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
 
 
-  const isLoading = isTimesheetLoading || isUsersApiLoading;
+  const isLoading = isTimesheetLoading || isUsersApiLoading || isLoadingProjectTypes;
 
   const filteredTimeRecordsByDate = useMemo(() => {
-    if (isLoading || !allTimeRecords || !dateRange?.from) return [];
+    if (isTimesheetLoading || !allTimeRecords || !dateRange?.from) return []; // Simpler loading check for this stage
     
     const effectiveStartDate = new Date(dateRange.from);
     effectiveStartDate.setHours(0, 0, 0, 0); 
@@ -92,10 +95,10 @@ export default function ProjectOverviewPage() {
       const recordDate = parseISO(record.date);
       return recordDate >= effectiveStartDate && recordDate <= effectiveEndDate;
     });
-  }, [allTimeRecords, dateRange, isLoading]);
+  }, [allTimeRecords, dateRange, isTimesheetLoading]);
 
   const projectSummariesFull = useMemo((): ProjectSummary[] => {
-    if (isLoading || filteredTimeRecordsByDate.length === 0) return [];
+    if (isTimesheetLoading || filteredTimeRecordsByDate.length === 0) return []; // Simpler loading check
 
     const projectsData: { [key: string]: {
         totalHours: number;
@@ -137,7 +140,7 @@ export default function ProjectOverviewPage() {
         status: status,
       };
     });
-  }, [filteredTimeRecordsByDate, isLoading]);
+  }, [filteredTimeRecordsByDate, isTimesheetLoading]);
 
   const sortedProjectSummaries = useMemo(() => {
     let sortableItems = [...projectSummariesFull];
@@ -269,6 +272,43 @@ export default function ProjectOverviewPage() {
   const inProgressProjectsCount = projectSummariesFull.filter(p => p.status === 'In Progress').length;
   const pendingProjectsCount = projectSummariesFull.filter(p => p.status === 'Pending').length;
 
+  const chartDataByProjectType = useMemo(() => {
+    if (isLoadingProjectTypes || !projectTypes || filteredTimeRecordsByDate.length === 0) return [];
+    
+    const projectCountsByType: { [key: string]: Set<string> } = {};
+    projectTypes.forEach(type => projectCountsByType[type] = new Set());
+
+    filteredTimeRecordsByDate.forEach(record => {
+      if (projectCountsByType[record.projectType]) {
+        projectCountsByType[record.projectType].add(record.projectName);
+      }
+    });
+    
+    return Object.entries(projectCountsByType)
+      .map(([type, projectSet]) => ({ name: type, count: projectSet.size }))
+      .filter(item => item.count > 0); 
+  }, [filteredTimeRecordsByDate, projectTypes, isLoadingProjectTypes]);
+
+  const chartDataByEditor = useMemo(() => {
+    if (isUsersApiLoading || !allUsers || filteredTimeRecordsByDate.length === 0) return [];
+    
+    const projectCountsByEditor: { [userId: string]: Set<string> } = {};
+    const editorUsers = allUsers.filter(u => u.role === 'editor');
+    
+    editorUsers.forEach(editor => projectCountsByEditor[editor.id] = new Set());
+
+    filteredTimeRecordsByDate.forEach(record => {
+      if (projectCountsByEditor[record.userId]) {
+        projectCountsByEditor[record.userId].add(record.projectName);
+      }
+    });
+    
+    return editorUsers
+      .map(editor => ({ name: editor.username, count: projectCountsByEditor[editor.id]?.size || 0 }))
+      .filter(item => item.count > 0);
+  }, [filteredTimeRecordsByDate, allUsers, isUsersApiLoading]);
+
+
   const renderMainTableSortableHeader = (label: string, columnKey: SortableProjectSummaryKeys, className?: string) => (
     <TableHead className={cn("cursor-pointer hover:bg-muted/50", className)} onClick={() => requestMainTableSort(columnKey)}>
       <div className="flex items-center">
@@ -301,7 +341,7 @@ export default function ProjectOverviewPage() {
         <DateRangePicker dateRange={dateRange} onDateChange={(range) => { setDateRange(range); setMainTableCurrentPage(1); }} disabled={isLoading} />
       </div>
       
-      {isLoading ? (
+      {isTimesheetLoading || isUsersApiLoading ? ( // Only these for summary cards
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <CardSkeleton className="shadow-md" />
             <CardSkeleton className="shadow-md" />
@@ -359,7 +399,7 @@ export default function ProjectOverviewPage() {
                 </CardContent>
             </Card>
         </div>
-      ) : !isLoading && (
+      ) : !isTimesheetLoading && !isUsersApiLoading && (
         <Card className="shadow-md text-center py-10 mt-6">
           <CardContent>
             <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -371,7 +411,70 @@ export default function ProjectOverviewPage() {
         </Card>
       )}
 
-      {isLoading ? (
+      {filteredTimeRecordsByDate.length > 0 && (
+         <div className="grid md:grid-cols-2 gap-6 mt-6">
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center"><BarChart2 className="mr-2 h-5 w-5 text-primary" /> Projects by Type</CardTitle>
+              <CardDescription>Unique projects for each project type {dateRange?.from && dateRange.to ? `from ${format(dateRange.from, "PPP")} to ${format(dateRange.to, "PPP")}` : 'for all time'}.</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[300px] pl-2 pr-6 pt-4 pb-4">
+              {isLoadingProjectTypes ? (
+                <div className="flex items-center justify-center h-full"> <Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+              ) : chartDataByProjectType.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartDataByProjectType} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                      labelStyle={{ color: 'hsl(var(--foreground))' }}
+                      formatter={(value: number) => [`${value} projects`, "Count"]}
+                    />
+                    <Legend wrapperStyle={{fontSize: "12px"}} />
+                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Project Count" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                 <div className="flex items-center justify-center h-full"> <p className="text-muted-foreground">No project type data for this period.</p> </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center"><BarChart2 className="mr-2 h-5 w-5 text-accent" /> Projects by Editor</CardTitle>
+              <CardDescription>Unique projects worked on by each editor {dateRange?.from && dateRange.to ? `from ${format(dateRange.from, "PPP")} to ${format(dateRange.to, "PPP")}` : 'for all time'}.</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[300px] pl-2 pr-6 pt-4 pb-4">
+              {isUsersApiLoading ? (
+                 <div className="flex items-center justify-center h-full"> <Loader2 className="h-8 w-8 animate-spin text-accent" /></div>
+              ) : chartDataByEditor.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartDataByEditor} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                      labelStyle={{ color: 'hsl(var(--foreground))' }}
+                      formatter={(value: number) => [`${value} projects`, "Count"]}
+                    />
+                    <Legend wrapperStyle={{fontSize: "12px"}} />
+                    <Bar dataKey="count" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} name="Project Count" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                  <div className="flex items-center justify-center h-full"> <p className="text-muted-foreground">No editor project data for this period.</p> </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+
+      {isTimesheetLoading ? ( // Skeleton for main table
         <TableSkeleton columnCount={7} className="shadow-lg mt-6 h-[480px]" />
       ) : projectSummariesFull.length > 0 ? (
         <Card className="shadow-lg mt-6">
@@ -433,7 +536,7 @@ export default function ProjectOverviewPage() {
             </div>
           )}
         </Card>
-      ) : !isLoading && (
+      ) : !isTimesheetLoading && (
         <></> 
       )}
 
@@ -523,3 +626,4 @@ export default function ProjectOverviewPage() {
     </div>
   );
 }
+
