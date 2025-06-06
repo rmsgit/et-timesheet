@@ -163,7 +163,7 @@ export default function AdminReportPage() {
       { name: 'Pending/In-Progress New', value: pendingNew > 0 ? pendingNew : 0 },
     ].filter(item => item.value > 0); 
   }, [projectMetrics]);
-  const COLORS_NEW_WORK = ['hsl(var(--primary))', 'hsl(var(--muted))'];
+  const COLORS_NEW_WORK = ['hsl(var(--primary))', 'hsl(var(--muted-foreground))'];
 
   const revisionWorkChartData = useMemo(() => {
     const pendingRevision = projectMetrics.totalRevisionWorkProjects - projectMetrics.completedRevisionWorkProjects;
