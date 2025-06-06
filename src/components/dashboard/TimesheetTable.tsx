@@ -49,6 +49,7 @@ import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { PendingTaskTimer } from './PendingTaskTimer'; // Import the new component
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
@@ -68,14 +69,11 @@ const formatDurationFromTotalSeconds = (totalSeconds: number | undefined | null)
   const parts: string[] = [];
   if (hours > 0) parts.push(`${hours}h`);
   if (minutes > 0) parts.push(`${minutes}m`);
-  // Always show seconds if totalSeconds > 0 and (seconds > 0 or no other parts exist)
-  // Or if totalSeconds is < 60 and > 0
   if (totalSeconds > 0 && (seconds > 0 || parts.length === 0)) {
      parts.push(`${seconds}s`);
   }
-  if (parts.length === 0 && totalSeconds === 0) return "0s"; // Explicitly show 0s
-  if (parts.length === 0 && totalSeconds > 0) return `${totalSeconds}s`; // Should not happen if logic above is correct
-
+  if (parts.length === 0 && totalSeconds === 0) return "0s"; 
+  
   return parts.join(' ') || "0s";
 };
 
@@ -441,10 +439,14 @@ export const TimesheetTable: React.FC = () => {
                           </span>
                       </TableCell>
                       <TableCell>
+                        {record.completedAt ? (
                           <span className="flex items-center">
-                              <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
-                              {record.completedAt ? formatDurationFromDecimalHours(record.durationHours) : 'Pending'}
+                            <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
+                            {formatDurationFromDecimalHours(record.durationHours)}
                           </span>
+                        ) : (
+                          <PendingTaskTimer recordCreationDateISO={record.date} />
+                        )}
                       </TableCell>
                       <TableCell>
                         {record.completedAt ? (
