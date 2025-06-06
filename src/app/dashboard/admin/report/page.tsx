@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import type { DateRange } from 'react-day-picker';
-import { format, parseISO, startOfMonth, isSameDay } from 'date-fns';
+import { format, parseISO, isSameDay } from 'date-fns';
 import { AdminTimesheetChart } from '@/components/admin/AdminTimesheetChart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -50,7 +50,7 @@ export default function AdminReportPage() {
   const { user: loggedInUser } = useAuth(); 
   
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfMonth(new Date()),
+    from: new Date(),
     to: new Date(),
   });
 

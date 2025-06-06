@@ -12,7 +12,7 @@ import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import type { DateRange } from 'react-day-picker';
-import { startOfMonth, format, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useMockUsers } from '@/hooks/useMockUsers';
@@ -46,7 +46,7 @@ export default function ProjectOverviewPage() {
   const { users: allUsers, isUsersLoading: isUsersApiLoading } = useMockUsers();
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfMonth(new Date()),
+    from: new Date(),
     to: new Date(),
   });
 
@@ -372,3 +372,4 @@ export default function ProjectOverviewPage() {
     </div>
   );
 }
+

@@ -6,7 +6,7 @@ import { useTimesheet } from '@/hooks/useTimesheet';
 import { useAuth } from '@/hooks/useAuth';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import type { DateRange } from 'react-day-picker';
-import { format, parseISO, startOfMonth } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +35,7 @@ export default function MyReportPage() {
   const { getRecordsByDateRange, isTimesheetLoading } = useTimesheet();
   
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfMonth(new Date()),
+    from: new Date(),
     to: new Date(),
   });
 
@@ -215,3 +215,4 @@ export default function MyReportPage() {
     </div>
   );
 }
+

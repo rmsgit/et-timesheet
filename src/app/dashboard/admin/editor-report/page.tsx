@@ -6,7 +6,7 @@ import { useTimesheet } from '@/hooks/useTimesheet';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import type { DateRange } from 'react-day-picker';
-import { format, parseISO, startOfMonth, eachDayOfInterval, compareAsc } from 'date-fns';
+import { format, parseISO, eachDayOfInterval, compareAsc } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -40,7 +40,7 @@ export default function AdminEditorReportPage() {
   const [selectedUserId, setSelectedUserId] = useState<string | undefined>(undefined);
   const [selectedEditor, setSelectedEditor] = useState<User | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfMonth(new Date()),
+    from: new Date(),
     to: new Date(),
   });
 
@@ -355,3 +355,4 @@ export default function AdminEditorReportPage() {
     </div>
   );
 }
+
