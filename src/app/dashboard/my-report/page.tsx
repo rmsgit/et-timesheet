@@ -42,8 +42,14 @@ export default function MyReportPage() {
   const isLoading = isAuthLoading || isTimesheetLoading;
 
   const filteredRecords = useMemo(() => {
-    if (isLoading || !user || !dateRange?.from || !dateRange?.to) return [];
-    return getRecordsByDateRange(user.id, dateRange.from, dateRange.to)
+    if (isLoading || !user || !dateRange?.from) return [];
+    
+    const effectiveStartDate = new Date(dateRange.from);
+    effectiveStartDate.setHours(0, 0, 0, 0); // Ensure start date is from the beginning of the day
+
+    const effectiveEndDate = dateRange.to || dateRange.from;
+
+    return getRecordsByDateRange(user.id, effectiveStartDate, effectiveEndDate)
       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [user, dateRange, getRecordsByDateRange, isLoading]);
 

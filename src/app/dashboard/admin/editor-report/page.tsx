@@ -60,8 +60,14 @@ export default function AdminEditorReportPage() {
   }, [selectedUserId, allUsers]);
 
   const filteredRecords = useMemo(() => {
-    if (isLoading || !selectedUserId || !dateRange?.from || !dateRange?.to) return [];
-    return getRecordsByDateRange(selectedUserId, dateRange.from, dateRange.to)
+    if (isLoading || !selectedUserId || !dateRange?.from) return [];
+    
+    const effectiveStartDate = new Date(dateRange.from);
+    effectiveStartDate.setHours(0, 0, 0, 0); // Ensure start date is from the beginning of the day
+    
+    const effectiveEndDate = dateRange.to || dateRange.from;
+
+    return getRecordsByDateRange(selectedUserId, effectiveStartDate, effectiveEndDate)
       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [selectedUserId, dateRange, getRecordsByDateRange, isLoading]);
 
@@ -78,10 +84,15 @@ export default function AdminEditorReportPage() {
   }, [filteredRecords]);
 
   const dailyHoursChartData = useMemo(() => {
-    if (isLoading || !dateRange?.from || !dateRange?.to || filteredRecords.length === 0) return [];
+    if (isLoading || !dateRange?.from || filteredRecords.length === 0) return [];
+
+    const chartStartDate = new Date(dateRange.from);
+    chartStartDate.setHours(0,0,0,0);
+    const chartEndDate = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from);
+    chartEndDate.setHours(23,59,59,999);
 
     const dailyData: { [date: string]: { normalHours: number; revisionHours: number } } = {};
-    const allDatesInRange = eachDayOfInterval({ start: dateRange.from, end: dateRange.to });
+    const allDatesInRange = eachDayOfInterval({ start: chartStartDate, end: chartEndDate });
     
     allDatesInRange.forEach(day => {
       dailyData[format(day, 'yyyy-MM-dd')] = { normalHours: 0, revisionHours: 0 };
@@ -92,7 +103,7 @@ export default function AdminEditorReportPage() {
       if (dailyData[recordDateStr] !== undefined) {
         if (record.workType === 'Revision') {
           dailyData[recordDateStr].revisionHours += record.durationHours;
-        } else { // 'New work' and 'Sample work' contribute to normalHours
+        } else { 
           dailyData[recordDateStr].normalHours += record.durationHours;
         }
       }

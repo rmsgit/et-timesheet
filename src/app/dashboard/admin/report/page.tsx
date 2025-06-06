@@ -39,7 +39,6 @@ const formatDateDisplay = (range?: DateRange): string => {
     const toDateFormatted = format(range.to, "PPP");
     return `from ${fromDateFormatted} to ${toDateFormatted}`;
   }
-  // Handles case where range.to is undefined OR range.to is the same day as range.from
   return `for ${fromDateFormatted}`;
 };
 
@@ -56,20 +55,14 @@ export default function AdminReportPage() {
 
   useEffect(() => {
     if (!isTimesheetLoading && allTimeRecordsFromContext) {
-      // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - allTimeRecordsFromContext loaded. Count: ${allTimeRecordsFromContext.length}`);
       if (allTimeRecordsFromContext.length > 0) {
         const uniqueUserIdsInContextData = Array.from(new Set(allTimeRecordsFromContext.map(r => r.userId)));
-        // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Unique UserIDs in context data:`, uniqueUserIdsInContextData);
         if (loggedInUser) {
-          // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Logged-in admin UserID: ${loggedInUser.id}`);
         }
       } else {
-        // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - allTimeRecordsFromContext is empty.`);
       }
     } else if (isTimesheetLoading) {
-      // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Timesheet data is still loading...`);
     } else if (!allTimeRecordsFromContext) {
-      // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - allTimeRecordsFromContext is null/undefined after loading.`);
     }
   }, [allTimeRecordsFromContext, isTimesheetLoading, loggedInUser]);
 
@@ -78,16 +71,14 @@ export default function AdminReportPage() {
   const filteredRecords = useMemo(() => {
     if (isLoading || !dateRange?.from || !allTimeRecordsFromContext || !mockUsers) return [];
     
-    const effectiveEndDate = dateRange.to || dateRange.from; // Use 'from' date if 'to' is not defined
+    const effectiveStartDate = new Date(dateRange.from);
+    effectiveStartDate.setHours(0, 0, 0, 0); // Ensure start date is from the beginning of the day
 
-    const recordsToDisplay = getAllRecordsByDateRange(dateRange.from, effectiveEndDate)
+    const effectiveEndDate = dateRange.to || dateRange.from; 
+
+    const recordsToDisplay = getAllRecordsByDateRange(effectiveStartDate, effectiveEndDate)
       .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
-    // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - filteredRecords for display (after date filter). Count: ${recordsToDisplay.length}`);
-    if (recordsToDisplay.length > 0) {
-        const uniqueUserIdsInFilteredData = Array.from(new Set(recordsToDisplay.map(r => r.userId)));
-        // console.log(`DEBUG_ADMIN_REPORT: AdminReportPage - Unique UserIDs in filtered data for display:`, uniqueUserIdsInFilteredData);
-    }
     return recordsToDisplay;
   }, [dateRange, getAllRecordsByDateRange, isLoading, allTimeRecordsFromContext, mockUsers]);
 

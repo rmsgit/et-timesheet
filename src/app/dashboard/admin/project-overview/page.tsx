@@ -34,7 +34,7 @@ const formatDurationFromTotalMinutes = (totalMinutes: number | undefined | null)
 
 interface ProjectSummary {
   projectName: string;
-  totalHours: number; // This will remain decimal for aggregation, formatted on display
+  totalHours: number; 
   totalTasks: number;
   completedTasks: number;
   pendingTasks: number;
@@ -42,7 +42,7 @@ interface ProjectSummary {
 }
 
 export default function ProjectOverviewPage() {
-  const { timeRecords, isTimesheetLoading } = useTimesheet();
+  const { timeRecords: allTimeRecords, isTimesheetLoading } = useTimesheet(); // Renamed to avoid conflict
   const { users: allUsers, isUsersLoading: isUsersApiLoading } = useMockUsers();
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -56,16 +56,19 @@ export default function ProjectOverviewPage() {
   const isLoading = isTimesheetLoading || isUsersApiLoading;
 
   const filteredTimeRecordsByDate = useMemo(() => {
-    if (!timeRecords || !dateRange?.from || !dateRange?.to) return [];
-    const fromDate = dateRange.from;
-    const toDate = new Date(dateRange.to);
-    toDate.setHours(23, 59, 59, 999); 
+    if (!allTimeRecords || !dateRange?.from) return [];
+    
+    const effectiveStartDate = new Date(dateRange.from);
+    effectiveStartDate.setHours(0, 0, 0, 0); 
 
-    return timeRecords.filter(record => {
+    const effectiveEndDate = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from);
+    effectiveEndDate.setHours(23, 59, 59, 999); 
+
+    return allTimeRecords.filter(record => {
       const recordDate = parseISO(record.date);
-      return recordDate >= fromDate && recordDate <= toDate;
+      return recordDate >= effectiveStartDate && recordDate <= effectiveEndDate;
     });
-  }, [timeRecords, dateRange]);
+  }, [allTimeRecords, dateRange]);
 
   const projectSummaries = useMemo((): ProjectSummary[] => {
     if (isLoading || filteredTimeRecordsByDate.length === 0) return [];
@@ -103,7 +106,7 @@ export default function ProjectOverviewPage() {
 
       return {
         projectName: name,
-        totalHours: data.totalHours, // Keep as decimal for sorting/aggregation, format on display
+        totalHours: data.totalHours, 
         totalTasks: data.totalTasks,
         completedTasks: data.completedTasks,
         pendingTasks: pendingTasks,
