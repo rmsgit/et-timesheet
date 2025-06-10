@@ -14,7 +14,7 @@ export function AppLogo() {
         data-ai-hint="company logo"
       />
       <span className="text-xl font-semibold text-sidebar-foreground group-data-[theme=dark]:text-sidebar-foreground">
-        Timesheet
+        Editors Table Timesheet
       </span>
     </Link>
   );
