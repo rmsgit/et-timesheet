@@ -19,6 +19,11 @@ export interface TimeRecord {
   durationHours: number; // Actual work duration, set upon completion. Defaults to 0 for pending.
   projectDurationSeconds?: number; // Duration of the video project itself, in total seconds
   completedAt?: string; // ISO string format, set when task is marked complete
+
+  // New fields for pause/resume
+  isPaused?: boolean;
+  pausedAt?: string; // ISO string, time when the timer was last paused
+  accumulatedPausedDurationSeconds?: number; // Total seconds the timer has been paused
 }
 
 export type ProjectType = 'New Feature' | 'Bug Fix' | 'Documentation' | 'Meeting' | 'Refactor' | 'Testing';

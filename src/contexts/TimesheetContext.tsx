@@ -9,13 +9,16 @@ import { FIREBASE_TIMESHEET_PATH, FIREBASE_ADMIN_NOTIFICATIONS_PATH } from '@/li
 import { useAuth } from '@/hooks/useAuth';
 import { useLoader } from '@/hooks/useLoader';
 import { useToast } from '@/hooks/use-toast';
+import { differenceInSeconds, parseISO } from 'date-fns';
 
 interface TimesheetContextType {
   timeRecords: TimeRecord[];
-  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt'>) => Promise<void>;
+  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds'>) => Promise<void>;
   updateTimeRecord: (record: TimeRecord) => Promise<void>;
   deleteTimeRecord: (recordId: string) => Promise<void>;
   setCompletionDetails: (recordId: string, completedInHours: number, completedInMinutes: number, completedInSeconds: number) => Promise<void>;
+  pauseTimer: (recordId: string) => Promise<void>;
+  resumeTimer: (recordId: string) => Promise<void>;
   getRecordsForUser: (userId: string) => TimeRecord[];
   getRecordsByDateRange: (userId: string, startDate: Date, endDate: Date) => TimeRecord[];
   getAllRecordsByDateRange: (startDate: Date, endDate: Date) => TimeRecord[];
@@ -110,7 +113,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     };
   }, [showLoader, hideLoader, toast]); 
 
-  const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt'>) => {
+  const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds'>) => {
     if (!user) {
         toast({ title: "Authentication Error", description: "User not logged in. Cannot add record.", variant: "destructive" });
         return;
@@ -135,8 +138,11 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       id: newRecordId,
       userId: user.id,
       durationHours: 0, 
-      entryCreatedAt: new Date().toISOString(), // Capture creation timestamp
+      entryCreatedAt: new Date().toISOString(),
+      isPaused: false,
+      accumulatedPausedDurationSeconds: 0,
       // completedAt is undefined here for new records
+      // pausedAt is undefined here for new records
     };
     
     const recordToSave = Object.entries(newRecordObject).reduce((acc, [key, value]) => {
@@ -162,16 +168,13 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         toast({ title: "Configuration Error", description: "Firebase is not connected. Record not updated.", variant: "destructive" });
         return;
     }
-    // When updating, updatedRecord comes directly from TimeRecordForm.
-    // durationHours is initialized to 0 for new records, not modified by form.
-    // completedAt is preserved from the original record within updatedRecord.
-    // entryCreatedAt should not be modified on update.
+    
     const recordToSave = { ...updatedRecord };
     if (recordToSave.entryCreatedAt === undefined && timeRecords.find(r => r.id === updatedRecord.id)?.entryCreatedAt) {
-       // If for some reason entryCreatedAt was stripped in updatedRecord, but existed, preserve it.
-       // This is a safeguard, ideally updatedRecord should be complete.
        recordToSave.entryCreatedAt = timeRecords.find(r => r.id === updatedRecord.id)?.entryCreatedAt;
     }
+     if (recordToSave.isPaused === undefined) recordToSave.isPaused = false;
+     if (recordToSave.accumulatedPausedDurationSeconds === undefined) recordToSave.accumulatedPausedDurationSeconds = 0;
 
 
     const finalRecordToSave = Object.entries(recordToSave).reduce((acc, [key, value]) => {
@@ -220,14 +223,22 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       return;
     }
 
-    const finalDurationHours = completedInHoursValue + (completedInMinutesValue / 60) + (completedInSecondsValue / 3600);
+    let finalDurationHours = completedInHoursValue + (completedInMinutesValue / 60) + (completedInSecondsValue / 3600);
     const completedAtTimestamp = new Date().toISOString();
+    
+    const updates: Partial<TimeRecord> = {
+      durationHours: finalDurationHours,
+      completedAt: completedAtTimestamp,
+      isPaused: false, // Ensure task is not paused upon completion
+      // pausedAt: null, // Explicitly clear pausedAt if backend doesn't handle undefined well
+    };
+    // Firebase update with null effectively deletes the key
+    // @ts-ignore
+    updates.pausedAt = null; 
+
 
     try {
-      await firebaseUpdate(ref(database, `${FIREBASE_TIMESHEET_PATH}/${recordId}`), { 
-          durationHours: finalDurationHours,
-          completedAt: completedAtTimestamp 
-      });
+      await firebaseUpdate(ref(database, `${FIREBASE_TIMESHEET_PATH}/${recordId}`), updates);
       toast({ title: "Success", description: `Project "${recordToComplete.projectName}" marked as complete with duration.`});
 
       const adminNotificationRef = push(ref(database, FIREBASE_ADMIN_NOTIFICATIONS_PATH));
@@ -243,6 +254,63 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       toast({ title: "Firebase Error", description: "Failed to set completion details or send admin notification. Check console.", variant: "destructive" });
     }
   }, [timeRecords, toast, user]);
+
+  const pauseTimer = useCallback(async (recordId: string) => {
+    if (!database) {
+        toast({ title: "Configuration Error", description: "Firebase is not connected.", variant: "destructive" });
+        return;
+    }
+    const record = timeRecords.find(r => r.id === recordId);
+    if (!record) {
+      toast({ title: "Error", description: "Record not found.", variant: "destructive" });
+      return;
+    }
+
+    const updates: Partial<TimeRecord> = {
+      isPaused: true,
+      pausedAt: new Date().toISOString(),
+    };
+
+    try {
+      await firebaseUpdate(ref(database, `${FIREBASE_TIMESHEET_PATH}/${recordId}`), updates);
+      toast({ title: "Timer Paused", description: `Timer for "${record.projectName}" paused.` });
+    } catch (error) {
+      console.error("Firebase pause timer error:", error);
+      toast({ title: "Firebase Error", description: "Failed to pause timer. Check console.", variant: "destructive" });
+    }
+  }, [timeRecords, toast]);
+
+  const resumeTimer = useCallback(async (recordId: string) => {
+    if (!database) {
+        toast({ title: "Configuration Error", description: "Firebase is not connected.", variant: "destructive" });
+        return;
+    }
+    const record = timeRecords.find(r => r.id === recordId);
+    if (!record || !record.pausedAt) {
+      toast({ title: "Error", description: "Record not found or not paused.", variant: "destructive" });
+      return;
+    }
+
+    const durationSincePause = differenceInSeconds(new Date(), parseISO(record.pausedAt));
+    const newAccumulatedPausedDuration = (record.accumulatedPausedDurationSeconds || 0) + durationSincePause;
+
+    const updates: Partial<TimeRecord> = {
+      isPaused: false,
+      accumulatedPausedDurationSeconds: newAccumulatedPausedDuration,
+      // pausedAt: null, // Explicitly clear pausedAt
+    };
+    // @ts-ignore
+    updates.pausedAt = null;
+
+    try {
+      await firebaseUpdate(ref(database, `${FIREBASE_TIMESHEET_PATH}/${recordId}`), updates);
+      toast({ title: "Timer Resumed", description: `Timer for "${record.projectName}" resumed.` });
+    } catch (error) {
+      console.error("Firebase resume timer error:", error);
+      toast({ title: "Firebase Error", description: "Failed to resume timer. Check console.", variant: "destructive" });
+    }
+  }, [timeRecords, toast]);
+
 
   const getRecordsForUser = useCallback((userId: string) => {
     return timeRecords.filter(r => r.userId === userId);
@@ -282,6 +350,8 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         updateTimeRecord,
         deleteTimeRecord,
         setCompletionDetails,
+        pauseTimer,
+        resumeTimer,
         getRecordsForUser,
         getRecordsByDateRange,
         getAllRecordsByDateRange,

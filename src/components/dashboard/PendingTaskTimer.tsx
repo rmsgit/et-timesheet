@@ -3,10 +3,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { parseISO, differenceInSeconds } from 'date-fns';
-import { Clock } from 'lucide-react';
+import { Clock, PauseCircle } from 'lucide-react';
+import type { TimeRecord } from '@/lib/types';
 
 interface PendingTaskTimerProps {
-  recordCreationDateISO: string;
+  record: Pick<TimeRecord, 'entryCreatedAt' | 'date' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds'>;
 }
 
 const formatDurationFromTotalSecondsForTimer = (totalSeconds: number): string => {
@@ -20,29 +21,52 @@ const formatDurationFromTotalSecondsForTimer = (totalSeconds: number): string =>
   const parts: string[] = [];
   if (hours > 0) parts.push(`${hours}h`);
   if (minutes > 0) parts.push(`${minutes}m`);
-  // Always show seconds for a live timer
   parts.push(`${seconds}s`);
   
   return parts.join(' ');
 };
 
-export const PendingTaskTimer: React.FC<PendingTaskTimerProps> = ({ recordCreationDateISO }) => {
+export const PendingTaskTimer: React.FC<PendingTaskTimerProps> = ({ record }) => {
   const [elapsedTime, setElapsedTime] = useState<string>('0s');
 
   useEffect(() => {
-    const creationDate = parseISO(recordCreationDateISO);
+    const creationDate = parseISO(record.entryCreatedAt || record.date); // Fallback for older records
     
     const calculateElapsedTime = () => {
       const now = new Date();
-      const seconds = differenceInSeconds(now, creationDate);
-      setElapsedTime(formatDurationFromTotalSecondsForTimer(Math.max(0, seconds)));
+      let activeSecondsBase;
+
+      if (record.isPaused && record.pausedAt) {
+        const pauseDate = parseISO(record.pausedAt);
+        activeSecondsBase = differenceInSeconds(pauseDate, creationDate);
+      } else {
+        activeSecondsBase = differenceInSeconds(now, creationDate);
+      }
+      
+      const totalEffectiveActiveSeconds = Math.max(0, activeSecondsBase - (record.accumulatedPausedDurationSeconds || 0));
+      setElapsedTime(formatDurationFromTotalSecondsForTimer(totalEffectiveActiveSeconds));
     };
 
     calculateElapsedTime(); // Initial calculation
-    const intervalId = setInterval(calculateElapsedTime, 1000); // Update every second
+    let intervalId: NodeJS.Timeout | undefined = undefined;
 
-    return () => clearInterval(intervalId); // Cleanup on unmount
-  }, [recordCreationDateISO]);
+    if (!record.isPaused) {
+      intervalId = setInterval(calculateElapsedTime, 1000); // Update every second if not paused
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId); 
+    };
+  }, [record]); // Rerun effect if the record object (and its pause state props) changes
+
+  if (record.isPaused) {
+    return (
+      <span className="flex items-center text-gray-500 dark:text-gray-400">
+        <PauseCircle className="mr-1.5 h-3.5 w-3.5" />
+        Paused ({elapsedTime})
+      </span>
+    );
+  }
 
   return (
     <span className="flex items-center text-orange-500">
