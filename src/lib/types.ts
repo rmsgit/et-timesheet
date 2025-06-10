@@ -11,7 +11,8 @@ export interface User {
 export interface TimeRecord {
   id: string;
   userId: string; // To associate record with an editor (Firebase UID)
-  date: string; // ISO string format for date
+  date: string; // ISO string format for date (user-selected work date)
+  entryCreatedAt?: string; // ISO string format, timestamp of when the record entry was created
   projectName: string;
   projectType: string; // This is the type like 'Bug Fix', 'New Feature'
   workType: WorkType; // This is 'New work', 'Revision', or 'Sample work'
@@ -21,3 +22,4 @@ export interface TimeRecord {
 }
 
 export type ProjectType = 'New Feature' | 'Bug Fix' | 'Documentation' | 'Meeting' | 'Refactor' | 'Testing';
+

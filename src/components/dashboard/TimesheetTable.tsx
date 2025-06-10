@@ -107,7 +107,7 @@ const completionDurationSchema = z.object({
 type CompletionDurationFormData = z.infer<typeof completionDurationSchema>;
 
 
-type SortableTimeRecordKeys = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationSeconds' | 'durationHours' | 'completedAt'>;
+type SortableTimeRecordKeys = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationSeconds' | 'durationHours' | 'completedAt' | 'entryCreatedAt'>;
 
 const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): number => {
   if (!tsA && !tsB) return 0;
@@ -133,7 +133,7 @@ export const TimesheetTable: React.FC = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 15;
-  const [sortConfig, setSortConfig] = useState<{ key: SortableTimeRecordKeys | null; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
+  const [sortConfig, setSortConfig] = useState<{ key: SortableTimeRecordKeys | null; direction: 'ascending' | 'descending' }>({ key: 'entryCreatedAt', direction: 'descending' });
 
   const isLoading = isAuthLoading || isTimesheetLoading;
 
@@ -151,7 +151,7 @@ export const TimesheetTable: React.FC = () => {
         const valB = b[sortConfig.key!];
 
         let comparison = 0;
-        if (sortConfig.key === 'date' || sortConfig.key === 'completedAt') {
+        if (sortConfig.key === 'date' || sortConfig.key === 'completedAt' || sortConfig.key === 'entryCreatedAt') {
           comparison = compareTimestamps(valA as string | undefined, valB as string | undefined);
         } else if (typeof valA === 'number' && typeof valB === 'number') {
           comparison = valA - valB;
@@ -232,7 +232,6 @@ export const TimesheetTable: React.FC = () => {
   }
   
   const handleAddNew = () => {
-    const isEditingMode = false;
     setEditingRecord({
       date: selectedDate ? selectedDate.toISOString() : new Date().toISOString(),
       durationHours: 0, 
@@ -243,7 +242,6 @@ export const TimesheetTable: React.FC = () => {
   };
 
   const handleEdit = (record: TimeRecord) => {
-    const isEditingMode = true;
     setEditingRecord(record);
     setIsFormOpen(true);
   };
@@ -275,14 +273,16 @@ export const TimesheetTable: React.FC = () => {
         initialHours = Math.floor(totalSecondsFromDuration / 3600);
         initialMinutes = Math.floor((totalSecondsFromDuration % 3600) / 60);
         initialSeconds = totalSecondsFromDuration % 60;
-    } else if (!record.completedAt) { 
-      if (record.durationHours > 0) { 
+    } else if (!record.completedAt) { // Task is pending
+      // Prioritize durationHours if it was manually logged via edit form
+      if (record.durationHours > 0) {
         const totalSecondsFromDuration = Math.round(record.durationHours * 3600);
         initialHours = Math.floor(totalSecondsFromDuration / 3600);
         initialMinutes = Math.floor((totalSecondsFromDuration % 3600) / 60);
         initialSeconds = totalSecondsFromDuration % 60;
-      } else { 
-        const creationDate = parseISO(record.date);
+      } else { // Otherwise, calculate from entry creation time
+        const startTimeISO = record.entryCreatedAt || record.date; // Fallback to record.date if entryCreatedAt is missing
+        const creationDate = parseISO(startTimeISO);
         const now = new Date();
         const elapsedTotalSeconds = differenceInSeconds(now, creationDate);
         
@@ -563,7 +563,7 @@ export const TimesheetTable: React.FC = () => {
                              Logged: {formatDurationFromDecimalHours(record.durationHours)}
                            </span>
                         ) : ( 
-                          <PendingTaskTimer recordCreationDateISO={record.date} />
+                          <PendingTaskTimer recordCreationDateISO={record.entryCreatedAt || record.date} />
                         )}
                       </TableCell>
                       <TableCell>
