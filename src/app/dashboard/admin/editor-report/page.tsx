@@ -47,6 +47,13 @@ const formatDurationFromTotalSeconds = (totalSeconds: number | undefined | null)
   return parts.join(' ') || "0s";
 };
 
+const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): number => {
+  if (!tsA && !tsB) return 0;
+  if (!tsA) return -1; 
+  if (!tsB) return 1;
+  return new Date(tsA).getTime() - new Date(tsB).getTime();
+};
+
 type SortableTimeRecordKeysEditor = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationSeconds' | 'durationHours' | 'completedAt'>;
 
 
@@ -122,13 +129,6 @@ export default function AdminEditorReportPage() {
     }
     return sortableItems;
   }, [allRecordsForEditorInRange, sortConfig]);
-
-  const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): number => {
-    if (!tsA && !tsB) return 0;
-    if (!tsA) return -1; 
-    if (!tsB) return 1;
-    return new Date(tsA).getTime() - new Date(tsB).getTime();
-  };
   
   const paginatedRecords = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
@@ -489,3 +489,4 @@ export default function AdminEditorReportPage() {
     </div>
   );
 }
+
