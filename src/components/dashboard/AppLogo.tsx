@@ -13,8 +13,8 @@ export function AppLogo() {
         className="rounded-sm object-contain"
         data-ai-hint="company logo"
       />
-      <span className="text-xl font-semibold text-sidebar-foreground group-data-[theme=dark]:text-sidebar-foreground">
-        Editors Table Timesheet
+      <span className="text-base font-semibold text-sidebar-foreground group-data-[theme=dark]:text-sidebar-foreground">
+        Time Sheet
       </span>
     </Link>
   );
