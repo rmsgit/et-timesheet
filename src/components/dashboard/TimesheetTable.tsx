@@ -119,7 +119,7 @@ const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): nu
 
 export const TimesheetTable: React.FC = () => {
   const { user, isAuthLoading } = useAuth();
-  const { getRecordsForUser, deleteTimeRecord, setCompletionDetails, pauseTimer, resumeTimer, isTimesheetLoading } = useTimesheet();
+  const { getRecordsForUser, deleteTimeRecord, setCompletionDetails, pauseTimer, resumeTimer, toggleReCheckedStatus, isTimesheetLoading } = useTimesheet();
   const { toast } = useToast();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -239,14 +239,12 @@ export const TimesheetTable: React.FC = () => {
   const handleAddNew = () => {
     const newRecordBase: Partial<TimeRecord> = {
         date: selectedDate ? selectedDate.toISOString() : new Date().toISOString(),
-        durationHours: 0,
+        // durationHours will be set to 0 by context if not provided
         projectDurationSeconds: undefined,
         workType: 'New work',
-        isPaused: false,
-        accumulatedPausedDurationSeconds: 0,
-        reChecked: false,
+        // Fields handled by context on creation: entryCreatedAt, isPaused, accumulatedPausedDurationSeconds, reChecked
     };
-    setEditingRecord(newRecordBase as TimeRecord);
+    setEditingRecord(newRecordBase as TimeRecord); // Cast as TimeRecord, context handles missing fields
     setIsFormOpen(true);
   };
 
@@ -259,12 +257,12 @@ export const TimesheetTable: React.FC = () => {
     setIsActionSubmitting(true);
     try {
       await deleteTimeRecord(recordId);
-      toast({ title: "Record Deletion Initiated", description: `Attempting to delete record for "${projectName}".` });
+      // Toast is handled in context
       if (currentPage > 1 && paginatedRecords.length === 1 && sortedRecords.length -1 <= (currentPage -1) * rowsPerPage) {
         setCurrentPage(currentPage - 1);
       }
     } catch (error) {
-      toast({ title: "Error", description: "Failed to delete record.", variant: "destructive" });
+      // Error toast is handled in context
     } finally {
       setIsActionSubmitting(false);
     }
@@ -282,7 +280,7 @@ export const TimesheetTable: React.FC = () => {
         initialHours = Math.floor(totalSecondsFromDuration / 3600);
         initialMinutes = Math.floor((totalSecondsFromDuration % 3600) / 60);
         initialSeconds = totalSecondsFromDuration % 60;
-    } else if (!record.completedAt) { // Task is pending
+    } else if (!record.completedAt) {
         let baseActiveSeconds;
         const creationOrStartTime = parseISO(record.entryCreatedAt || record.date);
 
@@ -311,11 +309,11 @@ export const TimesheetTable: React.FC = () => {
     setIsSubmittingCompletion(true);
     try {
       await setCompletionDetails(recordForCompletion.id, data.completedInHoursDialog, data.completedInMinutesDialog, data.completedInSecondsDialog);
-      toast({ title: "Success", description: `Completion details set for "${recordForCompletion.projectName}".` });
+      // Toast is handled in context
       setIsSetCompletionDialogOpen(false);
       setRecordForCompletion(null);
     } catch (error) {
-      toast({ title: "Error", description: "Failed to set completion details.", variant: "destructive" });
+      // Error toast is handled in context
     } finally {
       setIsSubmittingCompletion(false);
     }
@@ -355,6 +353,12 @@ export const TimesheetTable: React.FC = () => {
   const handleResumeTimer = async (recordId: string) => {
     setIsActionSubmitting(true);
     await resumeTimer(recordId);
+    setIsActionSubmitting(false);
+  };
+
+  const handleToggleReChecked = async (recordId: string) => {
+    setIsActionSubmitting(true);
+    await toggleReCheckedStatus(recordId);
     setIsActionSubmitting(false);
   };
 
@@ -617,12 +621,17 @@ export const TimesheetTable: React.FC = () => {
                                     <PauseCircle className="mr-2 h-4 w-4" /> Pause Timer
                                   </DropdownMenuItem>
                                 )}
-                                <DropdownMenuSeparator />
                               </>
                             )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleToggleReChecked(record.id)} disabled={isActionSubmitting || isSubmittingCompletion}>
+                                {record.reChecked ? <CheckSquare className="mr-2 h-4 w-4 text-green-500" /> : <CheckSquare className="mr-2 h-4 w-4 opacity-50" />}
+                                {record.reChecked ? "Unmark as Re-checked" : "Mark as Re-checked"}
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleEdit(record)} disabled={isActionSubmitting || isSubmittingCompletion}>
                               <Edit className="mr-2 h-4 w-4" /> Edit Details
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <DropdownMenuItem

@@ -14,7 +14,6 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { CalendarIcon, Save, X, Loader2, Film } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
@@ -39,7 +38,6 @@ const timeRecordSchema = z.object({
     val => (val === '' || val === null || val === undefined ? undefined : Number(val)),
     z.number().int().min(0, "Seconds must be 0 or more.").max(59, "Seconds must be less than 60.").optional()
   ),
-  reChecked: z.boolean().optional(),
 });
 
 
@@ -60,6 +58,14 @@ const convertSecondsToHMS = (totalSeconds: number | undefined | null) => {
   const s = totalSeconds % 60;
   return { h, m, s };
 };
+
+const convertHMSToDecimalHours = (h?: number, m?: number, s?: number): number => {
+  const hours = h || 0;
+  const minutes = m || 0;
+  const seconds = s || 0;
+  if (hours === 0 && minutes === 0 && seconds === 0) return 0;
+  return hours + (minutes / 60) + (seconds / 3600);
+}
 
 
 export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditing, onClose }) => {
@@ -84,7 +90,6 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditin
       projectDurationInputHours: (record?.projectDurationSeconds != null) ? convertSecondsToHMS(record.projectDurationSeconds).h : undefined,
       projectDurationInputMinutes: (record?.projectDurationSeconds != null) ? convertSecondsToHMS(record.projectDurationSeconds).m : undefined,
       projectDurationInputSeconds: (record?.projectDurationSeconds != null) ? convertSecondsToHMS(record.projectDurationSeconds).s : undefined,
-      reChecked: record?.reChecked || false,
     },
   });
 
@@ -108,13 +113,11 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditin
         projectDurationInputHours: defaultPD_H,
         projectDurationInputMinutes: defaultPD_M,
         projectDurationInputSeconds: defaultPD_S,
-        reChecked: record?.reChecked || false,
     };
 
     if (!isEditing) {
-        resetToValues.projectName = record?.projectName || ''; // Retain for add if from existing
+        resetToValues.projectName = record?.projectName || ''; 
         resetToValues.workType = record?.workType || 'New work';
-        resetToValues.reChecked = false; // Default to false for new records
     }
 
     if (!isLoadingProjectTypes) {
@@ -157,7 +160,10 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditin
       finalProjectDurationSeconds = 0;
     }
 
-    const currentDurationHours = (isEditing && record) ? record.durationHours : 0;
+    let currentDurationHours = 0; // Default for new records
+    if (isEditing && record) { // If editing, preserve existing durationHours
+      currentDurationHours = record.durationHours;
+    }
 
     const recordDataToSaveBase = {
       date: data.date.toISOString(),
@@ -165,21 +171,20 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditin
       projectType: data.projectType,
       workType: data.workType,
       projectDurationSeconds: finalProjectDurationSeconds,
-      durationHours: currentDurationHours,
-      reChecked: data.reChecked || false,
+      durationHours: currentDurationHours, // Set based on editing or new
     };
 
     try {
       if (isEditing && record && record.id) {
         const fullExistingRecord: TimeRecord = {
-            ...record,
+            ...record, // Spreading existing record to keep fields like completedAt, entryCreatedAt, reChecked etc.
             ...recordDataToSaveBase,
-            completedAt: record.completedAt,
         };
         await updateTimeRecord(fullExistingRecord);
         toast({ title: "Success", description: "Time record updated." });
       } else {
-        await addTimeRecord(recordDataToSaveBase as Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds'>);
+        // For new records, reChecked will be set to false by default in TimesheetContext
+        await addTimeRecord(recordDataToSaveBase as Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds' | 'reChecked'>);
         toast({ title: "Success", description: "Time record added." });
       }
       onClose();
@@ -319,26 +324,6 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditin
         {errors.projectDurationInputMinutes && <p className="text-sm text-destructive mt-1">{errors.projectDurationInputMinutes.message}</p>}
         {errors.projectDurationInputSeconds && <p className="text-sm text-destructive mt-1">{errors.projectDurationInputSeconds.message}</p>}
       </div>
-
-      <div className="flex items-center space-x-2">
-        <Controller
-          name="reChecked"
-          control={control}
-          render={({ field }) => (
-            <Checkbox
-              id="reChecked"
-              checked={field.value}
-              onCheckedChange={field.onChange}
-              disabled={isSubmittingForm}
-            />
-          )}
-        />
-        <Label htmlFor="reChecked" className="font-normal">
-          Mark as Re-checked
-        </Label>
-        {errors.reChecked && <p className="text-sm text-destructive mt-1">{errors.reChecked.message}</p>}
-      </div>
-
 
       <div className="flex justify-end space-x-2 pt-2">
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmittingForm}>

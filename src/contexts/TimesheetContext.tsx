@@ -13,12 +13,13 @@ import { differenceInSeconds, parseISO } from 'date-fns';
 
 interface TimesheetContextType {
   timeRecords: TimeRecord[];
-  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds'> & { reChecked?: boolean }) => Promise<void>;
+  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds' | 'reChecked'>) => Promise<void>;
   updateTimeRecord: (record: TimeRecord) => Promise<void>;
   deleteTimeRecord: (recordId: string) => Promise<void>;
   setCompletionDetails: (recordId: string, completedInHours: number, completedInMinutes: number, completedInSeconds: number) => Promise<void>;
   pauseTimer: (recordId: string) => Promise<void>;
   resumeTimer: (recordId: string) => Promise<void>;
+  toggleReCheckedStatus: (recordId: string) => Promise<void>;
   getRecordsForUser: (userId: string) => TimeRecord[];
   getRecordsByDateRange: (userId: string, startDate: Date, endDate: Date) => TimeRecord[];
   getAllRecordsByDateRange: (startDate: Date, endDate: Date) => TimeRecord[];
@@ -113,7 +114,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     };
   }, [showLoader, hideLoader, toast]);
 
-  const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds'> & { reChecked?: boolean }) => {
+  const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds' | 'reChecked'>) => {
     if (!user) {
         toast({ title: "Authentication Error", description: "User not logged in. Cannot add record.", variant: "destructive" });
         return;
@@ -141,7 +142,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       entryCreatedAt: new Date().toISOString(),
       isPaused: false,
       accumulatedPausedDurationSeconds: 0,
-      reChecked: recordData.reChecked || false,
+      reChecked: false, // Default to false for new records
     };
 
     const recordToSave = Object.entries(newRecordObject).reduce((acc, [key, value]) => {
@@ -155,10 +156,11 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
 
     try {
       await set(ref(database, `${FIREBASE_TIMESHEET_PATH}/${newRecordId}`), recordToSave);
-      toast({ title: "Success", description: "Time record added." });
+      // Toast message is handled in TimeRecordForm
     } catch (error) {
       console.error("Firebase add time record error:", error);
       toast({ title: "Firebase Error", description: "Failed to add record to Firebase. Check console for details.", variant: "destructive" });
+      throw error; // Re-throw to be caught in form
     }
   }, [user, toast]);
 
@@ -187,10 +189,11 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
 
     try {
       await set(ref(database, `${FIREBASE_TIMESHEET_PATH}/${updatedRecord.id}`), finalRecordToSave);
-      toast({ title: "Success", description: "Time record updated." });
+      // Toast message is handled in TimeRecordForm
     } catch (error) {
       console.error("Firebase update time record error:", error);
       toast({ title: "Firebase Error", description: "Failed to update record in Firebase. Check console for details.", variant: "destructive" });
+      throw error; // Re-throw to be caught in form
     }
   }, [toast, timeRecords]);
 
@@ -308,6 +311,31 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     }
   }, [timeRecords, toast]);
 
+  const toggleReCheckedStatus = useCallback(async (recordId: string) => {
+    if (!database) {
+      toast({ title: "Configuration Error", description: "Firebase is not connected.", variant: "destructive" });
+      return;
+    }
+    const record = timeRecords.find(r => r.id === recordId);
+    if (!record) {
+      toast({ title: "Error", description: "Record not found.", variant: "destructive" });
+      return;
+    }
+
+    const newReCheckedStatus = !(record.reChecked || false);
+    const updates: Partial<TimeRecord> = {
+      reChecked: newReCheckedStatus,
+    };
+
+    try {
+      await firebaseUpdate(ref(database, `${FIREBASE_TIMESHEET_PATH}/${recordId}`), updates);
+      toast({ title: "Status Updated", description: `Record "${record.projectName}" marked as ${newReCheckedStatus ? 'Re-checked' : 'Not Re-checked'}.` });
+    } catch (error) {
+      console.error("Firebase toggle re-checked status error:", error);
+      toast({ title: "Firebase Error", description: "Failed to update re-checked status. Check console.", variant: "destructive" });
+    }
+  }, [timeRecords, toast]);
+
 
   const getRecordsForUser = useCallback((userId: string) => {
     return timeRecords.filter(r => r.userId === userId);
@@ -349,6 +377,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         setCompletionDetails,
         pauseTimer,
         resumeTimer,
+        toggleReCheckedStatus,
         getRecordsForUser,
         getRecordsByDateRange,
         getAllRecordsByDateRange,
