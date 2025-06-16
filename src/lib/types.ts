@@ -29,3 +29,9 @@ export interface TimeRecord {
 
 export type ProjectType = 'New Feature' | 'Bug Fix' | 'Documentation' | 'Meeting' | 'Refactor' | 'Testing';
 
+export interface EditorLevel {
+  id: string;
+  name: string;
+  description: string;
+}
+

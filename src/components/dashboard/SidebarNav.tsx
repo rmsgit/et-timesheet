@@ -13,7 +13,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers } from 'lucide-react';
+import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award } from 'lucide-react';
 
 export function SidebarNav() {
   const pathname = usePathname();
@@ -25,11 +25,12 @@ export function SidebarNav() {
   ];
 
   const adminOnlyRoutes = [
-    { href: '/dashboard/admin/users', label: 'User Management', icon: UsersRound },
+    { href: '/dashboard/admin/users', label: 'User Profiles & Roles', icon: UsersRound },
     { href: '/dashboard/admin/report', label: 'Admin Report', icon: BarChart3 },
     { href: '/dashboard/admin/editor-report', label: 'Editor Specific Report', icon: UserCheck },
     { href: '/dashboard/admin/project-types', label: 'Project Types', icon: FolderKanban },
     { href: '/dashboard/admin/project-overview', label: 'Project Overview', icon: Layers },
+    { href: '/dashboard/admin/editor-levels', label: 'Editor Levels', icon: Award },
   ];
   
   const commonRoutes = [

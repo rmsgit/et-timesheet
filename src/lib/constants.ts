@@ -1,5 +1,5 @@
 
-import type { ProjectType, User } from './types';
+import type { ProjectType, User, EditorLevel } from './types';
 
 export const PROJECT_TYPES: ProjectType[] = [
   'New Feature',
@@ -15,6 +15,7 @@ export const FIREBASE_USERS_PATH = 'users'; // Stores user profiles (username, r
 export const FIREBASE_PROJECT_TYPES_PATH = 'projectTypes';
 export const FIREBASE_TIMESHEET_PATH = 'timeRecords';
 export const FIREBASE_ADMIN_NOTIFICATIONS_PATH = 'adminTaskCompletionNotifications';
+export const FIREBASE_EDITOR_LEVELS_PATH = 'editorLevels';
 
 
 // MOCK_USERS_DATA: Example User Structures
@@ -41,5 +42,12 @@ export const MOCK_USERS_DATA: User[] = [
   { id: 'example_editor_uid_1', email: 'editor1@example.com', username: 'editorOne', role: 'editor' as const },
   { id: 'example_editor_uid_2', email: 'alice@example.com', username: 'alice', role: 'editor' as const },
   { id: 'example_editor_uid_3', email: 'bob@example.com', username: 'bob', role: 'editor' as const },
+];
+
+export const INITIAL_EDITOR_LEVELS: EditorLevel[] = [
+  { id: 'level_1_junior', name: 'Junior Editor', description: 'Entry-level editor, typically handles straightforward tasks and requires some supervision.' },
+  { id: 'level_2_mid', name: 'Mid-Level Editor', description: 'Experienced editor capable of handling most standard tasks independently and delivering consistent quality.' },
+  { id: 'level_3_senior', name: 'Senior Editor', description: 'Highly experienced editor, capable of complex projects, mentoring others, and quality assurance.' },
+  { id: 'level_4_lead', name: 'Lead Editor', description: 'Manages editing teams or complex workflows, sets standards, and oversees major projects.' },
 ];
 
