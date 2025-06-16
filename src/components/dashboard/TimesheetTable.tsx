@@ -7,8 +7,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { useAuth } from '@/hooks/useAuth';
-import { useEditorLevels } from '@/hooks/useEditorLevels'; // Import useEditorLevels
-import type { TimeRecord, WorkType } from '@/lib/types';
+import { useEditorLevels } from '@/hooks/useEditorLevels';
+import type { TimeRecord, WorkType, EditorLevel } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { TimeRecordForm } from './TimeRecordForm';
-import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Hourglass, ListChecks, CheckCircle2 as CheckCircle2Icon, Play, PauseCircle, CheckSquare, Square, Award } from 'lucide-react'; // Added Award
+import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Hourglass, ListChecks, CheckCircle2 as CheckCircle2Icon, Play, PauseCircle, CheckSquare, Square, Award, TrendingUp } from 'lucide-react';
 import { format, parseISO, isSameDay, differenceInSeconds } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -49,11 +49,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
-import { Skeleton } from '@/components/ui/skeleton'; // Added Skeleton
+import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { PendingTaskTimer } from './PendingTaskTimer';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
@@ -122,7 +123,7 @@ const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): nu
 export const TimesheetTable: React.FC = () => {
   const { user, isAuthLoading } = useAuth();
   const { getRecordsForUser, deleteTimeRecord, setCompletionDetails, pauseTimer, resumeTimer, toggleReCheckedStatus, isTimesheetLoading } = useTimesheet();
-  const { editorLevels, isLoadingEditorLevels } = useEditorLevels(); // Get editor levels
+  const { editorLevels, isLoadingEditorLevels } = useEditorLevels();
   const { toast } = useToast();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -139,13 +140,16 @@ export const TimesheetTable: React.FC = () => {
   const rowsPerPage = 15;
   const [sortConfig, setSortConfig] = useState<{ key: SortableTimeRecordKeys | null; direction: 'ascending' | 'descending' }>({ key: 'entryCreatedAt', direction: 'descending' });
 
+  const [isNextLevelInfoOpen, setIsNextLevelInfoOpen] = useState(false);
+  const [nextLevelDetails, setNextLevelDetails] = useState<EditorLevel | null>(null);
+
   const isLoading = isAuthLoading || isTimesheetLoading || isLoadingEditorLevels;
 
   const fullUserRecordsForDay = useMemo(() => {
-    if (isAuthLoading || isTimesheetLoading || !user || !selectedDate) return []; // Adjusted isLoading check
+    if (isAuthLoading || isTimesheetLoading || !user || !selectedDate) return [];
     return getRecordsForUser(user.id)
       .filter(record => isSameDay(parseISO(record.date), selectedDate));
-  }, [user, getRecordsForUser, isAuthLoading, isTimesheetLoading, selectedDate]); // Adjusted dependencies
+  }, [user, getRecordsForUser, isAuthLoading, isTimesheetLoading, selectedDate]);
 
   const sortedRecords = useMemo(() => {
     let sortableItems = [...fullUserRecordsForDay];
@@ -217,6 +221,31 @@ export const TimesheetTable: React.FC = () => {
     return fullUserRecordsForDay.filter(record => !record.completedAt).length;
   }, [fullUserRecordsForDay]);
 
+  const currentEditorLevel = useMemo(() => {
+    if (isLoadingEditorLevels || !user || !user.editorLevelId || !editorLevels.length) {
+      return null;
+    }
+    return editorLevels.find(level => level.id === user.editorLevelId);
+  }, [user, editorLevels, isLoadingEditorLevels]);
+
+  const nextEditorLevel = useMemo(() => {
+    if (!currentEditorLevel || isLoadingEditorLevels || !editorLevels.length) {
+      return null;
+    }
+    // editorLevels are assumed to be sorted by `order` from the hook
+    const currentIndex = editorLevels.findIndex(level => level.id === currentEditorLevel.id);
+    if (currentIndex === -1 || currentIndex >= editorLevels.length - 1) {
+      return null; // No next level or current level not found
+    }
+    return editorLevels[currentIndex + 1];
+  }, [currentEditorLevel, editorLevels, isLoadingEditorLevels]);
+
+  const handleShowNextLevelInfo = () => {
+    if (nextEditorLevel) {
+      setNextLevelDetails(nextEditorLevel);
+      setIsNextLevelInfoOpen(true);
+    }
+  };
 
   const { control: completionFormControl, handleSubmit: handleCompletionSubmit, reset: resetCompletionForm, formState: { errors: completionFormErrors } } = useForm<CompletionDurationFormData>({
     resolver: zodResolver(completionDurationSchema),
@@ -227,7 +256,7 @@ export const TimesheetTable: React.FC = () => {
     },
   });
 
-  if (isAuthLoading) { // Only main auth loading here. TimesheetTable content relies on more.
+  if (isAuthLoading) {
     return (
       <div className="flex h-[calc(100vh-theme(spacing.32))] items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -363,12 +392,31 @@ export const TimesheetTable: React.FC = () => {
   if (isAuthLoading || isLoadingEditorLevels) {
     editorLevelDisplay = <Skeleton className="h-5 w-40 mt-2 bg-muted" />;
   } else if (user && user.role === 'editor') {
-    const foundLevel = user.editorLevelId ? editorLevels.find(level => level.id === user.editorLevelId) : null;
-    const levelName = foundLevel ? foundLevel.name : (editorLevels.length > 0 ? 'Not Assigned' : 'N/A');
+    const levelName = currentEditorLevel ? currentEditorLevel.name : (editorLevels.length > 0 ? 'Not Assigned' : 'N/A');
     editorLevelDisplay = (
       <div className="flex items-center gap-2 text-md text-muted-foreground mt-2">
         <Award className="h-5 w-5 text-primary" />
         <span className="font-semibold">Level: {levelName}</span>
+        {nextEditorLevel && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-primary hover:bg-primary/10 rounded-full"
+                  onClick={handleShowNextLevelInfo}
+                  aria-label={`Learn about ${nextEditorLevel.name}`}
+                >
+                  <TrendingUp className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Info on your next level: {nextEditorLevel.name}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
     );
   }
@@ -538,6 +586,30 @@ export const TimesheetTable: React.FC = () => {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isNextLevelInfoOpen} onOpenChange={setIsNextLevelInfoOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <TrendingUp className="mr-2 h-5 w-5 text-primary" />
+              Aim for: {nextLevelDetails?.name || 'Next Level'}
+            </DialogTitle>
+          </DialogHeader>
+          {nextLevelDetails?.description && (
+            <ScrollArea className="max-h-[60vh] py-4 pr-4">
+              <div
+                className="ProseMirror-display-preview prose dark:prose-invert max-w-none text-sm"
+                dangerouslySetInnerHTML={{ __html: nextLevelDetails.description }}
+              />
+            </ScrollArea>
+          )}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
