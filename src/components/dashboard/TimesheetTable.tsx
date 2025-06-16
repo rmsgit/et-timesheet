@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { useAuth } from '@/hooks/useAuth';
+import { useEditorLevels } from '@/hooks/useEditorLevels'; // Import useEditorLevels
 import type { TimeRecord, WorkType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { TimeRecordForm } from './TimeRecordForm';
-import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Hourglass, ListChecks, CheckCircle2 as CheckCircle2Icon, Play, PauseCircle, CheckSquare, Square } from 'lucide-react';
+import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Hourglass, ListChecks, CheckCircle2 as CheckCircle2Icon, Play, PauseCircle, CheckSquare, Square, Award } from 'lucide-react'; // Added Award
 import { format, parseISO, isSameDay, differenceInSeconds } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -48,6 +49,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
+import { Skeleton } from '@/components/ui/skeleton'; // Added Skeleton
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -120,6 +122,7 @@ const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): nu
 export const TimesheetTable: React.FC = () => {
   const { user, isAuthLoading } = useAuth();
   const { getRecordsForUser, deleteTimeRecord, setCompletionDetails, pauseTimer, resumeTimer, toggleReCheckedStatus, isTimesheetLoading } = useTimesheet();
+  const { editorLevels, isLoadingEditorLevels } = useEditorLevels(); // Get editor levels
   const { toast } = useToast();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -136,13 +139,13 @@ export const TimesheetTable: React.FC = () => {
   const rowsPerPage = 15;
   const [sortConfig, setSortConfig] = useState<{ key: SortableTimeRecordKeys | null; direction: 'ascending' | 'descending' }>({ key: 'entryCreatedAt', direction: 'descending' });
 
-  const isLoading = isAuthLoading || isTimesheetLoading;
+  const isLoading = isAuthLoading || isTimesheetLoading || isLoadingEditorLevels;
 
   const fullUserRecordsForDay = useMemo(() => {
-    if (isLoading || !user || !selectedDate) return [];
+    if (isAuthLoading || isTimesheetLoading || !user || !selectedDate) return []; // Adjusted isLoading check
     return getRecordsForUser(user.id)
       .filter(record => isSameDay(parseISO(record.date), selectedDate));
-  }, [user, getRecordsForUser, isLoading, selectedDate]);
+  }, [user, getRecordsForUser, isAuthLoading, isTimesheetLoading, selectedDate]); // Adjusted dependencies
 
   const sortedRecords = useMemo(() => {
     let sortableItems = [...fullUserRecordsForDay];
@@ -224,7 +227,7 @@ export const TimesheetTable: React.FC = () => {
     },
   });
 
-  if (isAuthLoading) {
+  if (isAuthLoading) { // Only main auth loading here. TimesheetTable content relies on more.
     return (
       <div className="flex h-[calc(100vh-theme(spacing.32))] items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -356,6 +359,20 @@ export const TimesheetTable: React.FC = () => {
     setIsActionSubmitting(false);
   };
 
+  let editorLevelDisplay: React.ReactNode = null;
+  if (isAuthLoading || isLoadingEditorLevels) {
+    editorLevelDisplay = <Skeleton className="h-5 w-40 mt-2 bg-muted" />;
+  } else if (user && user.role === 'editor') {
+    const foundLevel = user.editorLevelId ? editorLevels.find(level => level.id === user.editorLevelId) : null;
+    const levelName = foundLevel ? foundLevel.name : (editorLevels.length > 0 ? 'Not Assigned' : 'N/A');
+    editorLevelDisplay = (
+      <div className="flex items-center gap-2 text-md text-muted-foreground mt-2">
+        <Award className="h-5 w-5 text-primary" />
+        <span>Level: {levelName}</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -365,9 +382,10 @@ export const TimesheetTable: React.FC = () => {
         <p className="text-lg text-muted-foreground mt-1">
           This is your personal timesheet dashboard. Track your work efficiently.
         </p>
+        {editorLevelDisplay}
       </div>
 
-      {isLoading ? (
+      {(isAuthLoading || isTimesheetLoading) ? (
         <div className="grid gap-4 md:grid-cols-3 mb-6">
           <CardSkeleton className="shadow-md" />
           <CardSkeleton className="shadow-md" />
@@ -524,7 +542,7 @@ export const TimesheetTable: React.FC = () => {
       </Dialog>
 
 
-      {isTimesheetLoading && !isAuthLoading ? (
+      {(isTimesheetLoading && !isAuthLoading) ? (
         <TableSkeleton columnCount={9} className="shadow-lg" />
       ) : sortedRecords.length === 0 && selectedDate ? (
         <div className="text-center py-10 border-2 border-dashed rounded-lg bg-card">
