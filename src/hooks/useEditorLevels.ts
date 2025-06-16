@@ -45,7 +45,7 @@ export const useEditorLevels = () => {
           if (levelsData && typeof levelsData === 'object' && !Array.isArray(levelsData)) {
             const levelsArray = Object.entries(levelsData).map(([id, data]) => ({
               id,
-              ...({...(data as Omit<EditorLevel, 'id'>), order: (data as EditorLevel).order ?? 0 }), // Ensure order exists
+              ...({...(data as Omit<EditorLevel, 'id'>), order: (data as EditorLevel).order ?? 0 }), 
             }));
             setEditorLevelsState(sortLevels(levelsArray));
           } else {
@@ -124,42 +124,114 @@ export const useEditorLevels = () => {
     }
   }, [editorLevels]);
 
-  const updateEditorLevel = useCallback(async (id: string, name: string, description: string, order?: number): Promise<{ success: boolean; message?: string }> => {
-    if (!database) {
-      return { success: false, message: "Firebase DB not available." };
+  const updateEditorLevel = useCallback(async (id: string, name: string, description: string, newOrderDisplay?: number): Promise<{ success: boolean; message?: string }> => {
+    if (!database) return { success: false, message: "Firebase DB not available." };
+    if (!name.trim()) return { success: false, message: "Level name cannot be empty." };
+
+    const currentLevelsState = [...editorLevels]; // Use the state for consistent reads within the function
+    const sortedCurrentLevels = sortLevels(currentLevelsState);
+
+    const editedLevelIndexInSorted = sortedCurrentLevels.findIndex(l => l.id === id);
+    if (editedLevelIndexInSorted === -1) return { success: false, message: "Level not found." };
+
+    const existingLevelWithName = sortedCurrentLevels.find(level => level.id !== id && level.name.toLowerCase() === name.trim().toLowerCase());
+    if (existingLevelWithName) {
+        return { success: false, message: `Another editor level with the name "${name.trim()}" already exists.` };
     }
-    if (!name.trim()) {
-      return { success: false, message: "Level name cannot be empty." };
+    
+    let finalLevels = [...sortedCurrentLevels];
+    let levelToUpdateData = { 
+        ...finalLevels[editedLevelIndexInSorted], 
+        name: name.trim(), 
+        description: description.trim() 
+    };
+
+    let orderDidChange = false;
+    if (newOrderDisplay !== undefined) {
+        let targetZeroBasedOrder = newOrderDisplay - 1; // Convert 1-based display to 0-based index
+        
+        // Clamp targetZeroBasedOrder to be within the valid range of indices (0 to length-1)
+        targetZeroBasedOrder = Math.max(0, Math.min(targetZeroBasedOrder, finalLevels.length - 1));
+
+        if (targetZeroBasedOrder !== levelToUpdateData.order) {
+            orderDidChange = true;
+            // Temporarily assign a placeholder order to avoid clashes during splice, actual order is set in re-indexing
+            levelToUpdateData.order = -1; // Placeholder
+            
+            finalLevels.splice(editedLevelIndexInSorted, 1); // Remove from old position
+            finalLevels.splice(targetZeroBasedOrder, 0, levelToUpdateData); // Insert at new position
+        }
     }
-    const existingLevel = editorLevels.find(level => level.id === id);
-    if (!existingLevel) {
-        return { success: false, message: "Level not found." };
-    }
-    if (editorLevels.some(level => level.id !== id && level.name.toLowerCase() === name.trim().toLowerCase())) {
-      return { success: false, message: `Another editor level with the name "${name.trim()}" already exists.` };
+    
+    if (orderDidChange) {
+        // Re-assign sequential order to all levels if order was changed
+        finalLevels = finalLevels.map((level, index) => ({ ...level, order: index }));
+    } else {
+        // If order didn't change, just update the name/description for the target level in its current position
+        const currentLevelInPlace = finalLevels.find(l => l.id === id);
+        if (currentLevelInPlace) {
+            currentLevelInPlace.name = name.trim();
+            currentLevelInPlace.description = description.trim();
+        }
     }
 
-    const levelData: Omit<EditorLevel, 'id'> = { 
-        name: name.trim(), 
-        description: description.trim(),
-        order: order !== undefined ? order : existingLevel.order // Preserve existing order if not explicitly passed
-    };
-    const levelRef = ref(database, `${FIREBASE_EDITOR_LEVELS_PATH}/${id}`);
-    try {
-      await set(levelRef, levelData);
-      return { success: true };
-    } catch (error) {
-      console.error("Firebase update editor level error:", error);
-      return { success: false, message: "Failed to update editor level in database." };
+    const updates: { [key: string]: any } = {};
+    let needsFirebaseUpdate = false;
+
+    finalLevels.forEach(level => {
+        const originalLevel = sortedCurrentLevels.find(cl => cl.id === level.id);
+        // Check if this level is the one being edited OR if its order has changed
+        // OR if its name/description changed (already handled for the edited level)
+        if (level.id === id || 
+            !originalLevel || 
+            originalLevel.order !== level.order ||
+            originalLevel.name !== level.name || 
+            originalLevel.description !== level.description) {
+            
+            updates[`${FIREBASE_EDITOR_LEVELS_PATH}/${level.id}`] = { 
+                name: level.name, 
+                description: level.description, 
+                order: level.order 
+            };
+            needsFirebaseUpdate = true;
+        }
+    });
+    
+    if (!needsFirebaseUpdate) {
+      // This case can happen if only name/description changed for the edited level,
+      // but it's identical to what was already there, and order was not changed.
+      const originalEditedLevel = sortedCurrentLevels[editedLevelIndexInSorted];
+      if(originalEditedLevel.name === name.trim() && originalEditedLevel.description === description.trim() && !orderDidChange) {
+        return { success: true, message: "No changes detected." };
+      }
+      // If here, means the edited level's name/description *did* change, but no re-ordering.
+      // Fall through to update just that one level.
+      updates[`${FIREBASE_EDITOR_LEVELS_PATH}/${id}`] = {
+          name: name.trim(),
+          description: description.trim(),
+          order: sortedCurrentLevels[editedLevelIndexInSorted].order // original order
+      };
     }
-  }, [editorLevels]);
+
+
+    try {
+        await firebaseUpdate(ref(database), updates);
+        return { success: true };
+    } catch (error) {
+        console.error("Firebase update editor level error:", error);
+        return { success: false, message: "Failed to update editor level(s) in database." };
+    }
+  }, [editorLevels]); // Depends on editorLevels to get the current state for comparison and re-ordering
+
 
   const deleteEditorLevel = useCallback(async (idToDelete: string): Promise<{ success: boolean; message?: string }> => {
     if (!database) {
       return { success: false, message: "Firebase DB not available." };
     }
     
-    const levelBeingDeleted = editorLevels.find(l => l.id === idToDelete);
+    const sortedCurrentLevels = sortLevels([...editorLevels]);
+    const levelBeingDeleted = sortedCurrentLevels.find(l => l.id === idToDelete);
+
     if (!levelBeingDeleted) {
         return { success: false, message: "Level to delete not found." };
     }
@@ -170,15 +242,18 @@ export const useEditorLevels = () => {
       await remove(levelRef);
       
       const updates: { [key: string]: any } = {};
-      const remainingLevels = editorLevels.filter(l => l.id !== idToDelete);
+      const remainingLevels = sortedCurrentLevels.filter(l => l.id !== idToDelete);
       
-      remainingLevels.forEach(level => {
-        if (level.order > deletedOrder) {
-          updates[`${FIREBASE_EDITOR_LEVELS_PATH}/${level.id}/order`] = level.order - 1;
+      // Re-index subsequent levels
+      let reIndexNeeded = false;
+      remainingLevels.forEach((level, index) => {
+        if (level.order !== index) { // If current order is not the new sequential index
+            updates[`${FIREBASE_EDITOR_LEVELS_PATH}/${level.id}/order`] = index;
+            reIndexNeeded = true;
         }
       });
 
-      if (Object.keys(updates).length > 0) {
+      if (reIndexNeeded && Object.keys(updates).length > 0) {
         await firebaseUpdate(ref(database), updates);
       }
       return { success: true };
@@ -191,7 +266,7 @@ export const useEditorLevels = () => {
   const moveLevel = useCallback(async (levelId: string, direction: 'up' | 'down'): Promise<{ success: boolean, message?: string}> => {
     if (!database) return { success: false, message: "Firebase not connected." };
 
-    const sorted = [...editorLevels].sort((a,b) => a.order - b.order); // Ensure working with sorted list
+    const sorted = sortLevels([...editorLevels]);
     const currentIndex = sorted.findIndex(l => l.id === levelId);
     
     if (currentIndex === -1) return { success: false, message: "Level not found."};
@@ -199,16 +274,15 @@ export const useEditorLevels = () => {
     let newIndex;
     if (direction === 'up') {
         newIndex = currentIndex - 1;
-        if (newIndex < 0) return { success: true, message: "Already at top." }; // No change needed
-    } else { // direction 'down'
+        if (newIndex < 0) return { success: true, message: "Already at top." }; 
+    } else { 
         newIndex = currentIndex + 1;
-        if (newIndex >= sorted.length) return { success: true, message: "Already at bottom."}; // No change needed
+        if (newIndex >= sorted.length) return { success: true, message: "Already at bottom."};
     }
 
     const levelToMove = sorted[currentIndex];
     const levelToSwapWith = sorted[newIndex];
 
-    // Swap order numbers
     const updates: { [key: string]: any } = {};
     updates[`${FIREBASE_EDITOR_LEVELS_PATH}/${levelToMove.id}/order`] = levelToSwapWith.order;
     updates[`${FIREBASE_EDITOR_LEVELS_PATH}/${levelToSwapWith.id}/order`] = levelToMove.order;
@@ -224,7 +298,7 @@ export const useEditorLevels = () => {
 
 
   return {
-      editorLevels, // This will be sorted by order due to setEditorLevelsState(sortLevels(...))
+      editorLevels,
       addEditorLevel,
       updateEditorLevel,
       deleteEditorLevel,

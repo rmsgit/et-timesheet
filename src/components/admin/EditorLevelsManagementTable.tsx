@@ -34,7 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, PlusCircle, Trash2, Edit2, Save, X, AlertTriangle, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Award, ChevronsUpDown } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Trash2, Edit2, Save, X, AlertTriangle, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Award, ChevronsUpDown, SortAsc } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
@@ -51,6 +51,7 @@ export const EditorLevelsManagementTable: React.FC = () => {
   const [editingLevel, setEditingLevel] = useState<EditorLevel | undefined>(undefined);
   const [currentLevelName, setCurrentLevelName] = useState('');
   const [currentLevelDescription, setCurrentLevelDescription] = useState('');
+  const [currentLevelOrderDisplay, setCurrentLevelOrderDisplay] = useState<number | undefined>(undefined);
   
   const [levelToDelete, setLevelToDelete] = useState<EditorLevel | undefined>(undefined);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -63,8 +64,8 @@ export const EditorLevelsManagementTable: React.FC = () => {
   const [sortConfig, setSortConfig] = useState<{ key: SortableEditorLevelKeys; direction: 'ascending' | 'descending' }>({ key: 'order', direction: 'ascending' });
 
   const sortedEditorLevels = useMemo(() => {
-    let sortableItems = [...editorLevels]; // editorLevels from hook is already sorted by 'order'
-    if (sortConfig.key && sortConfig.key !== 'order') { // Only re-sort if key is not 'order' or if direction changes
+    let sortableItems = [...editorLevels]; 
+    if (sortConfig.key) {
       sortableItems.sort((a, b) => {
         const valA = a[sortConfig.key!];
         const valB = b[sortConfig.key!];
@@ -73,11 +74,13 @@ export const EditorLevelsManagementTable: React.FC = () => {
             comparison = valA - valB;
         } else if (typeof valA === 'string' && typeof valB === 'string') {
             comparison = valA.localeCompare(valB);
+        } else { // Handle description (HTML string) or potentially mixed types robustly
+            const strA = String(valA).replace(/<[^>]*>?/gm, '').toLowerCase(); // Strip HTML for desc sort
+            const strB = String(valB).replace(/<[^>]*>?/gm, '').toLowerCase();
+            comparison = strA.localeCompare(strB);
         }
         return sortConfig.direction === 'ascending' ? comparison : -comparison;
       });
-    } else if (sortConfig.key === 'order' && sortConfig.direction === 'descending') {
-      sortableItems.reverse(); // if sorting by order descending, just reverse the already order-ascending array
     }
     return sortableItems;
   }, [editorLevels, sortConfig]);
@@ -106,6 +109,7 @@ export const EditorLevelsManagementTable: React.FC = () => {
     setEditingLevel(undefined);
     setCurrentLevelName('');
     setCurrentLevelDescription('');
+    setCurrentLevelOrderDisplay(editorLevels.length + 1); // Default to next order
     setIsFormOpen(true);
   };
 
@@ -113,23 +117,41 @@ export const EditorLevelsManagementTable: React.FC = () => {
     setEditingLevel(level);
     setCurrentLevelName(level.name);
     setCurrentLevelDescription(level.description);
+    setCurrentLevelOrderDisplay(level.order + 1); // Display 1-based order
     setIsFormOpen(true);
   };
 
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentLevelName.trim()) {
+        toast({ title: "Validation Error", description: "Level name cannot be empty.", variant: "destructive" });
+        return;
+    }
+    if (editingLevel && currentLevelOrderDisplay !== undefined && (currentLevelOrderDisplay < 1 || currentLevelOrderDisplay > editorLevels.length)) {
+        toast({ title: "Validation Error", description: `Order must be between 1 and ${editorLevels.length}.`, variant: "destructive" });
+        return;
+    }
+    if (!editingLevel && currentLevelOrderDisplay !== undefined && (currentLevelOrderDisplay < 1 || currentLevelOrderDisplay > editorLevels.length + 1)) {
+         toast({ title: "Validation Error", description: `Order must be between 1 and ${editorLevels.length + 1}.`, variant: "destructive" });
+        return;
+    }
+
+
     setIsSubmittingForm(true);
     let result;
     if (editingLevel) {
-      result = await updateEditorLevel(editingLevel.id, currentLevelName, currentLevelDescription, editingLevel.order);
+      result = await updateEditorLevel(editingLevel.id, currentLevelName, currentLevelDescription, currentLevelOrderDisplay);
     } else {
+      // For adding, useEditorLevels calculates order automatically, so don't pass currentLevelOrderDisplay.
+      // If specific order is needed on add, addEditorLevel would need an 'order' param.
+      // For now, it adds to the end.
       result = await addEditorLevel(currentLevelName, currentLevelDescription);
     }
 
     if (result.success) {
       toast({
         title: "Success",
-        description: `Editor level ${editingLevel ? 'updated' : 'added'}.`,
+        description: `Editor level ${editingLevel ? 'updated' : 'added'}. ${result.message || ''}`,
       });
       setIsFormOpen(false);
     } else {
@@ -149,7 +171,7 @@ export const EditorLevelsManagementTable: React.FC = () => {
 
   const handleDeleteConfirm = async () => {
     if (levelToDelete) {
-      setIsSubmittingForm(true); // Use for delete as well
+      setIsSubmittingForm(true); 
       const result = await deleteEditorLevel(levelToDelete.id);
       if (result.success) {
         toast({
@@ -178,16 +200,17 @@ export const EditorLevelsManagementTable: React.FC = () => {
     if (!result.success) {
         toast({ title: "Error", description: result.message || "Failed to reorder level.", variant: "destructive" });
     } else if (result.message && (result.message.includes("Already at top") || result.message.includes("Already at bottom")) ) {
-        // Optionally show a muted toast for "already at limit"
+        // No toast for already at limit
     } else {
         toast({ title: "Success", description: "Level reordered." });
     }
     setIsMovingLevel(false);
   };
   
-  const renderSortableHeader = (label: string, columnKey: SortableEditorLevelKeys, className?: string) => (
+  const renderSortableHeader = (label: string, columnKey: SortableEditorLevelKeys, className?: string, icon?: React.ElementType) => (
     <TableHead className={cn("cursor-pointer hover:bg-muted/50", className)} onClick={() => requestSort(columnKey)}>
       <div className="flex items-center">
+        {icon && React.createElement(icon, { className: "mr-2 h-4 w-4" })}
         {label}
         {getSortIcon(columnKey)}
       </div>
@@ -229,21 +252,20 @@ export const EditorLevelsManagementTable: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {renderSortableHeader("Order", "order", "w-[10%]")}
+                    {renderSortableHeader("Order", "order", "w-[10%]", SortAsc)}
                     {renderSortableHeader("Level Name", "name", "w-[20%]")}
                     {renderSortableHeader("Description", "description", "w-[45%]")}
                     <TableHead className="text-right w-[25%]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedEditorLevels.map((level, index) => (
+                  {paginatedEditorLevels.map((level) => (
                     <TableRow key={level.id}>
                       <TableCell>{level.order + 1}</TableCell>
                       <TableCell className="font-medium">{level.name}</TableCell>
                       <TableCell>
                         <div 
                           className="line-clamp-2 text-sm text-muted-foreground ProseMirror-display-preview"
-                          title={level.description ? "Double-click to see full description" : undefined}
                           dangerouslySetInnerHTML={{ __html: level.description || "-" }} 
                         />
                       </TableCell>
@@ -314,7 +336,15 @@ export const EditorLevelsManagementTable: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) {setEditingLevel(undefined); setCurrentLevelName(''); setCurrentLevelDescription('');} }}>
+      <Dialog open={isFormOpen} onOpenChange={(open) => { 
+          setIsFormOpen(open); 
+          if (!open) {
+              setEditingLevel(undefined); 
+              setCurrentLevelName(''); 
+              setCurrentLevelDescription('');
+              setCurrentLevelOrderDisplay(undefined);
+          } 
+      }}>
         <DialogContent className="sm:max-w-2xl">
           <form onSubmit={handleSubmitForm}>
             <DialogHeader>
@@ -335,6 +365,22 @@ export const EditorLevelsManagementTable: React.FC = () => {
                   disabled={isSubmittingForm || isMovingLevel}
                 />
               </div>
+              {editingLevel && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="level-order">Order (1-based)</Label>
+                  <Input
+                    id="level-order"
+                    type="number"
+                    value={currentLevelOrderDisplay ?? ''}
+                    onChange={(e) => setCurrentLevelOrderDisplay(e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                    placeholder={`1-${editorLevels.length}`}
+                    min="1"
+                    max={editorLevels.length}
+                    disabled={isSubmittingForm || isMovingLevel}
+                  />
+                   <p className="text-xs text-muted-foreground">Set the display order. 1 is the first level.</p>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor="level-description">Description</Label>
                 <RichTextEditor
@@ -363,7 +409,7 @@ export const EditorLevelsManagementTable: React.FC = () => {
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the editor level "{levelToDelete?.name}".
-              Ensure this level is not currently assigned to any editors before deleting. Deleting will re-index the order of subsequent levels.
+              This will also re-index the order of subsequent levels.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
