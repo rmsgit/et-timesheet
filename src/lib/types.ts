@@ -6,6 +6,7 @@ export interface User {
   email: string | null; // From Firebase Auth
   username: string; // From RTDB (can be email as fallback if not in RTDB)
   role: 'admin' | 'editor' | null; // From RTDB
+  editorLevelId?: string; // ID of the assigned EditorLevel
 }
 
 export interface TimeRecord {

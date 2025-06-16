@@ -77,7 +77,13 @@ export const useMockUsers = () => {
     };
   }, [showLoader, hideLoader, toast]);
 
-  const addUserProfileToRTDB = useCallback(async (id: string, email: string, username: string, role: 'admin' | 'editor'): Promise<{ success: boolean, message?: string, user?: User }> => {
+  const addUserProfileToRTDB = useCallback(async (
+    id: string, 
+    email: string, 
+    username: string, 
+    role: 'admin' | 'editor',
+    editorLevelId?: string
+  ): Promise<{ success: boolean, message?: string, user?: User }> => {
     if (!database) {
       toast({ title: "Configuration Error", description: "Firebase RTDB is not connected. User profile not added/updated.", variant: "destructive" });
       return { success: false, message: "Firebase RTDB not available." };
@@ -107,10 +113,10 @@ export const useMockUsers = () => {
     }
 
     const userBeingEdited = users.find(u => u.id === id);
-    if (userBeingEdited) { // This is an edit operation
+    if (userBeingEdited) { 
         const currentUserAuth = firebaseAuthInstance?.currentUser; 
-        if (currentUserAuth && userBeingEdited.id === currentUserAuth.uid && // Admin is editing themselves
-            userBeingEdited.role === 'admin' && role === 'editor') { // Trying to demote self from admin to editor
+        if (currentUserAuth && userBeingEdited.id === currentUserAuth.uid && 
+            userBeingEdited.role === 'admin' && role === 'editor') { 
 
             const adminUsersCount = users.filter(u => u.role === 'admin').length;
             if (adminUsersCount <= 1) {
@@ -127,7 +133,8 @@ export const useMockUsers = () => {
     const userProfileData: Omit<User, 'id'> = {
       email: email.trim(),
       username: trimmedUsername,
-      role
+      role,
+      editorLevelId: role === 'editor' ? (editorLevelId || null) : null, // Set level ID only if role is editor, otherwise null
     };
 
     const userRef = ref(database, `${FIREBASE_USERS_PATH}/${id}`);
@@ -146,12 +153,6 @@ export const useMockUsers = () => {
       toast({ title: "Configuration Error", description: "Firebase RTDB is not connected. User profile not deleted.", variant: "destructive" });
       return { success: false, message: "Firebase RTDB not available." };
     }
-
-    // Note: This function already checks for self-deletion of the last admin in UserManagementTable.tsx before calling.
-    // However, direct calls to this hook method would bypass that UI check.
-    // For robustness, that check should ideally be here or in Firebase Rules.
-    // For now, the UI check is the primary guard.
-
     const userRef = ref(database, `${FIREBASE_USERS_PATH}/${userId}`);
     try {
       await remove(userRef);
@@ -161,9 +162,7 @@ export const useMockUsers = () => {
       toast({ title: "Firebase Error", description: "Failed to delete user profile from Firebase RTDB.", variant: "destructive" });
       return { success: false, message: "Failed to delete profile from RTDB." };
     }
-  }, [toast]); // Removed `users` from deps as it's not directly used in this specific delete logic path after UI checks
+  }, [toast]); 
 
   return { users, addUserProfileToRTDB, deleteUserProfileFromRTDB, isUsersLoading };
 };
-
-    

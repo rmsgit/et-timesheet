@@ -3,7 +3,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useMockUsers } from '@/hooks/useMockUsers'; 
-import type { User } from '@/lib/types';
+import { useEditorLevels } from '@/hooks/useEditorLevels';
+import type { User, EditorLevel } from '@/lib/types';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,7 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Award } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -45,10 +46,11 @@ import { createUserWithEmailAndPassword, deleteUser as deleteAuthUser, sendPassw
 import { cn } from '@/lib/utils';
 
 
-type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role'>;
+type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role'> | 'editorLevelName';
 
 export const UserManagementTable: React.FC = () => {
   const { users: allUsers, addUserProfileToRTDB, deleteUserProfileFromRTDB, isUsersLoading } = useMockUsers();
+  const { editorLevels, isLoadingEditorLevels } = useEditorLevels();
   const { toast } = useToast();
 
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
@@ -56,6 +58,7 @@ export const UserManagementTable: React.FC = () => {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<'editor' | 'admin'>('editor');
+  const [newUserEditorLevelId, setNewUserEditorLevelId] = useState<string | undefined>(undefined);
   
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -67,26 +70,42 @@ export const UserManagementTable: React.FC = () => {
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
-  const [editUserFormState, setEditUserFormState] = useState<{ username: string; email: string; role: 'editor' | 'admin' }>({
+  const [editUserFormState, setEditUserFormState] = useState<{ username: string; email: string; role: 'editor' | 'admin'; editorLevelId?: string }>({
     username: '',
     email: '',
     role: 'editor',
+    editorLevelId: undefined,
   });
 
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 15;
   const [sortConfig, setSortConfig] = useState<{ key: SortableUserKeys | null; direction: 'ascending' | 'descending' }>({ key: 'username', direction: 'ascending' });
 
+  const getEditorLevelNameById = (levelId?: string): string => {
+    if (!levelId || isLoadingEditorLevels) return '';
+    const level = editorLevels.find(l => l.id === levelId);
+    return level ? level.name : '';
+  };
+
+  const usersWithLevelNames = useMemo(() => {
+    if (isLoadingEditorLevels) return allUsers.map(u => ({ ...u, editorLevelName: 'Loading...' }));
+    return allUsers.map(user => ({
+      ...user,
+      editorLevelName: user.role === 'editor' ? getEditorLevelNameById(user.editorLevelId) : '',
+    }));
+  }, [allUsers, editorLevels, isLoadingEditorLevels]);
+
+
   const sortedUsers = useMemo(() => {
-    let sortableItems = [...allUsers];
+    let sortableItems = [...usersWithLevelNames];
     if (sortConfig.key !== null) {
       sortableItems.sort((a, b) => {
         const valA = a[sortConfig.key!];
         const valB = b[sortConfig.key!];
         
         let comparison = 0;
-        if (valA === null || valA === undefined) comparison = -1;
-        else if (valB === null || valB === undefined) comparison = 1;
+        if (valA === null || valA === undefined || valA === '') comparison = -1;
+        else if (valB === null || valB === undefined || valB === '') comparison = 1;
         else if (typeof valA === 'string' && typeof valB === 'string') {
           comparison = valA.localeCompare(valB);
         } else {
@@ -98,7 +117,7 @@ export const UserManagementTable: React.FC = () => {
       });
     }
     return sortableItems;
-  }, [allUsers, sortConfig]);
+  }, [usersWithLevelNames, sortConfig]);
 
   const paginatedUsers = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
@@ -127,6 +146,7 @@ export const UserManagementTable: React.FC = () => {
     setNewUserPassword('');
     setNewUserName('');
     setNewUserRole('editor');
+    setNewUserEditorLevelId(undefined);
     setIsAddUserDialogOpen(true);
   };
 
@@ -139,6 +159,10 @@ export const UserManagementTable: React.FC = () => {
       });
       return;
     }
+    if (newUserRole === 'editor' && !newUserEditorLevelId && editorLevels.length > 0) {
+      toast({ title: "Validation Error", description: "Please select an editor level for the new editor.", variant: "destructive" });
+      return;
+    }
     if (!auth) {
         toast({ title: "Auth Error", description: "Firebase Auth not initialized.", variant: "destructive" });
         return;
@@ -148,7 +172,13 @@ export const UserManagementTable: React.FC = () => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, newUserEmail, newUserPassword);
       const firebaseUser = userCredential.user;
-      const profileResult = await addUserProfileToRTDB(firebaseUser.uid, newUserEmail, newUserName, newUserRole);
+      const profileResult = await addUserProfileToRTDB(
+        firebaseUser.uid, 
+        newUserEmail, 
+        newUserName, 
+        newUserRole, 
+        newUserRole === 'editor' ? newUserEditorLevelId : undefined
+      );
 
       if (profileResult.success) {
         toast({
@@ -162,6 +192,7 @@ export const UserManagementTable: React.FC = () => {
           description: profileResult.message || "Failed to add user profile to RTDB.",
           variant: "destructive",
         });
+        // Attempt to roll back Firebase Auth user creation if RTDB profile failed
         if (auth.currentUser && auth.currentUser.uid === firebaseUser.uid) {
             await deleteAuthUser(firebaseUser).catch(delError => console.error("Failed to roll back Auth user:", delError));
         }
@@ -284,6 +315,7 @@ export const UserManagementTable: React.FC = () => {
         username: user.username,
         email: user.email || '',
         role: user.role || 'editor',
+        editorLevelId: user.editorLevelId || undefined,
     });
     setIsEditUserDialogOpen(true);
   };
@@ -303,6 +335,10 @@ export const UserManagementTable: React.FC = () => {
         toast({ title: "Validation Error", description: "Please enter a valid profile email format.", variant: "destructive" });
         return;
     }
+    if (editUserFormState.role === 'editor' && !editUserFormState.editorLevelId && editorLevels.length > 0) {
+      toast({ title: "Validation Error", description: "Please select an editor level.", variant: "destructive" });
+      return;
+    }
 
 
     setIsSubmittingForm(true);
@@ -310,7 +346,8 @@ export const UserManagementTable: React.FC = () => {
         editingUser.id,
         editUserFormState.email,
         editUserFormState.username,
-        editUserFormState.role
+        editUserFormState.role,
+        editUserFormState.role === 'editor' ? editUserFormState.editorLevelId : undefined
     );
 
     if (result.success) {
@@ -350,11 +387,11 @@ export const UserManagementTable: React.FC = () => {
         <CardContent>
           {isUsersLoading ? (
             <TableSkeleton 
-              columnCount={4} 
+              columnCount={5} 
               rowCount={3} 
               showTableHeader={true} 
-              headerTexts={["User", "Email", "Role", "Actions"]} 
-              cellWidths={["w-2/6", "w-2/6", "w-1/6", "w-1/6 text-right"]} 
+              headerTexts={["User", "Email", "Role", "Editor Level", "Actions"]} 
+              cellWidths={["w-[25%]", "w-[25%]", "w-[15%]", "w-[20%]", "w-[15%] text-right"]} 
             />
           ) : sortedUsers.length === 0 ? (
             <div className="text-center py-10 border-2 border-dashed rounded-lg bg-card">
@@ -373,6 +410,7 @@ export const UserManagementTable: React.FC = () => {
                   {renderSortableHeader("User", "username")}
                   {renderSortableHeader("Email", "email")}
                   {renderSortableHeader("Role", "role")}
+                  {renderSortableHeader("Editor Level", "editorLevelName")}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -395,26 +433,38 @@ export const UserManagementTable: React.FC = () => {
                         {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'No Role'}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                        {user.role === 'editor' && user.editorLevelId ? (
+                           isLoadingEditorLevels ? <Skeleton className="h-4 w-20 bg-muted" /> : (
+                            <Badge variant="outline" className="flex items-center gap-1.5">
+                              <Award className="h-3 w-3 text-primary" />
+                              {getEditorLevelNameById(user.editorLevelId) || 'N/A'}
+                            </Badge>
+                           )
+                        ) : (
+                            user.role === 'editor' && editorLevels.length > 0 ? <span className="text-xs text-muted-foreground">Not Set</span> : 'N/A'
+                        )}
+                    </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0" disabled={isSubmittingForm}>
+                          <Button variant="ghost" className="h-8 w-8 p-0" disabled={isSubmittingForm || isLoadingEditorLevels}>
                             <span className="sr-only">Open menu</span>
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleOpenEditDialog(user)} disabled={isSubmittingForm}>
+                          <DropdownMenuItem onClick={() => handleOpenEditDialog(user)} disabled={isSubmittingForm || isLoadingEditorLevels}>
                             <Edit2 className="mr-2 h-4 w-4" /> Edit Profile
                           </DropdownMenuItem>
-                           <DropdownMenuItem onClick={() => openPasswordResetDialog(user)} disabled={isSubmittingForm || !user.email}>
+                           <DropdownMenuItem onClick={() => openPasswordResetDialog(user)} disabled={isSubmittingForm || isLoadingEditorLevels || !user.email}>
                             <KeyRound className="mr-2 h-4 w-4" /> Reset Password
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             onClick={() => openDeleteDialog(user)} 
                             className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
-                            disabled={isSubmittingForm || (auth?.currentUser?.email === user.email && user.role === 'admin' && allUsers.filter(u=>u.role === 'admin').length <=1)}
+                            disabled={isSubmittingForm || isLoadingEditorLevels || (auth?.currentUser?.email === user.email && user.role === 'admin' && allUsers.filter(u=>u.role === 'admin').length <=1)}
                           >
                             <Trash2 className="mr-2 h-4 w-4" /> Delete User
                           </DropdownMenuItem>
@@ -430,7 +480,7 @@ export const UserManagementTable: React.FC = () => {
                 <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1}>
                   <ChevronLeft className="mr-1 h-4 w-4" /> Previous
                 </Button>
-                <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages} (Total: {sortedUsers.length} users)</span>
                 <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages}>
                   Next <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
@@ -441,7 +491,7 @@ export const UserManagementTable: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={isAddUserDialogOpen} onOpenChange={(open) => { setIsAddUserDialogOpen(open); if (!open) { setNewUserName(''); setNewUserRole('editor'); setNewUserEmail(''); setNewUserPassword('');} }}>
+      <Dialog open={isAddUserDialogOpen} onOpenChange={(open) => { setIsAddUserDialogOpen(open); if (!open) { setNewUserName(''); setNewUserRole('editor'); setNewUserEmail(''); setNewUserPassword(''); setNewUserEditorLevelId(undefined); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add New User (Auth & Profile)</DialogTitle>
@@ -496,12 +546,35 @@ export const UserManagementTable: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
+            {newUserRole === 'editor' && (
+              <div className="space-y-1.5">
+                <Label htmlFor="new-user-editor-level">Editor Level</Label>
+                {isLoadingEditorLevels ? (
+                     <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                     </div>
+                ) : editorLevels.length > 0 ? (
+                    <Select value={newUserEditorLevelId} onValueChange={setNewUserEditorLevelId} disabled={isSubmittingForm || isLoadingEditorLevels}>
+                    <SelectTrigger id="new-user-editor-level">
+                        <SelectValue placeholder="Select editor level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {editorLevels.map((level) => (
+                        <SelectItem key={level.id} value={level.id}>{level.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                    </Select>
+                ) : (
+                     <p className="text-sm text-muted-foreground p-2 border rounded-md">No editor levels defined yet. Please add levels in Admin > Editor Levels.</p>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <DialogClose asChild>
                 <Button type="button" variant="outline" disabled={isSubmittingForm}><X className="mr-2 h-4 w-4" />Cancel</Button>
             </DialogClose>
-            <Button type="button" onClick={handleConfirmAddUser} disabled={isSubmittingForm}>
+            <Button type="button" onClick={handleConfirmAddUser} disabled={isSubmittingForm || (newUserRole === 'editor' && isLoadingEditorLevels) || (newUserRole === 'editor' && editorLevels.length === 0 && !isLoadingEditorLevels) }>
               {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Add User
             </Button>
@@ -546,7 +619,13 @@ export const UserManagementTable: React.FC = () => {
                         <Label htmlFor="edit-user-role">Role</Label>
                         <Select 
                             value={editUserFormState.role} 
-                            onValueChange={(value: 'editor' | 'admin') => setEditUserFormState(prev => ({ ...prev, role: value }))} 
+                            onValueChange={(value: 'editor' | 'admin') => {
+                                setEditUserFormState(prev => ({ 
+                                    ...prev, 
+                                    role: value,
+                                    editorLevelId: value === 'admin' ? undefined : prev.editorLevelId // Clear level if changed to admin
+                                }));
+                            }} 
                             disabled={isSubmittingForm}
                         >
                             <SelectTrigger>
@@ -558,12 +637,39 @@ export const UserManagementTable: React.FC = () => {
                             </SelectContent>
                         </Select>
                     </div>
+                    {editUserFormState.role === 'editor' && (
+                        <div className="space-y-1.5">
+                            <Label htmlFor="edit-user-editor-level">Editor Level</Label>
+                            {isLoadingEditorLevels ? (
+                                 <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
+                                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                 </div>
+                            ) : editorLevels.length > 0 ? (
+                                <Select 
+                                    value={editUserFormState.editorLevelId} 
+                                    onValueChange={(value) => setEditUserFormState(prev => ({ ...prev, editorLevelId: value }))} 
+                                    disabled={isSubmittingForm || isLoadingEditorLevels}
+                                >
+                                <SelectTrigger id="edit-user-editor-level">
+                                    <SelectValue placeholder="Select editor level" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {editorLevels.map((level) => (
+                                    <SelectItem key={level.id} value={level.id}>{level.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                                </Select>
+                            ) : (
+                                <p className="text-sm text-muted-foreground p-2 border rounded-md">No editor levels defined yet. Cannot assign.</p>
+                            )}
+                        </div>
+                    )}
                 </div>
                 <DialogFooter>
                     <DialogClose asChild>
                         <Button type="button" variant="outline" disabled={isSubmittingForm}><X className="mr-2 h-4 w-4" />Cancel</Button>
                     </DialogClose>
-                    <Button type="button" onClick={handleConfirmEditUser} disabled={isSubmittingForm}>
+                    <Button type="button" onClick={handleConfirmEditUser} disabled={isSubmittingForm || (editUserFormState.role === 'editor' && isLoadingEditorLevels) || (editUserFormState.role === 'editor' && editorLevels.length === 0 && !isLoadingEditorLevels) }>
                          {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         Save Changes
                     </Button>
