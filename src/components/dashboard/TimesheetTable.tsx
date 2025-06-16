@@ -55,6 +55,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { PendingTaskTimer } from './PendingTaskTimer';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
