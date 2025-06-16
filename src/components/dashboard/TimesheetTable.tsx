@@ -368,7 +368,7 @@ export const TimesheetTable: React.FC = () => {
     editorLevelDisplay = (
       <div className="flex items-center gap-2 text-md text-muted-foreground mt-2">
         <Award className="h-5 w-5 text-primary" />
-        <span>Level: {levelName}</span>
+        <span className="font-semibold">Level: {levelName}</span>
       </div>
     );
   }
