@@ -6,8 +6,8 @@ import { useEditorLevels } from '@/hooks/useEditorLevels';
 import type { EditorLevel } from '@/lib/types';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import RichTextEditor from '@/components/common/RichTextEditor'; // Import the RichTextEditor
 import {
   Table,
   TableBody,
@@ -100,7 +100,7 @@ export const EditorLevelsManagementTable: React.FC = () => {
   const handleAddNew = () => {
     setEditingLevel(undefined);
     setCurrentLevelName('');
-    setCurrentLevelDescription('');
+    setCurrentLevelDescription(''); // Initialize with empty string for RichTextEditor
     setIsFormOpen(true);
   };
 
@@ -144,7 +144,6 @@ export const EditorLevelsManagementTable: React.FC = () => {
 
   const handleDeleteConfirm = async () => {
     if (levelToDelete) {
-      // Note: isEditorLevelInUse check is not implemented in the hook yet.
       const result = await deleteEditorLevel(levelToDelete.id);
       if (result.success) {
         toast({
@@ -220,9 +219,11 @@ export const EditorLevelsManagementTable: React.FC = () => {
                     <TableRow key={level.id}>
                       <TableCell className="font-medium">{level.name}</TableCell>
                       <TableCell>
-                        <p className="line-clamp-2 text-sm text-muted-foreground" title={level.description}>
-                          {level.description || "-"}
-                        </p>
+                        <div 
+                          className="line-clamp-2 text-sm text-muted-foreground ProseMirror-display-preview"
+                          title={level.description ? "Double-click to see full description" : undefined}
+                          dangerouslySetInnerHTML={{ __html: level.description || "-" }} 
+                        />
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -273,7 +274,7 @@ export const EditorLevelsManagementTable: React.FC = () => {
       </Card>
 
       <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) {setEditingLevel(undefined); setCurrentLevelName(''); setCurrentLevelDescription('');} }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl"> {/* Increased width for rich text editor */}
           <form onSubmit={handleSubmitForm}>
             <DialogHeader>
               <DialogTitle>{editingLevel ? 'Edit Editor Level' : 'Add New Editor Level'}</DialogTitle>
@@ -281,7 +282,7 @@ export const EditorLevelsManagementTable: React.FC = () => {
                 {editingLevel ? `Modifying the level: "${editingLevel.name}"` : "Define a new proficiency tier for editors."}
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-6 py-4"> {/* Increased gap */}
               <div className="space-y-1.5">
                 <Label htmlFor="level-name">Level Name</Label>
                 <Input
@@ -295,12 +296,9 @@ export const EditorLevelsManagementTable: React.FC = () => {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="level-description">Description</Label>
-                <Textarea
-                  id="level-description"
+                <RichTextEditor
                   value={currentLevelDescription}
-                  onChange={(e) => setCurrentLevelDescription(e.target.value)}
-                  placeholder="Provide a brief description of this editor level's responsibilities and skills."
-                  rows={5}
+                  onChange={setCurrentLevelDescription}
                   disabled={isSubmittingForm}
                 />
               </div>

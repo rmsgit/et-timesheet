@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -105,5 +106,38 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-geist-sans), sans-serif;
+  }
+
+  /* Basic Tiptap/ProseMirror styling */
+  .ProseMirror {
+    @apply p-2 border-input rounded-md;
+    min-height: 150px;
+  }
+  .ProseMirror:focus {
+    @apply outline-none ring-2 ring-ring ring-offset-2 border-transparent;
+  }
+  .ProseMirror p {
+    @apply mb-3;
+  }
+  .ProseMirror ul, .ProseMirror ol {
+    @apply ml-6 my-2;
+  }
+  .ProseMirror ul {
+    @apply list-disc;
+  }
+  .ProseMirror ol {
+    @apply list-decimal;
+  }
+  .ProseMirror li > p { /* Tiptap often wraps list item content in paragraphs */
+    @apply mb-0;
+  }
+  .ProseMirror a {
+    @apply text-primary underline cursor-pointer;
+  }
+  .ProseMirror-display-preview ul, .ProseMirror-display-preview ol {
+     @apply ml-4 my-1; /* Less indent for table preview */
+  }
+  .ProseMirror-display-preview p {
+    @apply mb-1;
   }
 }
