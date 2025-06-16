@@ -404,12 +404,13 @@ export const TimesheetTable: React.FC = () => {
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-primary hover:bg-primary/10 rounded-full"
+                  size="sm" 
+                  className="h-auto px-2 py-1 text-primary hover:bg-primary/10 rounded-md"
                   onClick={handleShowNextLevelInfo}
                   aria-label={`Learn about ${nextEditorLevel.name}`}
                 >
-                  <TrendingUp className="h-4 w-4" />
+                  <TrendingUp className="mr-1.5 h-4 w-4" />
+                  Next Level
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
