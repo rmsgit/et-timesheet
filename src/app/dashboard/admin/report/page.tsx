@@ -9,7 +9,7 @@ import { format, parseISO, isSameDay } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, AlertCircle, Clock, Package, RefreshCw, FilePlus2, Film, Hourglass, CheckCircle2, PieChart as PieChartIcon, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BarChart3, AlertCircle, Clock, Package, RefreshCw, FilePlus2, Film, Hourglass, CheckCircle2, PieChart as PieChartIcon, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckSquare } from 'lucide-react';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
@@ -41,7 +41,7 @@ const formatDurationFromTotalSeconds = (totalSeconds: number | undefined | null)
      parts.push(`${seconds}s`);
   }
   if (parts.length === 0 && totalSeconds === 0) return "0s";
-  
+
   return parts.join(' ') || "0s";
 };
 
@@ -58,7 +58,7 @@ const formatDateDisplay = (range?: DateRange): string => {
   return `for ${fromDateFormatted}`;
 };
 
-type SortableTimeRecordKeysAdmin = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationSeconds' | 'durationHours' | 'completedAt'> | 'editorUsername';
+type SortableTimeRecordKeysAdmin = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationSeconds' | 'durationHours' | 'completedAt' | 'reChecked'> | 'editorUsername';
 
 const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): number => {
   if (!tsA && !tsB) return 0;
@@ -70,12 +70,12 @@ const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): nu
 export default function AdminReportPage() {
   const { getAllRecordsByDateRange, timeRecords: allTimeRecordsFromContext, isTimesheetLoading } = useTimesheet();
   const { users: mockUsers, isUsersLoading } = useMockUsers();
-  
+
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(),
     to: new Date(),
   });
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 15;
   const [sortConfig, setSortConfig] = useState<{ key: SortableTimeRecordKeysAdmin | null; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
@@ -84,11 +84,11 @@ export default function AdminReportPage() {
 
   const allRecordsInRange = useMemo(() => {
     if (isLoading || !dateRange?.from || !allTimeRecordsFromContext || !mockUsers) return [];
-    
-    const effectiveStartDate = new Date(dateRange.from);
-    effectiveStartDate.setHours(0, 0, 0, 0); 
 
-    const effectiveEndDate = dateRange.to || dateRange.from; 
+    const effectiveStartDate = new Date(dateRange.from);
+    effectiveStartDate.setHours(0, 0, 0, 0);
+
+    const effectiveEndDate = dateRange.to || dateRange.from;
     effectiveEndDate.setHours(23, 59, 59, 999);
 
     return getAllRecordsByDateRange(effectiveStartDate, effectiveEndDate);
@@ -113,10 +113,14 @@ export default function AdminReportPage() {
       sortableItems.sort((a, b) => {
         const valA = a[sortConfig.key!];
         const valB = b[sortConfig.key!];
-        
+
         let comparison = 0;
         if (sortConfig.key === 'date' || sortConfig.key === 'completedAt') {
           comparison = compareTimestamps(valA as string | undefined, valB as string | undefined);
+        } else if (sortConfig.key === 'reChecked') {
+          const boolA = valA === true;
+          const boolB = valB === true;
+          comparison = boolA === boolB ? 0 : boolA ? -1 : 1;
         } else if (typeof valA === 'number' && typeof valB === 'number') {
           comparison = valA - valB;
         } else if (valA === undefined || valA === null) {
@@ -135,7 +139,7 @@ export default function AdminReportPage() {
     }
     return sortableItems;
   }, [recordsWithEditorNames, sortConfig]);
-  
+
 
   const paginatedRecords = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
@@ -159,7 +163,7 @@ export default function AdminReportPage() {
     }
     return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
   };
-  
+
 
   const projectMetrics = useMemo(() => {
     if (allRecordsInRange.length === 0) {
@@ -211,7 +215,7 @@ export default function AdminReportPage() {
         pendingProjects++;
       }
     });
-    
+
     return {
       totalNewWorkProjects,
       totalRevisionWorkProjects,
@@ -242,7 +246,7 @@ export default function AdminReportPage() {
     return [
       { name: 'Completed New', value: projectMetrics.completedNewWorkProjects },
       { name: 'Pending/In-Progress New', value: pendingNew > 0 ? pendingNew : 0 },
-    ].filter(item => item.value > 0); 
+    ].filter(item => item.value > 0);
   }, [projectMetrics]);
   const COLORS_NEW_WORK = ['hsl(var(--primary))', 'hsl(var(--muted-foreground))'];
 
@@ -272,7 +276,7 @@ export default function AdminReportPage() {
         </h1>
         <DateRangePicker dateRange={dateRange} onDateChange={(range) => { setDateRange(range); setCurrentPage(1);}} disabled={isLoading} />
       </div>
-      
+
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {Array.from({ length: 5 }).map((_, i) => <CardSkeleton key={i} className="shadow-md" />)}
@@ -357,7 +361,7 @@ export default function AdminReportPage() {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={false} 
+                      label={false}
                       innerRadius={70}
                       outerRadius={100}
                       fill="hsl(var(--primary))"
@@ -446,7 +450,7 @@ export default function AdminReportPage() {
 
 
       {isLoading ? (
-        <TableSkeleton columnCount={8} className="shadow-lg mt-6 h-[480px]" />
+        <TableSkeleton columnCount={9} className="shadow-lg mt-6 h-[480px]" />
       ) : sortedRecords.length > 0 ? (
         <Card className="shadow-lg mt-6">
           <CardHeader>
@@ -468,6 +472,7 @@ export default function AdminReportPage() {
                     {renderSortableHeader("Proj. Duration", "projectDurationSeconds")}
                     {renderSortableHeader("Work Time", "durationHours")}
                     {renderSortableHeader("Status", "completedAt")}
+                    {renderSortableHeader("Re-checked", "reChecked")}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -496,6 +501,9 @@ export default function AdminReportPage() {
                         ) : (
                           <Badge variant="outline">Pending</Badge>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        {record.reChecked ? <CheckSquare className="h-5 w-5 text-green-500" /> : null}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -543,4 +551,3 @@ export default function AdminReportPage() {
     </div>
   );
 }
-

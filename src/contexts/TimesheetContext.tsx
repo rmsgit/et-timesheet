@@ -13,7 +13,7 @@ import { differenceInSeconds, parseISO } from 'date-fns';
 
 interface TimesheetContextType {
   timeRecords: TimeRecord[];
-  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds'>) => Promise<void>;
+  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds'> & { reChecked?: boolean }) => Promise<void>;
   updateTimeRecord: (record: TimeRecord) => Promise<void>;
   deleteTimeRecord: (recordId: string) => Promise<void>;
   setCompletionDetails: (recordId: string, completedInHours: number, completedInMinutes: number, completedInSeconds: number) => Promise<void>;
@@ -111,9 +111,9 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
       unsubscribe();
       hideLoader(TIMESHEET_LOADER_ID);
     };
-  }, [showLoader, hideLoader, toast]); 
+  }, [showLoader, hideLoader, toast]);
 
-  const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds'>) => {
+  const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds'> & { reChecked?: boolean }) => {
     if (!user) {
         toast({ title: "Authentication Error", description: "User not logged in. Cannot add record.", variant: "destructive" });
         return;
@@ -134,17 +134,16 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     }
 
     const newRecordObject: TimeRecord = {
-      ...recordData, 
+      ...recordData,
       id: newRecordId,
       userId: user.id,
-      durationHours: 0, 
+      durationHours: 0,
       entryCreatedAt: new Date().toISOString(),
       isPaused: false,
       accumulatedPausedDurationSeconds: 0,
-      // completedAt is undefined here for new records
-      // pausedAt is undefined here for new records
+      reChecked: recordData.reChecked || false,
     };
-    
+
     const recordToSave = Object.entries(newRecordObject).reduce((acc, [key, value]) => {
       if (value !== undefined) {
         // @ts-ignore
@@ -168,13 +167,14 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         toast({ title: "Configuration Error", description: "Firebase is not connected. Record not updated.", variant: "destructive" });
         return;
     }
-    
+
     const recordToSave = { ...updatedRecord };
     if (recordToSave.entryCreatedAt === undefined && timeRecords.find(r => r.id === updatedRecord.id)?.entryCreatedAt) {
        recordToSave.entryCreatedAt = timeRecords.find(r => r.id === updatedRecord.id)?.entryCreatedAt;
     }
      if (recordToSave.isPaused === undefined) recordToSave.isPaused = false;
      if (recordToSave.accumulatedPausedDurationSeconds === undefined) recordToSave.accumulatedPausedDurationSeconds = 0;
+     if (recordToSave.reChecked === undefined) recordToSave.reChecked = false;
 
 
     const finalRecordToSave = Object.entries(recordToSave).reduce((acc, [key, value]) => {
@@ -225,16 +225,14 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
 
     let finalDurationHours = completedInHoursValue + (completedInMinutesValue / 60) + (completedInSecondsValue / 3600);
     const completedAtTimestamp = new Date().toISOString();
-    
+
     const updates: Partial<TimeRecord> = {
       durationHours: finalDurationHours,
       completedAt: completedAtTimestamp,
-      isPaused: false, // Ensure task is not paused upon completion
-      // pausedAt: null, // Explicitly clear pausedAt if backend doesn't handle undefined well
+      isPaused: false,
     };
-    // Firebase update with null effectively deletes the key
     // @ts-ignore
-    updates.pausedAt = null; 
+    updates.pausedAt = null;
 
 
     try {
@@ -297,7 +295,6 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     const updates: Partial<TimeRecord> = {
       isPaused: false,
       accumulatedPausedDurationSeconds: newAccumulatedPausedDuration,
-      // pausedAt: null, // Explicitly clear pausedAt
     };
     // @ts-ignore
     updates.pausedAt = null;
@@ -338,7 +335,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
         if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-            // Notification.requestPermission(); 
+            // Notification.requestPermission();
         }
     }
   }, []);
@@ -361,5 +358,3 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     </TimesheetContext.Provider>
   );
 };
-
-    

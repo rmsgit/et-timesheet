@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { CalendarIcon, Save, X, Loader2, Film } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
@@ -38,13 +39,14 @@ const timeRecordSchema = z.object({
     val => (val === '' || val === null || val === undefined ? undefined : Number(val)),
     z.number().int().min(0, "Seconds must be 0 or more.").max(59, "Seconds must be less than 60.").optional()
   ),
+  reChecked: z.boolean().optional(),
 });
 
 
 type TimeRecordFormData = z.infer<typeof timeRecordSchema>;
 
 interface TimeRecordFormProps {
-  record?: TimeRecord; 
+  record?: TimeRecord;
   isEditing: boolean;
   onClose: () => void;
 }
@@ -66,10 +68,10 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditin
   const { toast } = useToast();
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const prevRecordRef = useRef(record);
-  
+
   const getInitialWorkType = (): WorkType => {
     if (record && record.workType) return record.workType;
-    return 'New work'; 
+    return 'New work';
   };
 
   const { control, handleSubmit, reset, formState: { errors }, getValues } = useForm<TimeRecordFormData>({
@@ -82,6 +84,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditin
       projectDurationInputHours: (record?.projectDurationSeconds != null) ? convertSecondsToHMS(record.projectDurationSeconds).h : undefined,
       projectDurationInputMinutes: (record?.projectDurationSeconds != null) ? convertSecondsToHMS(record.projectDurationSeconds).m : undefined,
       projectDurationInputSeconds: (record?.projectDurationSeconds != null) ? convertSecondsToHMS(record.projectDurationSeconds).s : undefined,
+      reChecked: record?.reChecked || false,
     },
   });
 
@@ -105,11 +108,13 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditin
         projectDurationInputHours: defaultPD_H,
         projectDurationInputMinutes: defaultPD_M,
         projectDurationInputSeconds: defaultPD_S,
+        reChecked: record?.reChecked || false,
     };
-    
+
     if (!isEditing) {
         resetToValues.projectName = record?.projectName || ''; // Retain for add if from existing
         resetToValues.workType = record?.workType || 'New work';
+        resetToValues.reChecked = false; // Default to false for new records
     }
 
     if (!isLoadingProjectTypes) {
@@ -126,7 +131,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditin
     } else {
       resetToValues.projectType = record?.projectType || '';
     }
-    
+
     const projectTypeWasUnsetAndNowLoaded = isLoadingProjectTypes && !getValues().projectType && projectTypes.length > 0;
 
     if (prevRecordRef.current !== record || projectTypeWasUnsetAndNowLoaded) {
@@ -140,7 +145,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditin
 
   const onSubmit = async (data: TimeRecordFormData) => {
     setIsSubmittingForm(true);
-    
+
     let finalProjectDurationSeconds: number | undefined = undefined;
     const pd_h = data.projectDurationInputHours ?? 0;
     const pd_m = data.projectDurationInputMinutes ?? 0;
@@ -152,32 +157,29 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditin
       finalProjectDurationSeconds = 0;
     }
 
-    // durationHours is now managed only through the completion dialog in TimesheetTable
-    // For new records, it defaults to 0. For existing, it's preserved from the record.
-    const currentDurationHours = isEditing && record ? record.durationHours : 0;
-    
+    const currentDurationHours = (isEditing && record) ? record.durationHours : 0;
+
     const recordDataToSaveBase = {
       date: data.date.toISOString(),
       projectName: data.projectName,
       projectType: data.projectType,
       workType: data.workType,
       projectDurationSeconds: finalProjectDurationSeconds,
-      durationHours: currentDurationHours, // Preserve existing or default to 0
+      durationHours: currentDurationHours,
+      reChecked: data.reChecked || false,
     };
-    
+
     try {
-      if (isEditing && record && record.id) { 
+      if (isEditing && record && record.id) {
         const fullExistingRecord: TimeRecord = {
-            ...record, 
+            ...record,
             ...recordDataToSaveBase,
-            // completedAt is preserved from the original record
-            completedAt: record.completedAt, 
+            completedAt: record.completedAt,
         };
-        await updateTimeRecord(fullExistingRecord); 
+        await updateTimeRecord(fullExistingRecord);
         toast({ title: "Success", description: "Time record updated." });
-      } else { 
-        // For new records, completedAt will be undefined
-        await addTimeRecord(recordDataToSaveBase as Omit<TimeRecord, 'id' | 'userId' | 'completedAt'>);
+      } else {
+        await addTimeRecord(recordDataToSaveBase as Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds'>);
         toast({ title: "Success", description: "Time record added." });
       }
       onClose();
@@ -240,7 +242,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditin
         <Label htmlFor="projectType">Project Category</Label>
         {isLoadingProjectTypes ? (
           <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> 
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : (
         <Controller
@@ -284,7 +286,7 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditin
         />
         {errors.workType && <p className="text-sm text-destructive mt-1">{errors.workType.message}</p>}
       </div>
-      
+
       <div>
         <Label>Project Media Duration (Optional)</Label>
         <div className="flex items-center gap-2">
@@ -318,6 +320,26 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditin
         {errors.projectDurationInputSeconds && <p className="text-sm text-destructive mt-1">{errors.projectDurationInputSeconds.message}</p>}
       </div>
 
+      <div className="flex items-center space-x-2">
+        <Controller
+          name="reChecked"
+          control={control}
+          render={({ field }) => (
+            <Checkbox
+              id="reChecked"
+              checked={field.value}
+              onCheckedChange={field.onChange}
+              disabled={isSubmittingForm}
+            />
+          )}
+        />
+        <Label htmlFor="reChecked" className="font-normal">
+          Mark as Re-checked
+        </Label>
+        {errors.reChecked && <p className="text-sm text-destructive mt-1">{errors.reChecked.message}</p>}
+      </div>
+
+
       <div className="flex justify-end space-x-2 pt-2">
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmittingForm}>
           <X className="mr-2 h-4 w-4" /> Cancel
@@ -330,4 +352,3 @@ export const TimeRecordForm: React.FC<TimeRecordFormProps> = ({ record, isEditin
     </form>
   );
 };
-    

@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import { useTimesheet } from '@/hooks/useTimesheet';
-import { Layers, Hourglass, CheckCircle2, ListChecks, AlertCircle, ListTree, FilePlus2, RefreshCw, Package, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, BarChart2, Loader2 } from 'lucide-react';
+import { Layers, Hourglass, CheckCircle2, ListChecks, AlertCircle, ListTree, FilePlus2, RefreshCw, Package, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, BarChart2, Loader2, CheckSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -43,13 +43,13 @@ const formatDurationFromTotalSeconds = (totalSeconds: number | undefined | null)
      parts.push(`${seconds}s`);
   }
   if (parts.length === 0 && totalSeconds === 0) return "0s";
-  
+
   return parts.join(' ') || "0s";
 };
 
 interface ProjectSummary {
   projectName: string;
-  totalHours: number; 
+  totalHours: number;
   totalTasks: number;
   completedTasks: number;
   pendingTasks: number;
@@ -57,10 +57,10 @@ interface ProjectSummary {
 }
 
 type SortableProjectSummaryKeys = keyof ProjectSummary;
-type SortableAppTimeRecordKeys = keyof Pick<AppTimeRecord, 'date' | 'projectType' | 'workType' | 'projectDurationSeconds' | 'durationHours' | 'completedAt'> | 'editorUsername';
+type SortableAppTimeRecordKeys = keyof Pick<AppTimeRecord, 'date' | 'projectType' | 'workType' | 'projectDurationSeconds' | 'durationHours' | 'completedAt' | 'reChecked'> | 'editorUsername';
 
 export default function ProjectOverviewPage() {
-  const { timeRecords: allTimeRecords, isTimesheetLoading } = useTimesheet(); 
+  const { timeRecords: allTimeRecords, isTimesheetLoading } = useTimesheet();
   const { users: allUsers, isUsersLoading: isUsersApiLoading } = useMockUsers();
   const { projectTypes, isLoadingProjectTypes } = useProjectTypes();
 
@@ -84,12 +84,12 @@ export default function ProjectOverviewPage() {
 
   const filteredTimeRecordsByDate = useMemo(() => {
     if (isTimesheetLoading || !allTimeRecords || !dateRange?.from) return []; // Simpler loading check for this stage
-    
+
     const effectiveStartDate = new Date(dateRange.from);
-    effectiveStartDate.setHours(0, 0, 0, 0); 
+    effectiveStartDate.setHours(0, 0, 0, 0);
 
     const effectiveEndDate = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from);
-    effectiveEndDate.setHours(23, 59, 59, 999); 
+    effectiveEndDate.setHours(23, 59, 59, 999);
 
     return allTimeRecords.filter(record => {
       const recordDate = parseISO(record.date);
@@ -122,18 +122,18 @@ export default function ProjectOverviewPage() {
       const pendingTasks = data.totalTasks - data.completedTasks;
 
       if (data.totalTasks === 0) {
-        status = 'Pending'; 
+        status = 'Pending';
       } else if (data.completedTasks === data.totalTasks) {
         status = 'Completed';
       } else if (data.completedTasks > 0 && data.completedTasks < data.totalTasks) {
         status = 'In Progress';
-      } else { 
+      } else {
         status = 'Pending';
       }
 
       return {
         projectName: name,
-        totalHours: data.totalHours, 
+        totalHours: data.totalHours,
         totalTasks: data.totalTasks,
         completedTasks: data.completedTasks,
         pendingTasks: pendingTasks,
@@ -198,7 +198,7 @@ export default function ProjectOverviewPage() {
         return <Badge variant="secondary">{workType}</Badge>;
     }
   };
-  
+
   const detailedRecordsForModalFull = useMemo(() => {
     if (!selectedProjectForDetails || filteredTimeRecordsByDate.length === 0) return [];
     return filteredTimeRecordsByDate
@@ -215,6 +215,10 @@ export default function ProjectOverviewPage() {
         let comparison = 0;
         if (modalTableSortConfig.key === 'date' || modalTableSortConfig.key === 'completedAt') {
            comparison = (new Date(valA as string).getTime() || 0) - (new Date(valB as string).getTime() || 0);
+        } else if (modalTableSortConfig.key === 'reChecked') {
+          const boolA = valA === true;
+          const boolB = valB === true;
+          comparison = boolA === boolB ? 0 : boolA ? -1 : 1;
         } else if (typeof valA === 'number' && typeof valB === 'number') {
           comparison = valA - valB;
         } else if (typeof valA === 'string' && typeof valB === 'string') {
@@ -274,7 +278,7 @@ export default function ProjectOverviewPage() {
 
   const chartDataByProjectType = useMemo(() => {
     if (isLoadingProjectTypes || !projectTypes || filteredTimeRecordsByDate.length === 0) return [];
-    
+
     const projectCountsByType: { [key: string]: Set<string> } = {};
     projectTypes.forEach(type => projectCountsByType[type] = new Set());
 
@@ -283,18 +287,18 @@ export default function ProjectOverviewPage() {
         projectCountsByType[record.projectType].add(record.projectName);
       }
     });
-    
+
     return Object.entries(projectCountsByType)
       .map(([type, projectSet]) => ({ name: type, count: projectSet.size }))
-      .filter(item => item.count > 0); 
+      .filter(item => item.count > 0);
   }, [filteredTimeRecordsByDate, projectTypes, isLoadingProjectTypes]);
 
   const chartDataByEditor = useMemo(() => {
     if (isUsersApiLoading || !allUsers || filteredTimeRecordsByDate.length === 0) return [];
-    
+
     const projectCountsByEditor: { [userId: string]: Set<string> } = {};
     const editorUsers = allUsers.filter(u => u.role === 'editor');
-    
+
     editorUsers.forEach(editor => projectCountsByEditor[editor.id] = new Set());
 
     filteredTimeRecordsByDate.forEach(record => {
@@ -302,7 +306,7 @@ export default function ProjectOverviewPage() {
         projectCountsByEditor[record.userId].add(record.projectName);
       }
     });
-    
+
     return editorUsers
       .map(editor => ({ name: editor.username, count: projectCountsByEditor[editor.id]?.size || 0 }))
       .filter(item => item.count > 0);
@@ -317,7 +321,7 @@ export default function ProjectOverviewPage() {
       </div>
     </TableHead>
   );
-  
+
   const renderModalTableSortableHeader = (label: string, columnKey: SortableAppTimeRecordKeys, className?: string) => (
     <TableHead className={cn("cursor-pointer hover:bg-muted/50", className)} onClick={() => requestModalTableSort(columnKey)}>
       <div className="flex items-center">
@@ -340,7 +344,7 @@ export default function ProjectOverviewPage() {
         </div>
         <DateRangePicker dateRange={dateRange} onDateChange={(range) => { setDateRange(range); setMainTableCurrentPage(1); }} disabled={isLoading} />
       </div>
-      
+
       {isTimesheetLoading || isUsersApiLoading ? ( // Only these for summary cards
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <CardSkeleton className="shadow-md" />
@@ -441,7 +445,7 @@ export default function ProjectOverviewPage() {
               )}
             </CardContent>
           </Card>
-          
+
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center"><BarChart2 className="mr-2 h-5 w-5 text-accent" /> Projects by Editor</CardTitle>
@@ -508,9 +512,9 @@ export default function ProjectOverviewPage() {
                       <TableCell className="text-right">{project.completedTasks}</TableCell>
                       <TableCell className="text-right">{project.pendingTasks}</TableCell>
                       <TableCell className="text-center">
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleViewProjectDetails(project)}
                             aria-label={`View details for ${project.projectName}`}
                             title={`View details for ${project.projectName}`}
@@ -537,7 +541,7 @@ export default function ProjectOverviewPage() {
           )}
         </Card>
       ) : !isTimesheetLoading && (
-        <></> 
+        <></>
       )}
 
       {selectedProjectForDetails && (
@@ -564,6 +568,7 @@ export default function ProjectOverviewPage() {
                       {renderModalTableSortableHeader("Proj. Duration", "projectDurationSeconds")}
                       {renderModalTableSortableHeader("Work Time", "durationHours")}
                       {renderModalTableSortableHeader("Status", "completedAt")}
+                      {renderModalTableSortableHeader("Re-checked", "reChecked")}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -591,6 +596,9 @@ export default function ProjectOverviewPage() {
                           ) : (
                             <Badge variant="outline">Pending</Badge>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          {record.reChecked ? <CheckSquare className="h-5 w-5 text-green-500" /> : null}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -626,4 +634,3 @@ export default function ProjectOverviewPage() {
     </div>
   );
 }
-

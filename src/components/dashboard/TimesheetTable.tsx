@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { TimeRecordForm } from './TimeRecordForm';
-import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Hourglass, ListChecks, CheckCircle2 as CheckCircle2Icon, Play, PauseCircle } from 'lucide-react';
+import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Hourglass, ListChecks, CheckCircle2 as CheckCircle2Icon, Play, PauseCircle, CheckSquare } from 'lucide-react';
 import { format, parseISO, isSameDay, differenceInSeconds } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -51,14 +51,14 @@ import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { PendingTaskTimer } from './PendingTaskTimer'; 
+import { PendingTaskTimer } from './PendingTaskTimer';
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
-   if (totalDecimalHours === 0) return '0s'; 
+   if (totalDecimalHours === 0) return '0s';
 
   const totalSeconds = Math.round(totalDecimalHours * 3600);
-  if (totalSeconds === 0 && totalDecimalHours > 0) return '<1s'; 
+  if (totalSeconds === 0 && totalDecimalHours > 0) return '<1s';
   if (totalSeconds === 0) return '0s';
 
 
@@ -69,10 +69,10 @@ const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   const parts: string[] = [];
   if (hours > 0) parts.push(`${hours}h`);
   if (minutes > 0) parts.push(`${minutes}m`);
-  if (seconds > 0 || parts.length === 0) { 
+  if (seconds > 0 || parts.length === 0) {
      parts.push(`${seconds}s`);
   }
-  
+
   return parts.join(' ') || "0s";
 };
 
@@ -91,8 +91,8 @@ const formatDurationFromTotalSeconds = (totalSeconds: number | undefined | null)
   if (totalSeconds > 0 && (seconds > 0 || parts.length === 0)) {
      parts.push(`${seconds}s`);
   }
-  if (parts.length === 0 && totalSeconds === 0) return "0s"; 
-  
+  if (parts.length === 0 && totalSeconds === 0) return "0s";
+
   return parts.join(' ') || "0s";
 };
 
@@ -101,18 +101,18 @@ const completionDurationSchema = z.object({
   completedInHoursDialog: z.coerce.number().int().min(0, "Hours must be 0 or more."),
   completedInMinutesDialog: z.coerce.number().int().min(0, "Minutes must be 0 or more.").max(59, "Minutes must be less than 60."),
   completedInSecondsDialog: z.coerce.number().int().min(0, "Seconds must be 0 or more.").max(59, "Seconds must be less than 60."),
-}).refine(data => (data.completedInHoursDialog * 3600 + data.completedInMinutesDialog * 60 + data.completedInSecondsDialog) >= 0, { 
+}).refine(data => (data.completedInHoursDialog * 3600 + data.completedInMinutesDialog * 60 + data.completedInSecondsDialog) >= 0, {
   message: "Total completion time must be 0 seconds or more.",
-  path: ["completedInSecondsDialog"], 
+  path: ["completedInSecondsDialog"],
 });
 type CompletionDurationFormData = z.infer<typeof completionDurationSchema>;
 
 
-type SortableTimeRecordKeys = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationSeconds' | 'durationHours' | 'completedAt' | 'entryCreatedAt'>;
+type SortableTimeRecordKeys = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationSeconds' | 'durationHours' | 'completedAt' | 'entryCreatedAt' | 'reChecked'>;
 
 const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): number => {
   if (!tsA && !tsB) return 0;
-  if (!tsA) return -1; 
+  if (!tsA) return -1;
   if (!tsB) return 1;
   return new Date(tsA).getTime() - new Date(tsB).getTime();
 };
@@ -124,7 +124,7 @@ export const TimesheetTable: React.FC = () => {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<TimeRecord | undefined>(undefined);
-  
+
   const [isSetCompletionDialogOpen, setIsSetCompletionDialogOpen] = useState(false);
   const [recordForCompletion, setRecordForCompletion] = useState<TimeRecord | null>(null);
   const [isSubmittingCompletion, setIsSubmittingCompletion] = useState(false);
@@ -154,15 +154,19 @@ export const TimesheetTable: React.FC = () => {
         let comparison = 0;
         if (sortConfig.key === 'date' || sortConfig.key === 'completedAt' || sortConfig.key === 'entryCreatedAt') {
           comparison = compareTimestamps(valA as string | undefined, valB as string | undefined);
+        } else if (sortConfig.key === 'reChecked') {
+          const boolA = valA === true;
+          const boolB = valB === true;
+          comparison = boolA === boolB ? 0 : boolA ? -1 : 1; // true comes before false when descending
         } else if (typeof valA === 'number' && typeof valB === 'number') {
           comparison = valA - valB;
         } else if (valA === undefined || valA === null) {
-          comparison = -1; 
+          comparison = -1;
         } else if (valB === undefined || valB === null) {
-          comparison = 1; 
+          comparison = 1;
         } else if (typeof valA === 'string' && typeof valB === 'string') {
           comparison = valA.localeCompare(valB);
-        } else { 
+        } else {
           const strA = String(valA).toLowerCase();
           const strB = String(valB).toLowerCase();
           comparison = strA.localeCompare(strB);
@@ -172,7 +176,7 @@ export const TimesheetTable: React.FC = () => {
     }
     return sortableItems;
   }, [fullUserRecordsForDay, sortConfig]);
-  
+
 
   const paginatedRecords = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
@@ -220,7 +224,7 @@ export const TimesheetTable: React.FC = () => {
     },
   });
 
-  if (isAuthLoading) { 
+  if (isAuthLoading) {
     return (
       <div className="flex h-[calc(100vh-theme(spacing.32))] items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -228,20 +232,21 @@ export const TimesheetTable: React.FC = () => {
     );
   }
 
-  if (!user && !isAuthLoading) { 
+  if (!user && !isAuthLoading) {
     return <p className="text-center p-8">Loading user data or redirecting...</p>;
   }
-  
+
   const handleAddNew = () => {
     const newRecordBase: Partial<TimeRecord> = {
         date: selectedDate ? selectedDate.toISOString() : new Date().toISOString(),
-        durationHours: 0, 
+        durationHours: 0,
         projectDurationSeconds: undefined,
-        workType: 'New work', 
+        workType: 'New work',
         isPaused: false,
         accumulatedPausedDurationSeconds: 0,
+        reChecked: false,
     };
-    setEditingRecord(newRecordBase as TimeRecord); 
+    setEditingRecord(newRecordBase as TimeRecord);
     setIsFormOpen(true);
   };
 
@@ -267,12 +272,12 @@ export const TimesheetTable: React.FC = () => {
 
   const openSetCompletionDialog = (record: TimeRecord) => {
     setRecordForCompletion(record);
-    
+
     let initialHours = 0;
     let initialMinutes = 0;
     let initialSeconds = 0;
 
-    if (record.completedAt && record.durationHours > 0) { 
+    if (record.completedAt && record.durationHours > 0) {
         const totalSecondsFromDuration = Math.round(record.durationHours * 3600);
         initialHours = Math.floor(totalSecondsFromDuration / 3600);
         initialMinutes = Math.floor((totalSecondsFromDuration % 3600) / 60);
@@ -287,16 +292,16 @@ export const TimesheetTable: React.FC = () => {
             baseActiveSeconds = differenceInSeconds(new Date(), creationOrStartTime);
         }
         const netActiveSeconds = Math.max(0, baseActiveSeconds - (record.accumulatedPausedDurationSeconds || 0));
-        
+
         initialHours = Math.max(0, Math.floor(netActiveSeconds / 3600));
         initialMinutes = Math.max(0, Math.floor((netActiveSeconds % 3600) / 60));
         initialSeconds = Math.max(0, netActiveSeconds % 60);
     }
-    
-    resetCompletionForm({ 
-      completedInHoursDialog: initialHours, 
-      completedInMinutesDialog: initialMinutes, 
-      completedInSecondsDialog: initialSeconds 
+
+    resetCompletionForm({
+      completedInHoursDialog: initialHours,
+      completedInMinutesDialog: initialMinutes,
+      completedInSecondsDialog: initialSeconds
     });
     setIsSetCompletionDialogOpen(true);
   };
@@ -338,7 +343,7 @@ export const TimesheetTable: React.FC = () => {
       </div>
     </TableHead>
   );
-  
+
   const isDialogEditingMode = !!(editingRecord && editingRecord.id);
 
   const handlePauseTimer = async (recordId: string) => {
@@ -469,7 +474,7 @@ export const TimesheetTable: React.FC = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {recordForCompletion?.completedAt ? 'Edit Completion Time for: ' : 'Set Completion Time for: '} 
+              {recordForCompletion?.completedAt ? 'Edit Completion Time for: ' : 'Set Completion Time for: '}
               {recordForCompletion?.projectName}
             </DialogTitle>
           </DialogHeader>
@@ -521,8 +526,8 @@ export const TimesheetTable: React.FC = () => {
       </Dialog>
 
 
-      {isTimesheetLoading && !isAuthLoading ? ( 
-        <TableSkeleton columnCount={8} className="shadow-lg" /> 
+      {isTimesheetLoading && !isAuthLoading ? (
+        <TableSkeleton columnCount={9} className="shadow-lg" />
       ) : sortedRecords.length === 0 && selectedDate ? (
         <div className="text-center py-10 border-2 border-dashed rounded-lg bg-card">
             <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -548,6 +553,7 @@ export const TimesheetTable: React.FC = () => {
                     {renderSortableHeader("Proj. Duration", "projectDurationSeconds")}
                     {renderSortableHeader("Work Time", "durationHours")}
                     {renderSortableHeader("Status", "completedAt")}
+                    {renderSortableHeader("Re-checked", "reChecked")}
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -570,7 +576,7 @@ export const TimesheetTable: React.FC = () => {
                             <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
                             {formatDurationFromDecimalHours(record.durationHours)}
                           </span>
-                        ) : ( 
+                        ) : (
                           <PendingTaskTimer record={record} />
                         )}
                       </TableCell>
@@ -583,6 +589,9 @@ export const TimesheetTable: React.FC = () => {
                           <Badge variant="outline">Pending</Badge>
                         )}
                       </TableCell>
+                      <TableCell>
+                        {record.reChecked ? <CheckSquare className="h-5 w-5 text-green-500" /> : null}
+                      </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -593,7 +602,7 @@ export const TimesheetTable: React.FC = () => {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openSetCompletionDialog(record)} disabled={isActionSubmitting || isSubmittingCompletion}>
-                                <CheckCircle className="mr-2 h-4 w-4" /> 
+                                <CheckCircle className="mr-2 h-4 w-4" />
                                 {record.completedAt ? "Edit Completion Time" : "Mark as Complete"}
                             </DropdownMenuItem>
                             {!record.completedAt && (
@@ -616,8 +625,8 @@ export const TimesheetTable: React.FC = () => {
                             </DropdownMenuItem>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                  <DropdownMenuItem 
-                                      onSelect={(e) => e.preventDefault()} 
+                                  <DropdownMenuItem
+                                      onSelect={(e) => e.preventDefault()}
                                       className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
                                       disabled={isActionSubmitting || isSubmittingCompletion}
                                   >
@@ -652,7 +661,7 @@ export const TimesheetTable: React.FC = () => {
                 {fullUserRecordsForDay.length > 0 && (
                   <TableFooter>
                     <TableRow>
-                      <TableCell colSpan={5} className="font-semibold text-muted-foreground text-right">
+                      <TableCell colSpan={6} className="font-semibold text-muted-foreground text-right">
                         Total Completed Work Time for {selectedDate ? format(selectedDate, 'PPP') : 'selected day'}:
                       </TableCell>
                       <TableCell>
@@ -698,4 +707,3 @@ export const TimesheetTable: React.FC = () => {
     </div>
   );
 };
-    

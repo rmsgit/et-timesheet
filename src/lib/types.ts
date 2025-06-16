@@ -19,6 +19,7 @@ export interface TimeRecord {
   durationHours: number; // Actual work duration, set upon completion. Defaults to 0 for pending.
   projectDurationSeconds?: number; // Duration of the video project itself, in total seconds
   completedAt?: string; // ISO string format, set when task is marked complete
+  reChecked?: boolean; // To mark if the record has been re-checked
 
   // New fields for pause/resume
   isPaused?: boolean;
