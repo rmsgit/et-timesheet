@@ -70,12 +70,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const userRef = ref(database, `${FIREBASE_USERS_PATH}/${firebaseUser.uid}`);
             const snapshot = await get(userRef);
             if (snapshot.exists()) {
-              const dbUser = snapshot.val() as Omit<User, 'id' | 'email'>;
+              const dbUser = snapshot.val() as Omit<User, 'id' | 'email'>; // This type includes username, role, and editorLevelId (optional)
               const appUser: User = {
                 id: firebaseUser.uid,
                 email: firebaseUser.email,
                 username: dbUser.username || firebaseUser.email || 'User',
                 role: dbUser.role || null,
+                editorLevelId: dbUser.role === 'editor' ? dbUser.editorLevelId : undefined,
               };
               console.log('AuthContext: RTDB profile fetched. Calling setUser with:', appUser);
               setUser(appUser);
@@ -85,6 +86,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 email: firebaseUser.email,
                 username: firebaseUser.email || 'User',
                 role: null,
+                editorLevelId: undefined,
               };
               console.warn(`AuthContext: User ${firebaseUser.uid} has no profile in RTDB. Calling setUser with basic details:`, appUser);
               setUser(appUser);
@@ -96,6 +98,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               email: firebaseUser.email,
               username: firebaseUser.email || 'User',
               role: null,
+              editorLevelId: undefined,
             };
             console.log('AuthContext: RTDB fetch error. Calling setUser with basic details and null role:', appUser);
             setUser(appUser);
@@ -107,6 +110,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             email: firebaseUser.email,
             username: firebaseUser.email || 'User',
             role: null,
+            editorLevelId: undefined,
           };
           console.warn("AuthContext: Firebase Database not available. Cannot fetch user role. Calling setUser with basic details:", appUser);
           setUser(appUser);
