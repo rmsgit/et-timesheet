@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { FileText, AlertCircle, Hourglass, Loader2, Package, RefreshCw, FilePlus2, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileText, AlertCircle, Hourglass, Loader2, Package, RefreshCw, FilePlus2, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckSquare, Square } from 'lucide-react';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import type { TimeRecord } from '@/lib/types';
@@ -44,7 +44,14 @@ const formatDurationFromTotalSeconds = (totalSeconds: number | undefined | null)
   return parts.join(' ') || "0s";
 };
 
-type SortableTimeRecordKeysMyReport = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationSeconds' | 'durationHours' | 'completedAt'>;
+type SortableTimeRecordKeysMyReport = keyof Pick<TimeRecord, 'date' | 'projectName' | 'projectType' | 'workType' | 'projectDurationSeconds' | 'durationHours' | 'completedAt' | 'reChecked'>;
+
+const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): number => {
+  if (!tsA && !tsB) return 0;
+  if (!tsA) return -1;
+  if (!tsB) return 1;
+  return new Date(tsA).getTime() - new Date(tsB).getTime();
+};
 
 
 export default function MyReportPage() {
@@ -84,7 +91,11 @@ export default function MyReportPage() {
         
         let comparison = 0;
          if (sortConfig.key === 'date' || sortConfig.key === 'completedAt') {
-          comparison = (new Date(valA as string).getTime() || 0) - (new Date(valB as string).getTime() || 0);
+          comparison = compareTimestamps(valA as string | undefined, valB as string | undefined);
+        } else if (sortConfig.key === 'reChecked') {
+          const boolA = valA === true;
+          const boolB = valB === true;
+          comparison = boolA === boolB ? 0 : boolA ? -1 : 1;
         } else if (typeof valA === 'number' && typeof valB === 'number') {
           comparison = valA - valB;
         } else if (valA === undefined || valA === null) {
@@ -229,7 +240,7 @@ export default function MyReportPage() {
       )}
 
       {isLoading && !isAuthLoading ? (
-        <TableSkeleton columnCount={7} className="shadow-lg h-[480px]" />
+        <TableSkeleton columnCount={8} className="shadow-lg h-[480px]" />
       ) : sortedRecords.length > 0 ? (
         <Card className="shadow-lg">
           <CardHeader>
@@ -250,6 +261,7 @@ export default function MyReportPage() {
                     {renderSortableHeader("Proj. Duration", "projectDurationSeconds")}
                     {renderSortableHeader("Work Time", "durationHours")}
                     {renderSortableHeader("Status", "completedAt")}
+                    {renderSortableHeader("Re-checked", "reChecked")}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -276,6 +288,15 @@ export default function MyReportPage() {
                            <Badge variant="default" className="bg-green-500 hover:bg-green-600">Completed</Badge>
                         ) : (
                           <Badge variant="outline">Pending</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {record.reChecked ? (
+                          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                            <CheckSquare className="mr-1 h-3 w-3" /> Re-checked
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">Not Re-checked</Badge>
                         )}
                       </TableCell>
                     </TableRow>
@@ -334,3 +355,4 @@ export default function MyReportPage() {
     </div>
   );
 }
+
