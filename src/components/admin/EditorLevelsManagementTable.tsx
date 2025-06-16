@@ -7,7 +7,7 @@ import type { EditorLevel } from '@/lib/types';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import RichTextEditor from '@/components/common/RichTextEditor'; // Import the RichTextEditor
+import RichTextEditor from '@/components/common/RichTextEditor';
 import {
   Table,
   TableBody,
@@ -21,6 +21,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription } from '@/components/ui/dialog';
 import {
@@ -33,17 +34,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, PlusCircle, Trash2, Edit2, Save, X, AlertTriangle, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Award } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Trash2, Edit2, Save, X, AlertTriangle, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Award, ChevronsUpDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-type SortableEditorLevelKeys = keyof Pick<EditorLevel, 'name' | 'description'>;
+type SortableEditorLevelKeys = keyof Pick<EditorLevel, 'name' | 'description' | 'order'>;
 
 export const EditorLevelsManagementTable: React.FC = () => {
-  const { editorLevels, addEditorLevel, updateEditorLevel, deleteEditorLevel, isLoadingEditorLevels } = useEditorLevels();
+  const { editorLevels, addEditorLevel, updateEditorLevel, deleteEditorLevel, isLoadingEditorLevels, moveLevel } = useEditorLevels();
   const { toast } = useToast();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -54,25 +55,29 @@ export const EditorLevelsManagementTable: React.FC = () => {
   const [levelToDelete, setLevelToDelete] = useState<EditorLevel | undefined>(undefined);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
+  const [isMovingLevel, setIsMovingLevel] = useState(false);
+
 
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10; 
-  const [sortConfig, setSortConfig] = useState<{ key: SortableEditorLevelKeys; direction: 'ascending' | 'descending' }>({ key: 'name', direction: 'ascending' });
+  const [sortConfig, setSortConfig] = useState<{ key: SortableEditorLevelKeys; direction: 'ascending' | 'descending' }>({ key: 'order', direction: 'ascending' });
 
   const sortedEditorLevels = useMemo(() => {
-    let sortableItems = [...editorLevels];
-    if (sortConfig.key) {
+    let sortableItems = [...editorLevels]; // editorLevels from hook is already sorted by 'order'
+    if (sortConfig.key && sortConfig.key !== 'order') { // Only re-sort if key is not 'order' or if direction changes
       sortableItems.sort((a, b) => {
         const valA = a[sortConfig.key!];
         const valB = b[sortConfig.key!];
         let comparison = 0;
-        if (valA < valB) {
-          comparison = -1;
-        } else if (valA > valB) {
-          comparison = 1;
+        if (typeof valA === 'number' && typeof valB === 'number') {
+            comparison = valA - valB;
+        } else if (typeof valA === 'string' && typeof valB === 'string') {
+            comparison = valA.localeCompare(valB);
         }
         return sortConfig.direction === 'ascending' ? comparison : -comparison;
       });
+    } else if (sortConfig.key === 'order' && sortConfig.direction === 'descending') {
+      sortableItems.reverse(); // if sorting by order descending, just reverse the already order-ascending array
     }
     return sortableItems;
   }, [editorLevels, sortConfig]);
@@ -93,14 +98,14 @@ export const EditorLevelsManagementTable: React.FC = () => {
   };
 
   const getSortIcon = (columnKey: SortableEditorLevelKeys) => {
-    if (sortConfig.key !== columnKey) return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    if (sortConfig.key !== columnKey) return <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />;
     return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
   };
 
   const handleAddNew = () => {
     setEditingLevel(undefined);
     setCurrentLevelName('');
-    setCurrentLevelDescription(''); // Initialize with empty string for RichTextEditor
+    setCurrentLevelDescription('');
     setIsFormOpen(true);
   };
 
@@ -116,7 +121,7 @@ export const EditorLevelsManagementTable: React.FC = () => {
     setIsSubmittingForm(true);
     let result;
     if (editingLevel) {
-      result = await updateEditorLevel(editingLevel.id, currentLevelName, currentLevelDescription);
+      result = await updateEditorLevel(editingLevel.id, currentLevelName, currentLevelDescription, editingLevel.order);
     } else {
       result = await addEditorLevel(currentLevelName, currentLevelDescription);
     }
@@ -144,6 +149,7 @@ export const EditorLevelsManagementTable: React.FC = () => {
 
   const handleDeleteConfirm = async () => {
     if (levelToDelete) {
+      setIsSubmittingForm(true); // Use for delete as well
       const result = await deleteEditorLevel(levelToDelete.id);
       if (result.success) {
         toast({
@@ -162,7 +168,21 @@ export const EditorLevelsManagementTable: React.FC = () => {
       }
       setIsDeleteDialogOpen(false);
       setLevelToDelete(undefined);
+      setIsSubmittingForm(false);
     }
+  };
+
+  const handleMoveLevel = async (levelId: string, direction: 'up' | 'down') => {
+    setIsMovingLevel(true);
+    const result = await moveLevel(levelId, direction);
+    if (!result.success) {
+        toast({ title: "Error", description: result.message || "Failed to reorder level.", variant: "destructive" });
+    } else if (result.message && (result.message.includes("Already at top") || result.message.includes("Already at bottom")) ) {
+        // Optionally show a muted toast for "already at limit"
+    } else {
+        toast({ title: "Success", description: "Level reordered." });
+    }
+    setIsMovingLevel(false);
   };
   
   const renderSortableHeader = (label: string, columnKey: SortableEditorLevelKeys, className?: string) => (
@@ -181,25 +201,25 @@ export const EditorLevelsManagementTable: React.FC = () => {
           <div className="flex justify-between items-center">
             <div>
               <CardTitle className="text-2xl font-semibold">Manage Editor Levels</CardTitle>
-              <CardDescription>Define different proficiency levels for editors.</CardDescription>
+              <CardDescription>Define and order different proficiency levels for editors.</CardDescription>
             </div>
-            <Button onClick={handleAddNew} disabled={isLoadingEditorLevels || isSubmittingForm}>
+            <Button onClick={handleAddNew} disabled={isLoadingEditorLevels || isSubmittingForm || isMovingLevel}>
               <PlusCircle className="mr-2 h-4 w-4" /> Add New Level
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           {isLoadingEditorLevels ? (
-            <TableSkeleton columnCount={3} rowCount={3} showTableHeader={true} 
-              headerTexts={["Level Name", "Description", "Actions"]} 
-              cellWidths={["w-1/4", "w-1/2", "w-1/4 text-right"]} 
+            <TableSkeleton columnCount={4} rowCount={3} showTableHeader={true} 
+              headerTexts={["Order", "Level Name", "Description", "Actions"]} 
+              cellWidths={["w-[10%]", "w-[20%]", "w-[45%]", "w-[25%] text-right"]} 
             />
           ) : sortedEditorLevels.length === 0 ? (
              <div className="text-center py-10 border-2 border-dashed rounded-lg bg-card">
                 <Award className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-2 text-xl font-medium">No Editor Levels Defined</h3>
                 <p className="mt-1 text-sm text-muted-foreground">Get started by adding your first editor level.</p>
-                <Button className="mt-6" onClick={handleAddNew} disabled={isSubmittingForm}>
+                <Button className="mt-6" onClick={handleAddNew} disabled={isSubmittingForm || isMovingLevel}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add New Level
                 </Button>
             </div>
@@ -209,14 +229,16 @@ export const EditorLevelsManagementTable: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {renderSortableHeader("Level Name", "name", "w-[25%]")}
-                    {renderSortableHeader("Description", "description", "w-[55%]")}
-                    <TableHead className="text-right w-[20%]">Actions</TableHead>
+                    {renderSortableHeader("Order", "order", "w-[10%]")}
+                    {renderSortableHeader("Level Name", "name", "w-[20%]")}
+                    {renderSortableHeader("Description", "description", "w-[45%]")}
+                    <TableHead className="text-right w-[25%]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedEditorLevels.map((level) => (
+                  {paginatedEditorLevels.map((level, index) => (
                     <TableRow key={level.id}>
+                      <TableCell>{level.order + 1}</TableCell>
                       <TableCell className="font-medium">{level.name}</TableCell>
                       <TableCell>
                         <div 
@@ -225,22 +247,41 @@ export const EditorLevelsManagementTable: React.FC = () => {
                           dangerouslySetInnerHTML={{ __html: level.description || "-" }} 
                         />
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleMoveLevel(level.id, 'up')} 
+                          disabled={isMovingLevel || isSubmittingForm || level.order === 0}
+                          title="Move Up"
+                        >
+                            <ArrowUp className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleMoveLevel(level.id, 'down')} 
+                          disabled={isMovingLevel || isSubmittingForm || level.order === sortedEditorLevels.length - 1}
+                          title="Move Down"
+                        >
+                            <ArrowDown className="h-4 w-4" />
+                        </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0" disabled={isSubmittingForm}>
+                            <Button variant="ghost" className="h-8 w-8 p-0" disabled={isSubmittingForm || isMovingLevel}>
                               <span className="sr-only">Open menu</span>
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEdit(level)} disabled={isSubmittingForm}>
+                            <DropdownMenuItem onClick={() => handleEdit(level)} disabled={isSubmittingForm || isMovingLevel}>
                               <Edit2 className="mr-2 h-4 w-4" /> Edit
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator/>
                             <DropdownMenuItem
                               onClick={() => openDeleteDialog(level)}
                               className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
-                              disabled={isSubmittingForm}
+                              disabled={isSubmittingForm || isMovingLevel}
                             >
                               <Trash2 className="mr-2 h-4 w-4" /> Delete
                             </DropdownMenuItem>
@@ -274,7 +315,7 @@ export const EditorLevelsManagementTable: React.FC = () => {
       </Card>
 
       <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) {setEditingLevel(undefined); setCurrentLevelName(''); setCurrentLevelDescription('');} }}>
-        <DialogContent className="sm:max-w-2xl"> {/* Increased width for rich text editor */}
+        <DialogContent className="sm:max-w-2xl">
           <form onSubmit={handleSubmitForm}>
             <DialogHeader>
               <DialogTitle>{editingLevel ? 'Edit Editor Level' : 'Add New Editor Level'}</DialogTitle>
@@ -282,7 +323,7 @@ export const EditorLevelsManagementTable: React.FC = () => {
                 {editingLevel ? `Modifying the level: "${editingLevel.name}"` : "Define a new proficiency tier for editors."}
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-6 py-4"> {/* Increased gap */}
+            <div className="grid gap-6 py-4"> 
               <div className="space-y-1.5">
                 <Label htmlFor="level-name">Level Name</Label>
                 <Input
@@ -291,7 +332,7 @@ export const EditorLevelsManagementTable: React.FC = () => {
                   onChange={(e) => setCurrentLevelName(e.target.value)}
                   placeholder="e.g., Senior Editor"
                   required
-                  disabled={isSubmittingForm}
+                  disabled={isSubmittingForm || isMovingLevel}
                 />
               </div>
               <div className="space-y-1.5">
@@ -299,15 +340,15 @@ export const EditorLevelsManagementTable: React.FC = () => {
                 <RichTextEditor
                   value={currentLevelDescription}
                   onChange={setCurrentLevelDescription}
-                  disabled={isSubmittingForm}
+                  disabled={isSubmittingForm || isMovingLevel}
                 />
               </div>
             </div>
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="outline" disabled={isSubmittingForm}><X className="mr-2 h-4 w-4" />Cancel</Button>
+                <Button type="button" variant="outline" disabled={isSubmittingForm || isMovingLevel}><X className="mr-2 h-4 w-4" />Cancel</Button>
               </DialogClose>
-              <Button type="submit" disabled={isSubmittingForm}>
+              <Button type="submit" disabled={isSubmittingForm || isMovingLevel}>
                 {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 {editingLevel ? 'Save Changes' : 'Add Level'}
               </Button>
@@ -322,16 +363,17 @@ export const EditorLevelsManagementTable: React.FC = () => {
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the editor level "{levelToDelete?.name}".
-              Ensure this level is not currently assigned to any editors before deleting.
+              Ensure this level is not currently assigned to any editors before deleting. Deleting will re-index the order of subsequent levels.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setLevelToDelete(undefined)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setLevelToDelete(undefined)} disabled={isSubmittingForm || isMovingLevel}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
               className={buttonVariants({ variant: "destructive" })}
+              disabled={isSubmittingForm || isMovingLevel}
             >
-              Delete Level
+              {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete Level'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

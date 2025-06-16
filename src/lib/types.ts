@@ -34,5 +34,6 @@ export interface EditorLevel {
   id: string;
   name: string;
   description: string;
+  order: number; // New field for sorting
 }
 
