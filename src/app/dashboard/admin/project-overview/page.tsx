@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import { useTimesheet } from '@/hooks/useTimesheet';
-import { Layers, Hourglass, CheckCircle2, ListChecks, AlertCircle, ListTree, FilePlus2, RefreshCw, Package, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, BarChart2, Loader2, CheckSquare } from 'lucide-react';
+import { Layers, Hourglass, CheckCircle2, ListChecks, AlertCircle, ListTree, FilePlus2, RefreshCw, Package, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, BarChart2, Loader2, CheckSquare, Square } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -83,7 +83,7 @@ export default function ProjectOverviewPage() {
   const isLoading = isTimesheetLoading || isUsersApiLoading || isLoadingProjectTypes;
 
   const filteredTimeRecordsByDate = useMemo(() => {
-    if (isTimesheetLoading || !allTimeRecords || !dateRange?.from) return []; // Simpler loading check for this stage
+    if (isTimesheetLoading || !allTimeRecords || !dateRange?.from) return []; 
 
     const effectiveStartDate = new Date(dateRange.from);
     effectiveStartDate.setHours(0, 0, 0, 0);
@@ -98,7 +98,7 @@ export default function ProjectOverviewPage() {
   }, [allTimeRecords, dateRange, isTimesheetLoading]);
 
   const projectSummariesFull = useMemo((): ProjectSummary[] => {
-    if (isTimesheetLoading || filteredTimeRecordsByDate.length === 0) return []; // Simpler loading check
+    if (isTimesheetLoading || filteredTimeRecordsByDate.length === 0) return []; 
 
     const projectsData: { [key: string]: {
         totalHours: number;
@@ -345,7 +345,7 @@ export default function ProjectOverviewPage() {
         <DateRangePicker dateRange={dateRange} onDateChange={(range) => { setDateRange(range); setMainTableCurrentPage(1); }} disabled={isLoading} />
       </div>
 
-      {isTimesheetLoading || isUsersApiLoading ? ( // Only these for summary cards
+      {isTimesheetLoading || isUsersApiLoading ? ( 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <CardSkeleton className="shadow-md" />
             <CardSkeleton className="shadow-md" />
@@ -478,7 +478,7 @@ export default function ProjectOverviewPage() {
       )}
 
 
-      {isTimesheetLoading ? ( // Skeleton for main table
+      {isTimesheetLoading ? ( 
         <TableSkeleton columnCount={7} className="shadow-lg mt-6 h-[480px]" />
       ) : projectSummariesFull.length > 0 ? (
         <Card className="shadow-lg mt-6">
@@ -598,7 +598,13 @@ export default function ProjectOverviewPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {record.reChecked ? <CheckSquare className="h-5 w-5 text-green-500" /> : null}
+                          {record.reChecked ? (
+                            <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                              <CheckSquare className="mr-1 h-3 w-3" /> Re-checked
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">Not Re-checked</Badge>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -634,3 +640,4 @@ export default function ProjectOverviewPage() {
     </div>
   );
 }
+

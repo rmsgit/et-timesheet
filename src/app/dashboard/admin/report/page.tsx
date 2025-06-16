@@ -9,7 +9,7 @@ import { format, parseISO, isSameDay } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, AlertCircle, Clock, Package, RefreshCw, FilePlus2, Film, Hourglass, CheckCircle2, PieChart as PieChartIcon, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckSquare } from 'lucide-react';
+import { BarChart3, AlertCircle, Clock, Package, RefreshCw, FilePlus2, Film, Hourglass, CheckCircle2, PieChart as PieChartIcon, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckSquare, Square } from 'lucide-react';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
@@ -503,7 +503,13 @@ export default function AdminReportPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {record.reChecked ? <CheckSquare className="h-5 w-5 text-green-500" /> : null}
+                        {record.reChecked ? (
+                          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                            <CheckSquare className="mr-1 h-3 w-3" /> Re-checked
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">Not Re-checked</Badge>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -551,3 +557,4 @@ export default function AdminReportPage() {
     </div>
   );
 }
+

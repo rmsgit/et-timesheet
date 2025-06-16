@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { UserCheck, AlertCircle, Hourglass, CheckCircle2, Briefcase, Loader2, BarChart2, Package, RefreshCw, FilePlus2, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckSquare } from 'lucide-react';
+import { UserCheck, AlertCircle, Hourglass, CheckCircle2, Briefcase, Loader2, BarChart2, Package, RefreshCw, FilePlus2, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckSquare, Square } from 'lucide-react';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import type { User, TimeRecord } from '@/lib/types';
@@ -437,7 +437,13 @@ export default function AdminEditorReportPage() {
                             )}
                           </TableCell>
                           <TableCell>
-                            {record.reChecked ? <CheckSquare className="h-5 w-5 text-green-500" /> : null}
+                            {record.reChecked ? (
+                              <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                                <CheckSquare className="mr-1 h-3 w-3" /> Re-checked
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">Not Re-checked</Badge>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -497,3 +503,4 @@ export default function AdminEditorReportPage() {
     </div>
   );
 }
+

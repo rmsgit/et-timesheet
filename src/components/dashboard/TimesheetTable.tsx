@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { TimeRecordForm } from './TimeRecordForm';
-import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Hourglass, ListChecks, CheckCircle2 as CheckCircle2Icon, Play, PauseCircle, CheckSquare } from 'lucide-react';
+import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Hourglass, ListChecks, CheckCircle2 as CheckCircle2Icon, Play, PauseCircle, CheckSquare, Square } from 'lucide-react';
 import { format, parseISO, isSameDay, differenceInSeconds } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -157,7 +157,7 @@ export const TimesheetTable: React.FC = () => {
         } else if (sortConfig.key === 'reChecked') {
           const boolA = valA === true;
           const boolB = valB === true;
-          comparison = boolA === boolB ? 0 : boolA ? -1 : 1; // true comes before false when descending
+          comparison = boolA === boolB ? 0 : boolA ? -1 : 1;
         } else if (typeof valA === 'number' && typeof valB === 'number') {
           comparison = valA - valB;
         } else if (valA === undefined || valA === null) {
@@ -239,12 +239,10 @@ export const TimesheetTable: React.FC = () => {
   const handleAddNew = () => {
     const newRecordBase: Partial<TimeRecord> = {
         date: selectedDate ? selectedDate.toISOString() : new Date().toISOString(),
-        // durationHours will be set to 0 by context if not provided
         projectDurationSeconds: undefined,
         workType: 'New work',
-        // Fields handled by context on creation: entryCreatedAt, isPaused, accumulatedPausedDurationSeconds, reChecked
     };
-    setEditingRecord(newRecordBase as TimeRecord); // Cast as TimeRecord, context handles missing fields
+    setEditingRecord(newRecordBase as TimeRecord); 
     setIsFormOpen(true);
   };
 
@@ -257,12 +255,10 @@ export const TimesheetTable: React.FC = () => {
     setIsActionSubmitting(true);
     try {
       await deleteTimeRecord(recordId);
-      // Toast is handled in context
       if (currentPage > 1 && paginatedRecords.length === 1 && sortedRecords.length -1 <= (currentPage -1) * rowsPerPage) {
         setCurrentPage(currentPage - 1);
       }
     } catch (error) {
-      // Error toast is handled in context
     } finally {
       setIsActionSubmitting(false);
     }
@@ -309,11 +305,9 @@ export const TimesheetTable: React.FC = () => {
     setIsSubmittingCompletion(true);
     try {
       await setCompletionDetails(recordForCompletion.id, data.completedInHoursDialog, data.completedInMinutesDialog, data.completedInSecondsDialog);
-      // Toast is handled in context
       setIsSetCompletionDialogOpen(false);
       setRecordForCompletion(null);
     } catch (error) {
-      // Error toast is handled in context
     } finally {
       setIsSubmittingCompletion(false);
     }
@@ -594,7 +588,13 @@ export const TimesheetTable: React.FC = () => {
                         )}
                       </TableCell>
                       <TableCell>
-                        {record.reChecked ? <CheckSquare className="h-5 w-5 text-green-500" /> : null}
+                        {record.reChecked ? (
+                          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                            <CheckSquare className="mr-1 h-3 w-3" /> Re-checked
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">Not Re-checked</Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -625,7 +625,7 @@ export const TimesheetTable: React.FC = () => {
                             )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => handleToggleReChecked(record.id)} disabled={isActionSubmitting || isSubmittingCompletion}>
-                                {record.reChecked ? <CheckSquare className="mr-2 h-4 w-4 text-green-500" /> : <CheckSquare className="mr-2 h-4 w-4 opacity-50" />}
+                                {record.reChecked ? <CheckSquare className="mr-2 h-4 w-4 text-green-500" /> : <Square className="mr-2 h-4 w-4 opacity-50" />}
                                 {record.reChecked ? "Unmark as Re-checked" : "Mark as Re-checked"}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleEdit(record)} disabled={isActionSubmitting || isSubmittingCompletion}>
@@ -716,3 +716,4 @@ export const TimesheetTable: React.FC = () => {
     </div>
   );
 };
+
