@@ -9,7 +9,7 @@ import { format, parseISO, isSameDay } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, AlertCircle, Clock, Package, RefreshCw, FilePlus2, Film, Hourglass, CheckCircle2, PieChart as PieChartIcon, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckSquare, Square } from 'lucide-react';
+import { BarChart3, AlertCircle, Clock, Package, RefreshCw, FilePlus2, Film, Hourglass, CheckCircle2, PieChart as PieChartIcon, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckSquare, Square, Search, User, X } from 'lucide-react';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
@@ -18,6 +18,9 @@ import type { TimeRecord, User } from '@/lib/types';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
@@ -69,7 +72,7 @@ const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): nu
 
 export default function AdminReportPage() {
   const { getAllRecordsByDateRange, timeRecords: allTimeRecordsFromContext, isTimesheetLoading } = useTimesheet();
-  const { users: mockUsers, isUsersLoading } = useMockUsers();
+  const { users: allUsers, isUsersLoading } = useMockUsers();
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(),
@@ -80,10 +83,18 @@ export default function AdminReportPage() {
   const rowsPerPage = 15;
   const [sortConfig, setSortConfig] = useState<{ key: SortableTimeRecordKeysAdmin | null; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
 
+  const [selectedEditorId, setSelectedEditorId] = useState<string>('all');
+  const [projectNameQuery, setProjectNameQuery] = useState<string>('');
+
   const isLoading = isTimesheetLoading || isUsersLoading;
 
+  const editorUsers = useMemo(() => {
+    if (isUsersLoading || !allUsers) return [];
+    return allUsers.filter(u => u.role === 'editor').sort((a,b) => a.username.localeCompare(b.username));
+  }, [allUsers, isUsersLoading]);
+
   const allRecordsInRange = useMemo(() => {
-    if (isLoading || !dateRange?.from || !allTimeRecordsFromContext || !mockUsers) return [];
+    if (isLoading || !dateRange?.from || !allTimeRecordsFromContext || !allUsers) return [];
 
     const effectiveStartDate = new Date(dateRange.from);
     effectiveStartDate.setHours(0, 0, 0, 0);
@@ -92,13 +103,13 @@ export default function AdminReportPage() {
     effectiveEndDate.setHours(23, 59, 59, 999);
 
     return getAllRecordsByDateRange(effectiveStartDate, effectiveEndDate);
-  }, [dateRange, getAllRecordsByDateRange, isLoading, allTimeRecordsFromContext, mockUsers]);
+  }, [dateRange, getAllRecordsByDateRange, isLoading, allTimeRecordsFromContext, allUsers]);
 
 
   const getUsernameById = useCallback((userId: string): string => {
-    if (isUsersLoading || !mockUsers) return 'Loading...';
-    return mockUsers.find(u => u.id === userId)?.username || 'Unknown User';
-  }, [mockUsers, isUsersLoading]);
+    if (isUsersLoading || !allUsers) return 'Loading...';
+    return allUsers.find(u => u.id === userId)?.username || 'Unknown User';
+  }, [allUsers, isUsersLoading]);
 
   const recordsWithEditorNames = useMemo(() => {
     return allRecordsInRange.map(record => ({
@@ -107,10 +118,22 @@ export default function AdminReportPage() {
     }));
   }, [allRecordsInRange, getUsernameById]);
 
-  const sortedRecords = useMemo(() => {
-    let sortableItems = [...recordsWithEditorNames];
+
+  const filteredAndSortedRecords = useMemo(() => {
+    let filteredItems = [...recordsWithEditorNames];
+
+    if (selectedEditorId !== 'all') {
+      filteredItems = filteredItems.filter(record => record.userId === selectedEditorId);
+    }
+
+    if (projectNameQuery.trim() !== '') {
+      filteredItems = filteredItems.filter(record => 
+        record.projectName.toLowerCase().includes(projectNameQuery.trim().toLowerCase())
+      );
+    }
+
     if (sortConfig.key !== null) {
-      sortableItems.sort((a, b) => {
+      filteredItems.sort((a, b) => {
         const valA = a[sortConfig.key!];
         const valB = b[sortConfig.key!];
 
@@ -137,16 +160,16 @@ export default function AdminReportPage() {
         return sortConfig.direction === 'ascending' ? comparison : -comparison;
       });
     }
-    return sortableItems;
-  }, [recordsWithEditorNames, sortConfig]);
+    return filteredItems;
+  }, [recordsWithEditorNames, sortConfig, selectedEditorId, projectNameQuery]);
 
 
   const paginatedRecords = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
-    return sortedRecords.slice(startIndex, startIndex + rowsPerPage);
-  }, [sortedRecords, currentPage, rowsPerPage]);
+    return filteredAndSortedRecords.slice(startIndex, startIndex + rowsPerPage);
+  }, [filteredAndSortedRecords, currentPage, rowsPerPage]);
 
-  const totalPages = Math.ceil(sortedRecords.length / rowsPerPage);
+  const totalPages = Math.ceil(filteredAndSortedRecords.length / rowsPerPage);
 
   const requestSort = (key: SortableTimeRecordKeysAdmin) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -451,13 +474,55 @@ export default function AdminReportPage() {
 
       {isLoading ? (
         <TableSkeleton columnCount={9} className="shadow-lg mt-6 h-[480px]" />
-      ) : sortedRecords.length > 0 ? (
+      ) : allRecordsInRange.length > 0 ? (
         <Card className="shadow-lg mt-6">
           <CardHeader>
-            <CardTitle>All Time Entries</CardTitle>
-            <CardDescription>
-              Showing all records {dateDisplayString}.
-            </CardDescription>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <CardTitle>All Time Entries</CardTitle>
+                <CardDescription>
+                  Showing all records {dateDisplayString}.
+                </CardDescription>
+              </div>
+              <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                <div className="w-full sm:w-48 space-y-1.5">
+                  <Label htmlFor="editor-filter" className="sr-only">Filter by editor</Label>
+                  <Select
+                    value={selectedEditorId}
+                    onValueChange={(value) => { setSelectedEditorId(value); setCurrentPage(1); }}
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger id="editor-filter" className="h-9">
+                      <User className="mr-2 h-4 w-4 text-muted-foreground"/>
+                      <SelectValue placeholder="Filter by editor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Editors</SelectItem>
+                      {editorUsers.map(editor => (
+                        <SelectItem key={editor.id} value={editor.id}>{editor.username}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="relative w-full sm:w-64">
+                   <Label htmlFor="project-search" className="sr-only">Search by project name</Label>
+                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                   <Input 
+                      id="project-search"
+                      placeholder="Search by project name..."
+                      value={projectNameQuery}
+                      onChange={(e) => {setProjectNameQuery(e.target.value); setCurrentPage(1);}}
+                      className="pl-10 h-9"
+                      disabled={isLoading}
+                   />
+                   {projectNameQuery && (
+                      <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6" onClick={() => {setProjectNameQuery(''); setCurrentPage(1);}}>
+                          <X className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                   )}
+                </div>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-[400px]">
@@ -476,7 +541,7 @@ export default function AdminReportPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedRecords.map((record) => (
+                  {paginatedRecords.length > 0 ? paginatedRecords.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell>{format(parseISO(record.date), 'MMM d, yyyy')}</TableCell>
                       <TableCell>{record.editorUsername}</TableCell>
@@ -512,7 +577,13 @@ export default function AdminReportPage() {
                         )}
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={9} className="h-24 text-center">
+                        No results found for your filters.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </ScrollArea>
@@ -529,7 +600,7 @@ export default function AdminReportPage() {
                 Previous
               </Button>
               <span className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages} (Total: {sortedRecords.length} records)
+                Page {currentPage} of {totalPages} (Total: {filteredAndSortedRecords.length} records)
               </span>
               <Button
                 variant="outline"
@@ -557,4 +628,3 @@ export default function AdminReportPage() {
     </div>
   );
 }
-
