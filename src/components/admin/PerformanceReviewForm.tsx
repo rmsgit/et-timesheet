@@ -108,8 +108,8 @@ export const PerformanceReviewForm: React.FC<PerformanceReviewFormProps> = ({ ed
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <ScrollArea className="max-h-[70vh] pr-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-grow min-h-0">
+      <ScrollArea className="flex-grow pr-6 -mr-6">
         <div className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="overallComment" className="text-lg font-semibold flex items-center">
@@ -177,7 +177,7 @@ export const PerformanceReviewForm: React.FC<PerformanceReviewFormProps> = ({ ed
           })}
         </div>
       </ScrollArea>
-      <div className="flex justify-end space-x-2 pt-6 border-t mt-6">
+      <div className="flex justify-end space-x-2 pt-6 border-t mt-auto">
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
           <X className="mr-2 h-4 w-4" /> Cancel
         </Button>

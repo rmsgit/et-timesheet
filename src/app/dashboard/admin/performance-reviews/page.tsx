@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { AlertTriangle, PlusCircle, Loader2, ClipboardCheck, Edit2, Trash2 } from 'lucide-react';
@@ -169,7 +169,7 @@ export default function PerformanceReviewsPage() {
 
       {selectedEditorId && adminUser && (
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>{editingReview ? 'Edit' : 'Create'} Performance Review</DialogTitle>
                     <DialogDescription>
