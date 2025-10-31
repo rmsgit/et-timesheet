@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -8,7 +9,10 @@ import * as z from 'zod';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { useAuth } from '@/hooks/useAuth';
 import { useEditorLevels } from '@/hooks/useEditorLevels';
-import type { TimeRecord, WorkType, EditorLevel } from '@/lib/types';
+import { usePerformanceReviews } from '@/hooks/usePerformanceReviews';
+import { useMockUsers } from '@/hooks/useMockUsers';
+import { useEditorRatingCategories } from '@/hooks/useEditorRatingCategories';
+import type { TimeRecord, WorkType, EditorLevel, PerformanceReview, EditorRatingCategory } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,9 +32,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription } from '@/components/ui/dialog';
 import { TimeRecordForm } from './TimeRecordForm';
-import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Hourglass, ListChecks, CheckCircle2 as CheckCircle2Icon, Play, PauseCircle, CheckSquare, Square, Award, TrendingUp } from 'lucide-react';
+import { CheckCircle, Edit, MoreHorizontal, Trash2, PlusCircle, CalendarClock, Loader2, Package, RefreshCw, FilePlus2, CalendarIcon, Film, Clock, Save, X, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Hourglass, ListChecks, CheckCircle2 as CheckCircle2Icon, Play, PauseCircle, CheckSquare, Square, Award, TrendingUp, ClipboardCheck as ClipboardCheckIcon, Star } from 'lucide-react';
 import { format, parseISO, isSameDay, differenceInSeconds } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -56,6 +60,8 @@ import { cn } from '@/lib/utils';
 import { PendingTaskTimer } from './PendingTaskTimer';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Separator } from '@/components/ui/separator';
+import { RATING_SCALE } from '@/lib/constants';
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
@@ -125,6 +131,9 @@ export const TimesheetTable: React.FC = () => {
   const { user, isAuthLoading } = useAuth();
   const { getRecordsForUser, deleteTimeRecord, setCompletionDetails, pauseTimer, resumeTimer, toggleReCheckedStatus, isTimesheetLoading } = useTimesheet();
   const { editorLevels, isLoadingEditorLevels } = useEditorLevels();
+  const { reviews, isLoading: isLoadingReviews } = usePerformanceReviews();
+  const { users: allUsers, isUsersLoading } = useMockUsers();
+  const { editorRatingCategories, isLoading: isLoadingCategories } = useEditorRatingCategories();
   const { toast } = useToast();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -143,8 +152,9 @@ export const TimesheetTable: React.FC = () => {
 
   const [isNextLevelInfoOpen, setIsNextLevelInfoOpen] = useState(false);
   const [nextLevelDetails, setNextLevelDetails] = useState<EditorLevel | null>(null);
+  const [isLatestReviewOpen, setIsLatestReviewOpen] = useState(false);
 
-  const isLoading = isAuthLoading || isTimesheetLoading || isLoadingEditorLevels;
+  const isLoading = isAuthLoading || isTimesheetLoading || isLoadingEditorLevels || isLoadingReviews || isUsersLoading || isLoadingCategories;
 
   const fullUserRecordsForDay = useMemo(() => {
     if (isAuthLoading || isTimesheetLoading || !user || !selectedDate) return [];
@@ -240,6 +250,33 @@ export const TimesheetTable: React.FC = () => {
     }
     return editorLevels[currentIndex + 1];
   }, [currentEditorLevel, editorLevels, isLoadingEditorLevels]);
+
+  const latestReview = useMemo(() => {
+    if (isLoadingReviews || !user) return null;
+    const userReviews = reviews
+      .filter(r => r.editorId === user.id)
+      .sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+    return userReviews.length > 0 ? userReviews[0] : null;
+  }, [reviews, user, isLoadingReviews]);
+
+  const getAdminUsername = useCallback((adminId: string) => {
+      if (isUsersLoading || !allUsers) return 'Loading...';
+      return allUsers.find(u => u.id === adminId)?.username || 'Unknown Admin';
+  }, [allUsers, isUsersLoading]);
+  
+  const calculateTotalScore = useCallback((review: PerformanceReview | null): string => {
+    if (!review || isLoadingCategories || !review.categoryRatings || editorRatingCategories.length === 0) return '...';
+    
+    const totalScore = review.categoryRatings.reduce((acc, rating) => {
+      const category = editorRatingCategories.find(c => c.id === rating.categoryId);
+      if (!category || typeof category.weight !== 'number') return acc;
+      
+      const weightedScore = (rating.rating || 0) * (category.weight / 100);
+      return acc + weightedScore;
+    }, 0);
+
+    return totalScore.toFixed(2);
+  }, [editorRatingCategories, isLoadingCategories]);
 
   const handleShowNextLevelInfo = () => {
     if (nextEditorLevel) {
@@ -395,30 +432,46 @@ export const TimesheetTable: React.FC = () => {
   } else if (user && user.role === 'editor') {
     const levelName = currentEditorLevel ? currentEditorLevel.name : (editorLevels.length > 0 ? 'Not Assigned' : 'N/A');
     editorLevelDisplay = (
-      <div className="flex items-center gap-2 text-md text-muted-foreground mt-2">
-        <Award className="h-5 w-5 text-primary" />
-        <span className="font-semibold">Level: {levelName}</span>
-        {nextEditorLevel && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
+      <div className="flex items-center flex-wrap gap-x-4 gap-y-2 text-md text-muted-foreground mt-2">
+        <div className="flex items-center gap-2">
+            <Award className="h-5 w-5 text-primary" />
+            <span className="font-semibold">Level: {levelName}</span>
+        </div>
+        <div className="flex items-center gap-2">
+            {nextEditorLevel && (
+            <TooltipProvider>
+                <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button
+                    variant="ghost"
+                    size="sm" 
+                    className="h-auto px-2 py-1 text-primary hover:bg-primary/10 rounded-md"
+                    onClick={handleShowNextLevelInfo}
+                    aria-label={`Learn about ${nextEditorLevel.name}`}
+                    >
+                    <TrendingUp className="mr-1.5 h-4 w-4" />
+                    Next Level
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Info on your next level: {nextEditorLevel.name}</p>
+                </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+            )}
+             {latestReview && (
                 <Button
-                  variant="ghost"
-                  size="sm" 
-                  className="h-auto px-2 py-1 text-primary hover:bg-primary/10 rounded-md"
-                  onClick={handleShowNextLevelInfo}
-                  aria-label={`Learn about ${nextEditorLevel.name}`}
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto px-2 py-1 text-accent hover:bg-accent/10 rounded-md"
+                    onClick={() => setIsLatestReviewOpen(true)}
+                    aria-label="View latest performance review"
                 >
-                  <TrendingUp className="mr-1.5 h-4 w-4" />
-                  Next Level
+                    <ClipboardCheckIcon className="mr-1.5 h-4 w-4" />
+                    View Latest Review
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Info on your next level: {nextEditorLevel.name}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
+             )}
+        </div>
       </div>
     );
   }
@@ -615,6 +668,61 @@ export const TimesheetTable: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      {latestReview && (
+          <Dialog open={isLatestReviewOpen} onOpenChange={setIsLatestReviewOpen}>
+              <DialogContent className="max-w-3xl">
+                  <DialogHeader>
+                      <DialogTitle className="flex items-center text-2xl">
+                          <ClipboardCheckIcon className="mr-3 h-6 w-6 text-primary" />
+                          Latest Performance Review
+                      </DialogTitle>
+                      <DialogDescription>
+                          Conducted by {getAdminUsername(latestReview.adminId)} on {format(parseISO(latestReview.date), 'PPP')}
+                      </DialogDescription>
+                  </DialogHeader>
+                  <ScrollArea className="max-h-[60vh] py-4 pr-4">
+                      <div className="space-y-6">
+                           <div className="space-y-2">
+                                <h3 className="text-lg font-semibold flex items-center">
+                                    Overall Comment
+                                    <span className="ml-auto text-xl font-bold text-primary">{calculateTotalScore(latestReview)} / 5.00</span>
+                                </h3>
+                                <p className="text-sm text-muted-foreground border p-3 rounded-md bg-muted/50">{latestReview.overallComment}</p>
+                           </div>
+                           <Separator />
+                           <div className="space-y-4">
+                                <h3 className="text-lg font-semibold">Category Breakdown</h3>
+                                {latestReview.categoryRatings.map((rating, index) => {
+                                    const category = editorRatingCategories.find(c => c.id === rating.categoryId);
+                                    const ratingInfo = RATING_SCALE.find(r => r.value === rating.rating);
+                                    if (!category) return null;
+                                    return (
+                                        <div key={index} className="rounded-md border p-3">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <p className="font-semibold text-sm flex items-center">
+                                                    <Star className="mr-2 h-4 w-4 text-yellow-400" />
+                                                    {category.name}
+                                                </p>
+                                                <Badge variant="outline">{ratingInfo ? ratingInfo.label : `${rating.rating}/5`}</Badge>
+                                            </div>
+                                            {rating.notes && (
+                                                <p className="text-xs text-muted-foreground pl-6 italic">"{rating.notes}"</p>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                           </div>
+                      </div>
+                  </ScrollArea>
+                   <DialogFooter className="pt-4">
+                        <DialogClose asChild>
+                            <Button type="button" variant="outline">Close</Button>
+                        </DialogClose>
+                    </DialogFooter>
+              </DialogContent>
+          </Dialog>
+      )}
+
 
       {(isTimesheetLoading && !isAuthLoading) ? (
         <TableSkeleton columnCount={9} className="shadow-lg" />
@@ -808,4 +916,5 @@ export const TimesheetTable: React.FC = () => {
     </div>
   );
 };
+
 
