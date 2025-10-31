@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import { useTimesheet } from '@/hooks/useTimesheet';
-import { Layers, Hourglass, CheckCircle2, ListChecks, AlertCircle, ListTree, FilePlus2, RefreshCw, Package, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, BarChart2, Loader2, CheckSquare, Square } from 'lucide-react';
+import { Layers, Hourglass, CheckCircle2, ListChecks, AlertCircle, ListTree, FilePlus2, RefreshCw, Package, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, BarChart2, Loader2, CheckSquare, Square, Star } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -13,13 +13,14 @@ import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import type { DateRange } from 'react-day-picker';
 import { format, parseISO } from 'date-fns';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { useProjectTypes } from '@/hooks/useProjectTypes';
 import type { TimeRecord as AppTimeRecord, User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { TaskRatingForm } from '@/components/admin/TaskRatingForm';
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
@@ -79,6 +80,8 @@ export default function ProjectOverviewPage() {
   const [mainTableSortConfig, setMainTableSortConfig] = useState<{ key: SortableProjectSummaryKeys | null; direction: 'ascending' | 'descending' }>({ key: 'projectName', direction: 'ascending' });
   const [modalTableSortConfig, setModalTableSortConfig] = useState<{ key: SortableAppTimeRecordKeys | null; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
 
+  const [recordToRate, setRecordToRate] = useState<AppTimeRecord | null>(null);
+  const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false);
 
   const isLoading = isTimesheetLoading || isUsersApiLoading || isLoadingProjectTypes;
 
@@ -257,6 +260,12 @@ export default function ProjectOverviewPage() {
     setModalTableSortConfig({ key: 'date', direction: 'descending' });
     setIsDetailsModalOpen(true);
   };
+    
+  const handleOpenRatingDialog = (record: AppTimeRecord) => {
+    setRecordToRate(record);
+    setIsRatingDialogOpen(true);
+  };
+
 
   const getStatusBadge = (status: ProjectSummary['status']) => {
     switch (status) {
@@ -544,19 +553,18 @@ export default function ProjectOverviewPage() {
         <></>
       )}
 
-      {selectedProjectForDetails && (
-        <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
-          <DialogContent className="sm:max-w-4xl max-h-[80vh] flex flex-col">
-            <DialogHeader>
-              <DialogTitle>
-                Time Records for: {selectedProjectForDetails.projectName}
-              </DialogTitle>
-              <CardDescription>
-                Showing records {dateRange?.from && dateRange.to ? `from ${format(dateRange.from, "PPP")} to ${format(dateRange.to, "PPP")}` : 'for all time'}.
-              </CardDescription>
-            </DialogHeader>
-            {paginatedDetailedRecordsForModal.length > 0 ? (
-              <>
+      <Dialog open={isDetailsModalOpen} onOpenChange={(open) => { if (!open) setSelectedProjectForDetails(null); setIsDetailsModalOpen(open); }}>
+        <DialogContent className="sm:max-w-4xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              Time Records for: {selectedProjectForDetails?.projectName}
+            </DialogTitle>
+            <CardDescription>
+              Showing records {dateRange?.from && dateRange.to ? `from ${format(dateRange.from, "PPP")} to ${format(dateRange.to, "PPP")}` : 'for all time'}.
+            </CardDescription>
+          </DialogHeader>
+          {paginatedDetailedRecordsForModal.length > 0 ? (
+            <>
               <ScrollArea className="flex-grow">
                 <Table>
                   <TableHeader>
@@ -569,6 +577,7 @@ export default function ProjectOverviewPage() {
                       {renderModalTableSortableHeader("Work Time", "durationHours")}
                       {renderModalTableSortableHeader("Status", "completedAt")}
                       {renderModalTableSortableHeader("Re-checked", "reChecked")}
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -606,6 +615,14 @@ export default function ProjectOverviewPage() {
                             <Badge variant="outline">Not Re-checked</Badge>
                           )}
                         </TableCell>
+                        <TableCell>
+                            {record.completedAt && (
+                               <Button variant="outline" size="sm" onClick={() => handleOpenRatingDialog(record)}>
+                                <Star className="mr-1 h-3 w-3" />
+                                {record.ratings && record.ratings.length > 0 ? "View/Edit" : "Rate"}
+                               </Button>
+                            )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -622,22 +639,34 @@ export default function ProjectOverviewPage() {
                   </Button>
                 </div>
               )}
-              </>
-            ) : (
-              <div className="text-center py-10">
-                <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground" />
-                <p className="mt-2 text-muted-foreground">No time records found for this project in the selected date range.</p>
-              </div>
-            )}
-            <DialogFooter className="mt-auto pt-4">
-                <DialogClose asChild>
-                    <Button type="button" variant="outline">Close</Button>
-                </DialogClose>
-            </DialogFooter>
+            </>
+          ) : (
+            <div className="text-center py-10">
+              <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground" />
+              <p className="mt-2 text-muted-foreground">No time records found for this project in the selected date range.</p>
+            </div>
+          )}
+          <DialogFooter className="mt-auto pt-4">
+              <DialogClose asChild>
+                  <Button type="button" variant="outline">Close</Button>
+              </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {recordToRate && (
+        <Dialog open={isRatingDialogOpen} onOpenChange={(open) => { if (!open) setRecordToRate(null); setIsRatingDialogOpen(open); }}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Rate Task: {recordToRate.projectName}</DialogTitle>
+              <DialogDescription>
+                Provide ratings for each category for the selected task.
+              </DialogDescription>
+            </DialogHeader>
+            <TaskRatingForm record={recordToRate} onClose={() => setIsRatingDialogOpen(false)} />
           </DialogContent>
         </Dialog>
       )}
     </div>
   );
 }
-

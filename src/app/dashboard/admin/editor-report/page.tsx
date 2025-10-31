@@ -13,13 +13,15 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { UserCheck, AlertCircle, Hourglass, CheckCircle2, Briefcase, Loader2, BarChart2, Package, RefreshCw, FilePlus2, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckSquare, Square } from 'lucide-react';
+import { UserCheck, AlertCircle, Hourglass, CheckCircle2, Briefcase, Loader2, BarChart2, Package, RefreshCw, FilePlus2, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckSquare, Square, Star } from 'lucide-react';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
-import type { User, TimeRecord } from '@/lib/types';
+import type { TimeRecord, User } from '@/lib/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { TaskRatingForm } from '@/components/admin/TaskRatingForm';
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
@@ -71,6 +73,9 @@ export default function AdminEditorReportPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 15;
   const [sortConfig, setSortConfig] = useState<{ key: SortableTimeRecordKeysEditor | null; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
+
+  const [recordToRate, setRecordToRate] = useState<TimeRecord | null>(null);
+  const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false);
 
   const isLoading = isUsersLoading || isTimesheetLoading;
 
@@ -216,6 +221,11 @@ export default function AdminEditorReportPage() {
       default:
         return <Badge variant="secondary">{workType}</Badge>;
     }
+  };
+
+  const handleOpenRatingDialog = (record: TimeRecord) => {
+    setRecordToRate(record);
+    setIsRatingDialogOpen(true);
   };
 
   const renderSortableHeader = (label: string, columnKey: SortableTimeRecordKeysEditor, className?: string) => (
@@ -408,6 +418,7 @@ export default function AdminEditorReportPage() {
                         {renderSortableHeader("Work Time", "durationHours")}
                         {renderSortableHeader("Status", "completedAt")}
                         {renderSortableHeader("Re-checked", "reChecked")}
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -443,6 +454,14 @@ export default function AdminEditorReportPage() {
                               </Badge>
                             ) : (
                               <Badge variant="outline">Not Re-checked</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {record.completedAt && (
+                               <Button variant="outline" size="sm" onClick={() => handleOpenRatingDialog(record)}>
+                                <Star className="mr-1 h-3 w-3" />
+                                {record.ratings && record.ratings.length > 0 ? "View/Edit" : "Rate"}
+                               </Button>
                             )}
                           </TableCell>
                         </TableRow>
@@ -500,7 +519,20 @@ export default function AdminEditorReportPage() {
           )}
         </>
       )}
+
+      {recordToRate && (
+        <Dialog open={isRatingDialogOpen} onOpenChange={(open) => { if (!open) setRecordToRate(null); setIsRatingDialogOpen(open); }}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Rate Task: {recordToRate.projectName}</DialogTitle>
+              <DialogDescription>
+                Provide ratings for each category for the selected task completed by {selectedEditor?.username}.
+              </DialogDescription>
+            </DialogHeader>
+            <TaskRatingForm record={recordToRate} onClose={() => setIsRatingDialogOpen(false)} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
-

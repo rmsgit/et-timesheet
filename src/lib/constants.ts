@@ -18,6 +18,14 @@ export const FIREBASE_ADMIN_NOTIFICATIONS_PATH = 'adminTaskCompletionNotificatio
 export const FIREBASE_EDITOR_LEVELS_PATH = 'editorLevels';
 export const FIREBASE_EDITOR_RATING_CATEGORIES_PATH = 'editorRatingCategories';
 
+export const RATING_SCALE = [
+  { value: 5, label: '5 - Outstanding' },
+  { value: 4, label: '4 - Exceeds Expectations' },
+  { value: 3, label: '3 - Meets Expectations' },
+  { value: 2, label: '2 - Needs Improvement' },
+  { value: 1, label: '1 - Unsatisfactory' },
+];
+
 
 // MOCK_USERS_DATA: Example User Structures
 // -----------------------------------------

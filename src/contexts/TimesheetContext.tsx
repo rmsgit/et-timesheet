@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { TimeRecord } from '@/lib/types';
+import type { TimeRecord, EditorRating } from '@/lib/types';
 import React, { createContext, ReactNode, useCallback, useState, useEffect } from 'react';
 import { database } from '@/lib/firebase';
 import { ref, onValue, set, remove, update as firebaseUpdate, push } from 'firebase/database';
@@ -13,10 +13,11 @@ import { differenceInSeconds, parseISO } from 'date-fns';
 
 interface TimesheetContextType {
   timeRecords: TimeRecord[];
-  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds' | 'reChecked'>) => Promise<void>;
+  addTimeRecord: (record: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds' | 'reChecked' | 'ratings'>) => Promise<void>;
   updateTimeRecord: (record: TimeRecord) => Promise<void>;
   deleteTimeRecord: (recordId: string) => Promise<void>;
   setCompletionDetails: (recordId: string, completedInHours: number, completedInMinutes: number, completedInSeconds: number) => Promise<void>;
+  saveTaskRatings: (recordId: string, ratings: EditorRating[]) => Promise<void>;
   pauseTimer: (recordId: string) => Promise<void>;
   resumeTimer: (recordId: string) => Promise<void>;
   toggleReCheckedStatus: (recordId: string) => Promise<void>;
@@ -114,7 +115,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     };
   }, [showLoader, hideLoader, toast]);
 
-  const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds' | 'reChecked'>) => {
+  const addTimeRecord = useCallback(async (recordData: Omit<TimeRecord, 'id' | 'userId' | 'completedAt' | 'durationHours' | 'entryCreatedAt' | 'isPaused' | 'pausedAt' | 'accumulatedPausedDurationSeconds' | 'reChecked' | 'ratings'>) => {
     if (!user) {
         toast({ title: "Authentication Error", description: "User not logged in. Cannot add record.", variant: "destructive" });
         return;
@@ -256,6 +257,25 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
     }
   }, [timeRecords, toast, user]);
 
+  const saveTaskRatings = useCallback(async (recordId: string, ratings: EditorRating[]): Promise<void> => {
+    if (!database) {
+        toast({ title: "Configuration Error", description: "Firebase is not connected. Ratings not saved.", variant: "destructive" });
+        throw new Error("Firebase not connected.");
+    }
+    const updates = {
+      ratings: ratings,
+    };
+    try {
+        await firebaseUpdate(ref(database, `${FIREBASE_TIMESHEET_PATH}/${recordId}`), updates);
+        toast({ title: "Success", description: "Task ratings have been saved." });
+    } catch (error) {
+        console.error("Firebase save task ratings error:", error);
+        toast({ title: "Firebase Error", description: "Failed to save ratings. Check console.", variant: "destructive" });
+        throw error;
+    }
+  }, [toast]);
+
+
   const pauseTimer = useCallback(async (recordId: string) => {
     if (!database) {
         toast({ title: "Configuration Error", description: "Firebase is not connected.", variant: "destructive" });
@@ -375,6 +395,7 @@ export const TimesheetProvider: React.FC<TimesheetProviderProps> = ({ children }
         updateTimeRecord,
         deleteTimeRecord,
         setCompletionDetails,
+        saveTaskRatings,
         pauseTimer,
         resumeTimer,
         toggleReCheckedStatus,
