@@ -697,16 +697,20 @@ export const TimesheetTable: React.FC = () => {
                                     const ratingInfo = RATING_SCALE.find(r => r.value === rating.rating);
                                     if (!category) return null;
                                     return (
-                                        <div key={index} className="rounded-md border p-3">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <p className="font-semibold text-sm flex items-center">
+                                        <div key={index} className="rounded-md border p-4">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <p className="font-semibold text-base flex items-center">
                                                     <Star className="mr-2 h-4 w-4 text-yellow-400" />
                                                     {category.name}
                                                 </p>
-                                                <Badge variant="outline">{ratingInfo ? ratingInfo.label : `${rating.rating}/5`}</Badge>
+                                                <Badge variant="outline" className="text-base">{ratingInfo ? ratingInfo.label : `${rating.rating}/5`}</Badge>
                                             </div>
+                                            <div
+                                                className="text-sm text-muted-foreground ProseMirror-display-preview border-l-2 pl-3 ml-1 mb-3"
+                                                dangerouslySetInnerHTML={{ __html: category.description || "No description provided." }}
+                                            />
                                             {rating.notes && (
-                                                <p className="text-xs text-muted-foreground pl-6 italic">"{rating.notes}"</p>
+                                                <p className="text-sm text-foreground bg-muted/50 p-2 rounded-md italic">"{rating.notes}"</p>
                                             )}
                                         </div>
                                     )
@@ -916,5 +920,3 @@ export const TimesheetTable: React.FC = () => {
     </div>
   );
 };
-
-

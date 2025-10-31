@@ -17,6 +17,7 @@ import { Loader2, Save, X, Star, MessageSquare } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '../ui/badge';
 
 const categoryRatingSchema = z.object({
   categoryId: z.string(),
@@ -156,11 +157,14 @@ export const PerformanceReviewForm: React.FC<PerformanceReviewFormProps> = ({ ed
                 
                 return (
                 <div key={field.id} className="space-y-3 rounded-md border p-4">
-                    <Label htmlFor={`categoryRatings.${index}.rating`} className="text-base font-semibold flex items-center">
-                        <Star className="mr-2 h-4 w-4 text-primary" /> {category.name} ({category.weight}%)
-                    </Label>
-                    <div
-                        className="text-sm text-muted-foreground ProseMirror-display-preview"
+                    <div className="flex justify-between items-start">
+                        <Label htmlFor={`categoryRatings.${index}.rating`} className="text-base font-semibold flex items-center">
+                            <Star className="mr-2 h-4 w-4 text-primary" /> {category.name}
+                        </Label>
+                        <Badge variant="secondary">{category.weight}% Weight</Badge>
+                    </div>
+                     <div
+                        className="text-sm text-muted-foreground ProseMirror-display-preview border-l-2 pl-3 ml-1"
                         dangerouslySetInnerHTML={{ __html: category.description || "No description provided." }}
                     />
                     
