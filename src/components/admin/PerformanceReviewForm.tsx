@@ -109,74 +109,76 @@ export const PerformanceReviewForm: React.FC<PerformanceReviewFormProps> = ({ ed
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-grow min-h-0">
-      <ScrollArea className="flex-grow pr-6 -mr-6">
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="overallComment" className="text-lg font-semibold flex items-center">
-                <MessageSquare className="mr-2 h-5 w-5 text-primary" /> Overall Comment
-            </Label>
-             <Controller
-                control={control}
-                name="overallComment"
-                render={({ field, fieldState }) => (
-                    <>
-                    <Textarea {...field} id="overallComment" placeholder="Provide a general summary of the editor's performance..." rows={4} disabled={isSubmitting}/>
-                    {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
-                    </>
-                )}
-            />
-          </div>
-
-          <h3 className="text-lg font-semibold border-t pt-4">Category Ratings</h3>
-          
-          {fields.map((field, index) => {
-            const category = editorRatingCategories.find(c => c.id === field.categoryId);
-            if (!category) return null;
-            
-            return (
-              <div key={field.id} className="space-y-3 rounded-md border p-4">
-                <Label htmlFor={`categoryRatings.${index}.rating`} className="text-base font-semibold flex items-center">
-                    <Star className="mr-2 h-4 w-4 text-primary" /> {category.name} ({category.weight}%)
+      <div className="flex-grow overflow-y-auto pr-6 -mr-6">
+        <ScrollArea className="h-full">
+            <div className="space-y-6">
+            <div className="space-y-2">
+                <Label htmlFor="overallComment" className="text-lg font-semibold flex items-center">
+                    <MessageSquare className="mr-2 h-5 w-5 text-primary" /> Overall Comment
                 </Label>
-                <div
-                    className="text-sm text-muted-foreground ProseMirror-display-preview"
-                    dangerouslySetInnerHTML={{ __html: category.description || "No description provided." }}
-                />
-                
                 <Controller
-                  control={control}
-                  name={`categoryRatings.${index}.rating`}
-                  render={({ field, fieldState }) => (
-                    <div>
-                      <Select onValueChange={field.onChange} value={String(field.value)} disabled={isSubmitting}>
-                        <SelectTrigger id={`categoryRatings.${index}.rating`}>
-                          <SelectValue placeholder="Select a rating" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {RATING_SCALE.map(item => (
-                            <SelectItem key={item.value} value={String(item.value)}>
-                              {item.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {fieldState.error && <p className="text-sm text-destructive mt-1">{fieldState.error.message}</p>}
-                    </div>
-                  )}
+                    control={control}
+                    name="overallComment"
+                    render={({ field, fieldState }) => (
+                        <>
+                        <Textarea {...field} id="overallComment" placeholder="Provide a general summary of the editor's performance..." rows={4} disabled={isSubmitting}/>
+                        {fieldState.error && <p className="text-sm text-destructive">{fieldState.error.message}</p>}
+                        </>
+                    )}
                 />
+            </div>
+
+            <h3 className="text-lg font-semibold border-t pt-4">Category Ratings</h3>
+            
+            {fields.map((field, index) => {
+                const category = editorRatingCategories.find(c => c.id === field.categoryId);
+                if (!category) return null;
                 
-                <Controller
-                  control={control}
-                  name={`categoryRatings.${index}.notes`}
-                  render={({ field }) => (
-                     <Textarea {...field} placeholder="Optional notes for this category..." rows={2} disabled={isSubmitting}/>
-                  )}
-                />
-              </div>
-            );
-          })}
-        </div>
-      </ScrollArea>
+                return (
+                <div key={field.id} className="space-y-3 rounded-md border p-4">
+                    <Label htmlFor={`categoryRatings.${index}.rating`} className="text-base font-semibold flex items-center">
+                        <Star className="mr-2 h-4 w-4 text-primary" /> {category.name} ({category.weight}%)
+                    </Label>
+                    <div
+                        className="text-sm text-muted-foreground ProseMirror-display-preview"
+                        dangerouslySetInnerHTML={{ __html: category.description || "No description provided." }}
+                    />
+                    
+                    <Controller
+                    control={control}
+                    name={`categoryRatings.${index}.rating`}
+                    render={({ field, fieldState }) => (
+                        <div>
+                        <Select onValueChange={field.onChange} value={String(field.value)} disabled={isSubmitting}>
+                            <SelectTrigger id={`categoryRatings.${index}.rating`}>
+                            <SelectValue placeholder="Select a rating" />
+                            </SelectTrigger>
+                            <SelectContent>
+                            {RATING_SCALE.map(item => (
+                                <SelectItem key={item.value} value={String(item.value)}>
+                                {item.label}
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        {fieldState.error && <p className="text-sm text-destructive mt-1">{fieldState.error.message}</p>}
+                        </div>
+                    )}
+                    />
+                    
+                    <Controller
+                    control={control}
+                    name={`categoryRatings.${index}.notes`}
+                    render={({ field }) => (
+                        <Textarea {...field} placeholder="Optional notes for this category..." rows={2} disabled={isSubmitting}/>
+                    )}
+                    />
+                </div>
+                );
+            })}
+            </div>
+        </ScrollArea>
+      </div>
       <div className="flex justify-end space-x-2 pt-6 mt-4 border-t shrink-0">
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
           <X className="mr-2 h-4 w-4" /> Cancel
