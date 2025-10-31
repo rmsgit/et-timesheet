@@ -17,6 +17,7 @@ export const FIREBASE_TIMESHEET_PATH = 'timeRecords';
 export const FIREBASE_ADMIN_NOTIFICATIONS_PATH = 'adminTaskCompletionNotifications';
 export const FIREBASE_EDITOR_LEVELS_PATH = 'editorLevels';
 export const FIREBASE_EDITOR_RATING_CATEGORIES_PATH = 'editorRatingCategories';
+export const FIREBASE_PERFORMANCE_REVIEWS_PATH = 'performanceReviews';
 
 export const RATING_SCALE = [
   { value: 5, label: '5 - Outstanding' },

@@ -20,7 +20,6 @@ import { useProjectTypes } from '@/hooks/useProjectTypes';
 import type { TimeRecord as AppTimeRecord, User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TaskRatingForm } from '@/components/admin/TaskRatingForm';
 
 const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
   if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
@@ -79,9 +78,6 @@ export default function ProjectOverviewPage() {
 
   const [mainTableSortConfig, setMainTableSortConfig] = useState<{ key: SortableProjectSummaryKeys | null; direction: 'ascending' | 'descending' }>({ key: 'projectName', direction: 'ascending' });
   const [modalTableSortConfig, setModalTableSortConfig] = useState<{ key: SortableAppTimeRecordKeys | null; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
-
-  const [recordToRate, setRecordToRate] = useState<AppTimeRecord | null>(null);
-  const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false);
 
   const isLoading = isTimesheetLoading || isUsersApiLoading || isLoadingProjectTypes;
 
@@ -260,12 +256,6 @@ export default function ProjectOverviewPage() {
     setModalTableSortConfig({ key: 'date', direction: 'descending' });
     setIsDetailsModalOpen(true);
   };
-    
-  const handleOpenRatingDialog = (record: AppTimeRecord) => {
-    setRecordToRate(record);
-    setIsRatingDialogOpen(true);
-  };
-
 
   const getStatusBadge = (status: ProjectSummary['status']) => {
     switch (status) {
@@ -577,7 +567,6 @@ export default function ProjectOverviewPage() {
                       {renderModalTableSortableHeader("Work Time", "durationHours")}
                       {renderModalTableSortableHeader("Status", "completedAt")}
                       {renderModalTableSortableHeader("Re-checked", "reChecked")}
-                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -615,14 +604,6 @@ export default function ProjectOverviewPage() {
                             <Badge variant="outline">Not Re-checked</Badge>
                           )}
                         </TableCell>
-                        <TableCell>
-                            {record.completedAt && (
-                               <Button variant="outline" size="sm" onClick={() => handleOpenRatingDialog(record)}>
-                                <Star className="mr-1 h-3 w-3" />
-                                {record.ratings && record.ratings.length > 0 ? "View/Edit" : "Rate"}
-                               </Button>
-                            )}
-                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -653,20 +634,6 @@ export default function ProjectOverviewPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {recordToRate && (
-        <Dialog open={isRatingDialogOpen} onOpenChange={(open) => { if (!open) setRecordToRate(null); setIsRatingDialogOpen(open); }}>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Rate Task: {recordToRate.projectName}</DialogTitle>
-              <DialogDescription>
-                Provide ratings for each category for the selected task.
-              </DialogDescription>
-            </DialogHeader>
-            <TaskRatingForm record={recordToRate} onClose={() => setIsRatingDialogOpen(false)} />
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }

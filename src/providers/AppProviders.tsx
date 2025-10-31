@@ -4,6 +4,7 @@
 import React, { ReactNode } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { TimesheetProvider } from '@/contexts/TimesheetContext';
+import { PerformanceReviewProvider } from '@/contexts/PerformanceReviewContext';
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LoaderProvider } from '@/contexts/LoaderContext';
@@ -24,15 +25,16 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
     <LoaderProvider>
       <AuthProvider>
         <TimesheetProvider>
-          <TooltipProvider>
-            <AdminNotificationInitializer />
-            {children}
-            <Toaster />
-            <GlobalLoader />
-          </TooltipProvider>
+          <PerformanceReviewProvider>
+            <TooltipProvider>
+              <AdminNotificationInitializer />
+              {children}
+              <Toaster />
+              <GlobalLoader />
+            </TooltipProvider>
+          </PerformanceReviewProvider>
         </TimesheetProvider>
       </AuthProvider>
     </LoaderProvider>
   );
 };
-

@@ -9,10 +9,19 @@ export interface User {
   editorLevelId?: string; // ID of the assigned EditorLevel
 }
 
-export interface EditorRating {
+export interface CategoryRating {
   categoryId: string;
   rating: number; // 1-5
   notes?: string;
+}
+
+export interface PerformanceReview {
+    id: string;
+    editorId: string;
+    adminId: string;
+    date: string; // ISO string
+    overallComment: string;
+    categoryRatings: CategoryRating[];
 }
 
 export interface TimeRecord {
@@ -27,7 +36,6 @@ export interface TimeRecord {
   projectDurationSeconds?: number; // Duration of the video project itself, in total seconds
   completedAt?: string; // ISO string format, set when task is marked complete
   reChecked?: boolean; // To mark if the record has been re-checked
-  ratings?: EditorRating[]; // Array of ratings for this task
 
   // New fields for pause/resume
   isPaused?: boolean;
