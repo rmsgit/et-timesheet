@@ -53,13 +53,15 @@ export default function PerformanceReviewsPage() {
   }, [users]);
   
   const calculateTotalScore = useCallback((review: PerformanceReview): string => {
-    if (isLoadingCategories || !review.categoryRatings) return '...';
+    if (isLoadingCategories || !review.categoryRatings || editorRatingCategories.length === 0) return '...';
     
     const totalScore = review.categoryRatings.reduce((acc, rating) => {
       const category = editorRatingCategories.find(c => c.id === rating.categoryId);
-      if (!category || typeof category.weight !== 'number') return acc;
+      if (!category || typeof category.weight !== 'number') {
+        return acc; // Ignore ratings for categories that no longer exist or have no weight
+      }
       
-      const weightedScore = rating.rating * (category.weight / 100);
+      const weightedScore = (rating.rating || 0) * (category.weight / 100);
       return acc + weightedScore;
     }, 0);
 
