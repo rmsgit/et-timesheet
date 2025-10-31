@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -11,14 +12,6 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { TrendingUp, BarChart2, AlertCircle, Loader2, Hourglass, CheckCircle2, ListChecks } from 'lucide-react';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { Skeleton } from '@/components/ui/skeleton';
-
-const formatDurationFromDecimalHours = (totalDecimalHours: number): string => {
-  if (isNaN(totalDecimalHours) || totalDecimalHours < 0) return 'N/A';
-  const hours = Math.floor(totalDecimalHours);
-  const minutes = Math.round((totalDecimalHours % 1) * 60);
-  return `${hours}h ${minutes}m`;
-};
-
 
 export default function MyProgressPage() {
   const { user, isAuthLoading } = useAuth();
@@ -51,16 +44,15 @@ export default function MyProgressPage() {
     const startDate = startOfDay(dateRange.from);
     const endDate = endOfDay(dateRange.to || dateRange.from);
 
-    const dailyData: { [date: string]: { totalHours: number, completedTasks: number } } = {};
+    const dailyData: { [date: string]: { completedTasks: number } } = {};
     const allDates = eachDayOfInterval({ start: startDate, end: endDate });
     allDates.forEach(day => {
-        dailyData[format(day, 'yyyy-MM-dd')] = { totalHours: 0, completedTasks: 0 };
+        dailyData[format(day, 'yyyy-MM-dd')] = { completedTasks: 0 };
     });
 
     completedRecordsInRange.forEach(record => {
       const recordDateStr = format(parseISO(record.date), 'yyyy-MM-dd');
       if (dailyData[recordDateStr]) {
-        dailyData[recordDateStr].totalHours += record.durationHours;
         dailyData[recordDateStr].completedTasks += 1;
       }
     });
@@ -69,17 +61,12 @@ export default function MyProgressPage() {
         .map(([dateStr, data]) => ({
             date: format(parseISO(dateStr), 'MMM d'),
             fullDate: dateStr,
-            totalHours: parseFloat(data.totalHours.toFixed(2)),
             completedTasks: data.completedTasks,
         }))
         .sort((a,b) => compareAsc(parseISO(a.fullDate), parseISO(b.fullDate)));
 
   }, [completedRecordsInRange, dateRange]);
 
-
-  const totalHoursInRange = useMemo(() => {
-    return completedRecordsInRange.reduce((sum, record) => sum + record.durationHours, 0);
-  }, [completedRecordsInRange]);
 
   const totalCompletedTasksInRange = useMemo(() => {
     return completedRecordsInRange.length;
@@ -94,8 +81,7 @@ export default function MyProgressPage() {
         <div className="space-y-6">
             <Skeleton className="h-10 w-1/2" />
             <Skeleton className="h-5 w-3/4" />
-            <div className="grid gap-6 md:grid-cols-3">
-              <CardSkeleton className="shadow-md" />
+            <div className="grid gap-6 md:grid-cols-2">
               <CardSkeleton className="shadow-md" />
               <CardSkeleton className="shadow-md" />
             </div>
@@ -118,17 +104,7 @@ export default function MyProgressPage() {
         <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} disabled={isLoading} />
       </div>
 
-       <div className="grid gap-6 md:grid-cols-3">
-          <Card className="shadow-md">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Hours Logged</CardTitle>
-              <Hourglass className="h-5 w-5 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatDurationFromDecimalHours(totalHoursInRange)}</div>
-              <p className="text-xs text-muted-foreground">In selected date range</p>
-            </CardContent>
-          </Card>
+       <div className="grid gap-6 md:grid-cols-2">
           <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Tasks Completed</CardTitle>
@@ -157,7 +133,7 @@ export default function MyProgressPage() {
             <BarChart2 className="mr-2 h-6 w-6 text-primary" /> Daily Performance
           </CardTitle>
           <CardDescription>
-            Hours logged and tasks completed per day for the selected period.
+            Tasks completed per day for the selected period.
           </CardDescription>
         </CardHeader>
         <CardContent className="h-[400px] pl-2 pr-6 pt-4 pb-4">
@@ -166,14 +142,12 @@ export default function MyProgressPage() {
               <BarChart data={dailyChartData} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis yAxisId="left" stroke="hsl(var(--primary))" orientation="left" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}h`} />
                 <YAxis yAxisId="right" stroke="hsl(var(--accent))" orientation="right" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
                   labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
                 />
                 <Legend wrapperStyle={{fontSize: "12px"}} />
-                <Bar yAxisId="left" dataKey="totalHours" fill="hsl(var(--primary))" name="Hours Logged" radius={[4, 4, 0, 0]} />
                 <Bar yAxisId="right" dataKey="completedTasks" fill="hsl(var(--accent))" name="Tasks Completed" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
