@@ -452,7 +452,7 @@ export const TimesheetTable: React.FC = () => {
                     <Button
                     variant="ghost"
                     size="sm" 
-                    className="h-auto px-2 py-1 text-primary hover:bg-primary/10 rounded-md"
+                    className="h-auto px-2 py-1 text-primary hover:bg-primary/20 rounded-md"
                     onClick={handleShowNextLevelInfo}
                     aria-label={`Learn about ${nextEditorLevel.name}`}
                     >
@@ -476,7 +476,7 @@ export const TimesheetTable: React.FC = () => {
                 <Button
                     variant="ghost"
                     size="sm"
-                    className="h-auto px-2 py-1 text-accent hover:bg-accent/10 rounded-md"
+                    className="h-auto px-2 py-1 text-accent hover:bg-accent/20 rounded-md"
                     onClick={() => setIsLatestReviewOpen(true)}
                     aria-label="View latest performance review"
                 >
