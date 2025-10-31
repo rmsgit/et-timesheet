@@ -437,12 +437,21 @@ export const TimesheetTable: React.FC = () => {
     editorLevelDisplay = <Skeleton className="h-5 w-40 mt-2 bg-muted" />;
   } else if (user && user.role === 'editor') {
     const levelName = currentEditorLevel ? currentEditorLevel.name : (editorLevels.length > 0 ? 'Not Assigned' : 'N/A');
+    const latestScore = latestReview ? parseFloat(calculateTotalScore(latestReview)) : null;
+    const latestRatingLabel = latestScore !== null ? getOverallRatingLabel(latestScore) : null;
+    
     editorLevelDisplay = (
       <div className="flex items-center flex-wrap gap-x-4 gap-y-2 text-md text-muted-foreground mt-2">
         <div className="flex items-center gap-2">
             <Award className="h-5 w-5 text-primary" />
             <span className="font-semibold">Level: {levelName}</span>
         </div>
+        {latestScore !== null && latestRatingLabel && (
+          <div className="flex items-center gap-2">
+              <Star className="h-5 w-5 text-yellow-400" />
+              <span className="font-semibold">Latest Rating: {latestScore.toFixed(2)} ({latestRatingLabel})</span>
+          </div>
+        )}
         <div className="flex items-center gap-2">
             {nextEditorLevel && (
             <TooltipProvider>
