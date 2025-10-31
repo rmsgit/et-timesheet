@@ -708,10 +708,13 @@ export const TimesheetTable: React.FC = () => {
                                     return (
                                         <div key={index} className="rounded-md border p-4">
                                             <div className="flex justify-between items-start mb-2">
-                                                <p className="font-semibold text-base flex items-center">
-                                                    <Star className="mr-2 h-4 w-4 text-yellow-400" />
-                                                    {category.name}
-                                                </p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-semibold text-base flex items-center">
+                                                        <Star className="mr-2 h-4 w-4 text-yellow-400" />
+                                                        {category.name}
+                                                    </p>
+                                                    <Badge variant="outline">{category.weight}% Weight</Badge>
+                                                </div>
                                                 <Badge variant="outline" className="text-base">{ratingInfo ? ratingInfo.label : `${rating.rating}/5`}</Badge>
                                             </div>
                                             <div
