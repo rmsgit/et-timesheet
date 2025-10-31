@@ -177,7 +177,7 @@ export const PerformanceReviewForm: React.FC<PerformanceReviewFormProps> = ({ ed
           })}
         </div>
       </ScrollArea>
-      <div className="flex justify-end space-x-2 pt-6 border-t mt-auto">
+      <div className="flex justify-end space-x-2 pt-6 mt-4 border-t">
         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
           <X className="mr-2 h-4 w-4" /> Cancel
         </Button>
