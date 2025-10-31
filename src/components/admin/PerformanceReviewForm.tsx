@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useForm, Controller, useFieldArray } from 'react-hook-form';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useForm, Controller, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useEditorRatingCategories } from '@/hooks/useEditorRatingCategories';
@@ -51,6 +51,21 @@ export const PerformanceReviewForm: React.FC<PerformanceReviewFormProps> = ({ ed
       categoryRatings: [],
     },
   });
+  
+  const watchedCategoryRatings = useWatch({ control, name: 'categoryRatings' });
+
+  const totalScore = useMemo(() => {
+    if (isLoadingCategories || !watchedCategoryRatings) return 0;
+    
+    return watchedCategoryRatings.reduce((acc, rating) => {
+      const category = editorRatingCategories.find(c => c.id === rating.categoryId);
+      if (!category || typeof category.weight !== 'number') return acc;
+      
+      const weightedScore = rating.rating * (category.weight / 100);
+      return acc + weightedScore;
+    }, 0);
+  }, [watchedCategoryRatings, editorRatingCategories, isLoadingCategories]);
+
 
   const { fields } = useFieldArray({
     control,
@@ -113,9 +128,14 @@ export const PerformanceReviewForm: React.FC<PerformanceReviewFormProps> = ({ ed
         <ScrollArea className="h-full">
             <div className="space-y-6">
             <div className="space-y-2">
-                <Label htmlFor="overallComment" className="text-lg font-semibold flex items-center">
-                    <MessageSquare className="mr-2 h-5 w-5 text-primary" /> Overall Comment
-                </Label>
+                <div className="flex justify-between items-center">
+                    <Label htmlFor="overallComment" className="text-lg font-semibold flex items-center">
+                        <MessageSquare className="mr-2 h-5 w-5 text-primary" /> Overall Comment
+                    </Label>
+                    <div className="text-lg font-bold">
+                        Total Score: {totalScore.toFixed(2)} / 5.00
+                    </div>
+                </div>
                 <Controller
                     control={control}
                     name="overallComment"

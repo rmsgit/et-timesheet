@@ -6,7 +6,8 @@ import { format, parseISO } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { usePerformanceReviews } from '@/hooks/usePerformanceReviews';
-import type { PerformanceReview, User } from '@/lib/types';
+import { useEditorRatingCategories } from '@/hooks/useEditorRatingCategories';
+import type { PerformanceReview, User, EditorRatingCategory } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,13 +28,14 @@ import { PerformanceReviewForm } from '@/components/admin/PerformanceReviewForm'
 export default function PerformanceReviewsPage() {
   const { users, isUsersLoading } = useMockUsers();
   const { reviews, deleteReview, isLoading: isLoadingReviews } = usePerformanceReviews();
+  const { editorRatingCategories, isLoading: isLoadingCategories } = useEditorRatingCategories();
   const { user: adminUser } = useAuth();
   
   const [selectedEditorId, setSelectedEditorId] = useState<string | undefined>(undefined);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingReview, setEditingReview] = useState<PerformanceReview | null>(null);
 
-  const isLoading = isUsersLoading || isLoadingReviews;
+  const isLoading = isUsersLoading || isLoadingReviews || isLoadingCategories;
 
   const editorUsers = useMemo(() => {
     return users.filter(u => u.role === 'editor').sort((a,b) => a.username.localeCompare(b.username));
@@ -49,6 +51,20 @@ export default function PerformanceReviewsPage() {
   const getAdminUsername = useCallback((adminId: string) => {
     return users.find(u => u.id === adminId)?.username || 'Unknown Admin';
   }, [users]);
+  
+  const calculateTotalScore = useCallback((review: PerformanceReview): string => {
+    if (isLoadingCategories || !review.categoryRatings) return '...';
+    
+    const totalScore = review.categoryRatings.reduce((acc, rating) => {
+      const category = editorRatingCategories.find(c => c.id === rating.categoryId);
+      if (!category || typeof category.weight !== 'number') return acc;
+      
+      const weightedScore = rating.rating * (category.weight / 100);
+      return acc + weightedScore;
+    }, 0);
+
+    return totalScore.toFixed(2);
+  }, [editorRatingCategories, isLoadingCategories]);
 
   const handleCreateNew = () => {
     setEditingReview(null);
@@ -117,13 +133,13 @@ export default function PerformanceReviewsPage() {
       </Card>
       
       {isLoading && selectedEditorId && (
-          <TableSkeleton columnCount={4} rowCount={3} />
+          <TableSkeleton columnCount={5} rowCount={3} />
       )}
 
       {!isLoading && selectedEditorId && (
         <Card>
             <CardHeader>
-                <CardTitle>Review History</CardTitle>
+                <CardTitle>Review History for {users.find(u=>u.id === selectedEditorId)?.username}</CardTitle>
             </CardHeader>
             <CardContent>
                 {reviewsForSelectedEditor.length > 0 ? (
@@ -133,6 +149,7 @@ export default function PerformanceReviewsPage() {
                                 <TableHead>Date</TableHead>
                                 <TableHead>Reviewer</TableHead>
                                 <TableHead>Overall Comment</TableHead>
+                                <TableHead>Total Score</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -142,6 +159,7 @@ export default function PerformanceReviewsPage() {
                                     <TableCell>{format(parseISO(review.date), 'PPP')}</TableCell>
                                     <TableCell>{getAdminUsername(review.adminId)}</TableCell>
                                     <TableCell className="max-w-xs truncate">{review.overallComment}</TableCell>
+                                    <TableCell className="font-medium">{calculateTotalScore(review)} / 5.00</TableCell>
                                     <TableCell className="text-right">
                                         <Button variant="outline" size="sm" onClick={() => handleEdit(review)} className="mr-2">
                                             <Edit2 className="mr-1 h-3 w-3" /> View/Edit
