@@ -1,5 +1,5 @@
 
-import type { ProjectType, User, EditorLevel } from './types';
+import type { ProjectType, User, EditorLevel, EditorRatingCategory } from './types';
 
 export const PROJECT_TYPES: ProjectType[] = [
   'New Feature',
@@ -16,6 +16,7 @@ export const FIREBASE_PROJECT_TYPES_PATH = 'projectTypes';
 export const FIREBASE_TIMESHEET_PATH = 'timeRecords';
 export const FIREBASE_ADMIN_NOTIFICATIONS_PATH = 'adminTaskCompletionNotifications';
 export const FIREBASE_EDITOR_LEVELS_PATH = 'editorLevels';
+export const FIREBASE_EDITOR_RATING_CATEGORIES_PATH = 'editorRatingCategories';
 
 
 // MOCK_USERS_DATA: Example User Structures
@@ -51,3 +52,10 @@ export const INITIAL_EDITOR_LEVELS: EditorLevel[] = [
   { id: 'level_4_lead', name: 'Lead Editor', description: 'Manages editing teams or complex workflows, sets standards, and oversees major projects.', order: 3 },
 ];
 
+export const INITIAL_EDITOR_RATING_CATEGORIES: EditorRatingCategory[] = [
+    { id: 'cat_1_technical', name: 'Technical Skill', description: 'Proficiency with editing software, color correction, audio mixing, and other technical aspects.', weight: 30 },
+    { id: 'cat_2_creativity', name: 'Creativity & Storytelling', description: 'Ability to craft a compelling narrative, pacing, shot selection, and overall artistic input.', weight: 25 },
+    { id: 'cat_3_communication', name: 'Communication', description: 'Clarity and timeliness of communication with team members and clients. Responsiveness to feedback.', weight: 20 },
+    { id: 'cat_4_speed', name: 'Speed & Efficiency', description: 'Ability to deliver high-quality work within expected timeframes. Turnaround time.', weight: 15 },
+    { id: 'cat_5_proactivity', name: 'Proactivity & Attitude', description: 'Initiative, problem-solving skills, and overall professionalism.', weight: 10 },
+];

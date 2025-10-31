@@ -37,3 +37,9 @@ export interface EditorLevel {
   order: number; // New field for sorting
 }
 
+export interface EditorRatingCategory {
+  id: string;
+  name: string;
+  description: string;
+  weight: number;
+}
