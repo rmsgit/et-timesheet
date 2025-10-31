@@ -13,7 +13,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award, Library, Star, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award, Library, Star, ClipboardCheck, TrendingUp } from 'lucide-react';
 
 export function SidebarNav() {
   const pathname = usePathname();
@@ -22,6 +22,7 @@ export function SidebarNav() {
   const personalRoutes = [
     { href: '/dashboard', label: 'My Timesheet', icon: ListChecks },
     { href: '/dashboard/my-report', label: 'My Report', icon: FileText },
+    { href: '/dashboard/my-progress', label: 'My Progress', icon: TrendingUp },
     { href: '/dashboard/browse-levels', label: 'Browse Editor Levels', icon: Library },
   ];
 
