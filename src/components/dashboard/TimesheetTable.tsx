@@ -445,14 +445,6 @@ export const TimesheetTable: React.FC = () => {
         <div className="flex items-center gap-2">
             <Award className="h-5 w-5 text-primary" />
             <span className="font-semibold">Level: {levelName}</span>
-        </div>
-        {latestScore !== null && latestRatingLabel && (
-          <div className="flex items-center gap-2">
-              <Star className="h-5 w-5 text-yellow-400" />
-              <span className="font-semibold">Latest Rating: {latestScore.toFixed(2)} ({latestRatingLabel})</span>
-          </div>
-        )}
-        <div className="flex items-center gap-2">
             {nextEditorLevel && (
             <TooltipProvider>
                 <Tooltip>
@@ -474,7 +466,13 @@ export const TimesheetTable: React.FC = () => {
                 </Tooltip>
             </TooltipProvider>
             )}
-             {latestReview && (
+        </div>
+        
+        {latestScore !== null && (
+          <div className="flex items-center gap-2">
+            <Star className="h-5 w-5 text-yellow-400" />
+            <span className="font-semibold">Latest Rating: {latestScore.toFixed(2)} ({latestRatingLabel})</span>
+            {latestReview && (
                 <Button
                     variant="ghost"
                     size="sm"
@@ -486,7 +484,8 @@ export const TimesheetTable: React.FC = () => {
                     View Latest Review
                 </Button>
              )}
-        </div>
+          </div>
+        )}
       </div>
     );
   }
