@@ -127,6 +127,12 @@ const compareTimestamps = (tsA: string | undefined, tsB: string | undefined): nu
   return new Date(tsA).getTime() - new Date(tsB).getTime();
 };
 
+const getOverallRatingLabel = (score: number): string | null => {
+    const roundedScore = Math.round(score);
+    const ratingInfo = RATING_SCALE.find(r => r.value === roundedScore);
+    return ratingInfo ? ratingInfo.label.split(' - ')[1] : null; // e.g., "Exceeds Expectations"
+};
+
 export const TimesheetTable: React.FC = () => {
   const { user, isAuthLoading } = useAuth();
   const { getRecordsForUser, deleteTimeRecord, setCompletionDetails, pauseTimer, resumeTimer, toggleReCheckedStatus, isTimesheetLoading } = useTimesheet();
@@ -683,9 +689,12 @@ export const TimesheetTable: React.FC = () => {
                   <ScrollArea className="max-h-[60vh] py-4 pr-4">
                       <div className="space-y-6">
                            <div className="space-y-2">
-                                <h3 className="text-lg font-semibold flex items-center">
-                                    Overall Comment
-                                    <span className="ml-auto text-xl font-bold text-primary">{calculateTotalScore(latestReview)} / 5.00</span>
+                                <h3 className="text-lg font-semibold flex flex-wrap items-center gap-x-4">
+                                    Overall Comment & Score
+                                    <div className="ml-auto flex items-center gap-2">
+                                        <Badge variant="secondary" className="text-base">{getOverallRatingLabel(parseFloat(calculateTotalScore(latestReview)))}</Badge>
+                                        <span className="text-xl font-bold text-primary">{calculateTotalScore(latestReview)} / 5.00</span>
+                                    </div>
                                 </h3>
                                 <p className="text-sm text-muted-foreground border p-3 rounded-md bg-muted/50">{latestReview.overallComment}</p>
                            </div>

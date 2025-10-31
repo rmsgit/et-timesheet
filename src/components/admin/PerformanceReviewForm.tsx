@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -38,6 +39,13 @@ interface PerformanceReviewFormProps {
   review: PerformanceReview | null;
   onClose: () => void;
 }
+
+const getOverallRatingLabel = (score: number): string | null => {
+    const roundedScore = Math.round(score);
+    const ratingInfo = RATING_SCALE.find(r => r.value === roundedScore);
+    return ratingInfo ? ratingInfo.label.split(' - ')[1] : null; // e.g., "Exceeds Expectations"
+};
+
 
 export const PerformanceReviewForm: React.FC<PerformanceReviewFormProps> = ({ editorId, adminId, review, onClose }) => {
   const { editorRatingCategories, isLoading: isLoadingCategories } = useEditorRatingCategories();
@@ -129,12 +137,15 @@ export const PerformanceReviewForm: React.FC<PerformanceReviewFormProps> = ({ ed
         <ScrollArea className="h-full">
             <div className="space-y-6">
             <div className="space-y-2">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center flex-wrap gap-2">
                     <Label htmlFor="overallComment" className="text-lg font-semibold flex items-center">
                         <MessageSquare className="mr-2 h-5 w-5 text-primary" /> Overall Comment
                     </Label>
-                    <div className="text-lg font-bold">
-                        Total Score: {totalScore.toFixed(2)} / 5.00
+                    <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-base">{getOverallRatingLabel(totalScore)}</Badge>
+                        <div className="text-lg font-bold">
+                            Total Score: {totalScore.toFixed(2)} / 5.00
+                        </div>
                     </div>
                 </div>
                 <Controller
