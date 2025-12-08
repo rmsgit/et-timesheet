@@ -153,7 +153,7 @@ export default function MyProgressPage() {
                   labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
                 />
                 <Legend wrapperStyle={{fontSize: "12px"}} />
-                <Bar dataKey="normalTasks" stackId="a" fill="#22c55e" name="Normal/Sample Tasks" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="normalTasks" stackId="a" fill="hsl(var(--primary))" name="Normal/Sample Tasks" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="revisionTasks" stackId="a" fill="#f97316" name="Revision Tasks" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
