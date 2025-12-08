@@ -163,9 +163,23 @@ export const TimesheetTable: React.FC = () => {
   const isLoading = isAuthLoading || isTimesheetLoading || isLoadingEditorLevels || isLoadingReviews || isUsersLoading || isLoadingCategories;
 
   const fullUserRecordsForDay = useMemo(() => {
-    if (isAuthLoading || isTimesheetLoading || !user || !selectedDate) return [];
-    return getRecordsForUser(user.id)
-      .filter(record => isSameDay(parseISO(record.date), selectedDate));
+    if (isAuthLoading || isTimesheetLoading || !user) return [];
+    
+    const allUserRecords = getRecordsForUser(user.id);
+
+    if (!selectedDate) {
+        // If no date is selected, show all pending tasks
+        return allUserRecords.filter(record => !record.completedAt);
+    }
+    
+    // Filter for all tasks on the selected date OR any task that is pending
+    const recordsToShow = allUserRecords.filter(record => {
+        const recordIsOnSelectedDate = isSameDay(parseISO(record.date), selectedDate);
+        const recordIsPending = !record.completedAt;
+        return recordIsOnSelectedDate || recordIsPending;
+    });
+
+    return recordsToShow;
   }, [user, getRecordsForUser, isAuthLoading, isTimesheetLoading, selectedDate]);
 
   const sortedRecords = useMemo(() => {
@@ -227,16 +241,28 @@ export const TimesheetTable: React.FC = () => {
 
 
   const dailyTotalHours = useMemo(() => {
-    return fullUserRecordsForDay.reduce((sum, record) => record.completedAt ? sum + record.durationHours : sum, 0);
-  }, [fullUserRecordsForDay]);
+    if (!selectedDate) return 0;
+    // Calculate total hours only for completed tasks on the selected day
+    return fullUserRecordsForDay.reduce((sum, record) => {
+      const isOnSelectedDate = isSameDay(parseISO(record.date), selectedDate);
+      if (record.completedAt && isOnSelectedDate) {
+        return sum + record.durationHours;
+      }
+      return sum;
+    }, 0);
+  }, [fullUserRecordsForDay, selectedDate]);
 
   const tasksCompletedToday = useMemo(() => {
-    return fullUserRecordsForDay.filter(record => record.completedAt).length;
-  }, [fullUserRecordsForDay]);
+    if (!selectedDate) return 0;
+    // Count tasks completed on the selected day
+    return fullUserRecordsForDay.filter(record => record.completedAt && isSameDay(parseISO(record.date), selectedDate)).length;
+  }, [fullUserRecordsForDay, selectedDate]);
 
   const pendingTasksToday = useMemo(() => {
-    return fullUserRecordsForDay.filter(record => !record.completedAt).length;
-  }, [fullUserRecordsForDay]);
+    if (!selectedDate) return 0;
+    // Count tasks for selected day that are pending
+    return fullUserRecordsForDay.filter(record => !record.completedAt && isSameDay(parseISO(record.date), selectedDate)).length;
+  }, [fullUserRecordsForDay, selectedDate]);
 
   const currentEditorLevel = useMemo(() => {
     if (isLoadingEditorLevels || !user || !user.editorLevelId || !editorLevels.length) {
@@ -444,14 +470,14 @@ export const TimesheetTable: React.FC = () => {
       <div className="flex items-center flex-wrap gap-x-4 gap-y-2 text-md text-muted-foreground mt-2">
         <div className="flex items-center gap-2">
             <Award className="h-5 w-5 text-primary" />
-            <span className="font-semibold">Level: {levelName}</span>
+            <span className="font-semibold text-foreground/80">Level: {levelName}</span>
             {nextEditorLevel && (
             <TooltipProvider>
                 <Tooltip>
                 <TooltipTrigger asChild>
                     <Button
                     variant="ghost"
-                    size="sm" 
+                    size="sm"
                     className="h-auto px-2 py-1 text-primary hover:bg-primary hover:text-primary-foreground rounded-md"
                     onClick={handleShowNextLevelInfo}
                     aria-label={`Learn about ${nextEditorLevel.name}`}
@@ -471,7 +497,7 @@ export const TimesheetTable: React.FC = () => {
         {latestScore !== null && (
           <div className="flex items-center gap-2">
             <Star className="h-5 w-5 text-yellow-400" />
-            <span className="font-semibold">Latest Rating: {latestScore.toFixed(2)} ({latestRatingLabel})</span>
+            <span className="font-semibold text-foreground/80">Latest Rating: {latestScore.toFixed(2)} ({latestRatingLabel})</span>
             {latestReview && (
                 <Button
                     variant="ghost"
@@ -530,7 +556,7 @@ export const TimesheetTable: React.FC = () => {
             <CardContent>
               <div className="text-2xl font-bold">{tasksCompletedToday}</div>
                <p className="text-xs text-muted-foreground">
-                Marked as complete
+                Marked as complete on this day
               </p>
             </CardContent>
           </Card>
@@ -542,7 +568,7 @@ export const TimesheetTable: React.FC = () => {
             <CardContent>
               <div className="text-2xl font-bold">{pendingTasksToday}</div>
                <p className="text-xs text-muted-foreground">
-                Awaiting completion
+                For {selectedDate ? format(selectedDate, "PPP") : 'selected day'}
               </p>
             </CardContent>
           </Card>
@@ -556,7 +582,7 @@ export const TimesheetTable: React.FC = () => {
             Entries for {selectedDate ? format(selectedDate, 'PPP') : 'Selected Date'}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Use the calendar to view records for a specific day or add new entries.
+            Showing all entries for the selected day, plus all pending tasks from other dates.
           </p>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
@@ -755,7 +781,7 @@ export const TimesheetTable: React.FC = () => {
             <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-2 text-xl font-medium">No time records for {format(selectedDate, 'PPP')}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-                Try selecting a different date or add a new time entry.
+                There are no pending tasks or entries for this day. Add a new record to get started.
             </p>
             <Button className="mt-6" onClick={handleAddNew} disabled={isActionSubmitting}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Record
