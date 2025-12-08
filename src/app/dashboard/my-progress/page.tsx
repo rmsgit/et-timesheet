@@ -44,16 +44,20 @@ export default function MyProgressPage() {
     const startDate = startOfDay(dateRange.from);
     const endDate = endOfDay(dateRange.to || dateRange.from);
 
-    const dailyData: { [date: string]: { completedTasks: number } } = {};
+    const dailyData: { [date: string]: { normalTasks: number, revisionTasks: number } } = {};
     const allDates = eachDayOfInterval({ start: startDate, end: endDate });
     allDates.forEach(day => {
-        dailyData[format(day, 'yyyy-MM-dd')] = { completedTasks: 0 };
+        dailyData[format(day, 'yyyy-MM-dd')] = { normalTasks: 0, revisionTasks: 0 };
     });
 
     completedRecordsInRange.forEach(record => {
       const recordDateStr = format(parseISO(record.date), 'yyyy-MM-dd');
       if (dailyData[recordDateStr]) {
-        dailyData[recordDateStr].completedTasks += 1;
+        if (record.workType === 'Revision') {
+          dailyData[recordDateStr].revisionTasks += 1;
+        } else { // 'New work' and 'Sample work'
+          dailyData[recordDateStr].normalTasks += 1;
+        }
       }
     });
     
@@ -61,7 +65,8 @@ export default function MyProgressPage() {
         .map(([dateStr, data]) => ({
             date: format(parseISO(dateStr), 'MMM d'),
             fullDate: dateStr,
-            completedTasks: data.completedTasks,
+            normalTasks: data.normalTasks,
+            revisionTasks: data.revisionTasks,
         }))
         .sort((a,b) => compareAsc(parseISO(a.fullDate), parseISO(b.fullDate)));
 
@@ -137,18 +142,19 @@ export default function MyProgressPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="h-[400px] pl-2 pr-6 pt-4 pb-4">
-          {dailyChartData.length > 0 ? (
+          {dailyChartData.length > 0 && dailyChartData.some(d => d.normalTasks > 0 || d.revisionTasks > 0) ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={dailyChartData} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis yAxisId="right" stroke="hsl(var(--accent))" orientation="right" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
                   labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
                 />
                 <Legend wrapperStyle={{fontSize: "12px"}} />
-                <Bar yAxisId="right" dataKey="completedTasks" fill="hsl(var(--accent))" name="Tasks Completed" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="normalTasks" stackId="a" fill="hsl(var(--primary))" name="Normal/Sample Tasks" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="revisionTasks" stackId="a" fill="hsl(var(--accent))" name="Revision Tasks" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
