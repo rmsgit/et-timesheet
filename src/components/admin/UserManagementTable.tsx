@@ -47,7 +47,7 @@ import { cn } from '@/lib/utils';
 import { Checkbox } from '../ui/checkbox';
 
 
-type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role' | 'availableLeaves'> | 'editorLevelName';
+type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role'> | 'editorLevelName';
 
 export const UserManagementTable: React.FC = () => {
   const { users: allUsers, addUserProfileToRTDB, deleteUserProfileFromRTDB, isUsersLoading } = useMockUsers();
@@ -482,7 +482,7 @@ export const UserManagementTable: React.FC = () => {
         <CardContent>
           {isUsersLoading ? (
             <TableSkeleton 
-              columnCount={6} 
+              columnCount={5} 
               rowCount={3} 
               showTableHeader={true} 
               headerTexts={["", "User", "Email", "Role", "Editor Level", "Actions"]} 
@@ -513,7 +513,6 @@ export const UserManagementTable: React.FC = () => {
                   {renderSortableHeader("Email", "email")}
                   {renderSortableHeader("Role", "role")}
                   {renderSortableHeader("Editor Level", "editorLevelName")}
-                  {renderSortableHeader("Available Leaves", "availableLeaves")}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -553,9 +552,6 @@ export const UserManagementTable: React.FC = () => {
                         ) : (
                             user.role === 'editor' && sortedEditorLevelsForSelect.length > 0 ? <span className="text-xs text-muted-foreground">Not Set</span> : 'N/A'
                         )}
-                    </TableCell>
-                    <TableCell>
-                        {user.availableLeaves ?? 0}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
