@@ -62,15 +62,15 @@ const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorni
             return '';
         }
 
-        // If user is NOT eligible for morning OT and they arrive late, they get no OT at all.
-        if (checkInTime && !isEligible && checkInTime > startTime) {
+        // Disqualification Rule: If user arrives late, they get no OT at all, regardless of eligibility.
+        if (checkInTime && checkInTime > startTime) {
             return '';
         }
 
         let morningOtSeconds = 0;
         let eveningOtSeconds = 0;
 
-        // Calculate morning OT if eligible and arrived early
+        // Calculate morning OT only if eligible and arrived early
         if (checkInTime && isEligible && checkInTime < startTime) {
             morningOtSeconds = Math.floor((startTime.getTime() - checkInTime.getTime()) / 1000);
         }
