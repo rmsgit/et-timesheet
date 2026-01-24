@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CalendarCheck, Upload, AlertCircle, User, Loader2, Hourglass, Plane } from 'lucide-react';
+import { CalendarCheck, Upload, AlertCircle, User, Loader2, Hourglass, Plane, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -23,6 +23,7 @@ interface AttendanceRecord {
   checkOut: string;
   overtime: string;
   leaveInfo: string;
+  overShortLeave: string;
 }
 
 const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorningOT?: boolean): string => {
@@ -103,6 +104,55 @@ const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorni
     }
 
     return '';
+};
+
+const calculateOverShortLeave = (checkIn: string, checkOut: string, leaveInfo: string): string => {
+    if (leaveInfo.toLowerCase() !== 'short leave' || !checkIn || !checkOut) {
+        return '';
+    }
+
+    const normalizeTime = (time: string): string => {
+        if (!time || typeof time !== 'string' || !time.includes(':')) return '';
+        const parts = time.split(':');
+        if (parts.length === 2) return `${time}:00`;
+        if (parts.length === 3) return time;
+        return '';
+    }
+    
+    const normalizedCheckIn = normalizeTime(checkIn);
+    const normalizedCheckOut = normalizeTime(checkOut);
+    
+    if (!normalizedCheckIn || !normalizedCheckOut) return '';
+
+    const dummyDate = '1970-01-01T';
+    try {
+        const checkInTime = new Date(`${dummyDate}${normalizedCheckIn}`);
+        const checkOutTime = new Date(`${dummyDate}${normalizedCheckOut}`);
+
+        if (isNaN(checkInTime.getTime()) || isNaN(checkOutTime.getTime())) {
+            return '';
+        }
+
+        const durationSeconds = (checkOutTime.getTime() - checkInTime.getTime()) / 1000;
+        const shortLeaveAllowanceSeconds = 3600; // 1 hour
+
+        if (durationSeconds > shortLeaveAllowanceSeconds) {
+            const overageSeconds = durationSeconds - shortLeaveAllowanceSeconds;
+            
+            const hours = Math.floor(overageSeconds / 3600);
+            const minutes = Math.floor((overageSeconds % 3600) / 60);
+
+            const partStrings: string[] = [];
+            if (hours > 0) partStrings.push(`${hours}h`);
+            if (minutes > 0) partStrings.push(`${minutes}m`);
+            return partStrings.join(' ');
+        }
+        
+        return '';
+    } catch (e) {
+        console.error("Error calculating over short leave for:", checkIn, checkOut, e);
+        return '';
+    }
 };
 
 
@@ -236,6 +286,7 @@ export default function AttendancePage() {
                 if (leaveForDay) {
                     leaveInfo = leaveForDay.leaveType.replace('-', ' ');
                 }
+                const overShortLeave = calculateOverShortLeave(checkInValue, checkOutValue, leaveInfo);
 
                 return {
                     date: format(day, 'MMM d, yyyy'),
@@ -243,6 +294,7 @@ export default function AttendancePage() {
                     checkOut: checkOutValue,
                     overtime: calculateOvertime(checkInValue, checkOutValue, selectedEditor.isEligibleForMorningOT),
                     leaveInfo,
+                    overShortLeave,
                 };
             });
 
@@ -272,6 +324,7 @@ export default function AttendancePage() {
       
       if (field === 'checkIn' || field === 'checkOut') {
         record.overtime = calculateOvertime(record.checkIn, record.checkOut, selectedEditor?.isEligibleForMorningOT);
+        record.overShortLeave = calculateOverShortLeave(record.checkIn, record.checkOut, record.leaveInfo);
       }
       
       setAttendanceData(updatedData);
@@ -360,6 +413,11 @@ export default function AttendancePage() {
                                 </div>
                               </TableHead>
                               <TableHead className="w-[120px]">
+                                <div className="flex items-center text-orange-600">
+                                  <AlertTriangle className="mr-2 h-4 w-4" /> Over SL
+                                </div>
+                              </TableHead>
+                              <TableHead className="w-[120px]">
                                 <div className="flex items-center">
                                     <Plane className="mr-2 h-4 w-4" /> Leave
                                 </div>
@@ -390,6 +448,9 @@ export default function AttendancePage() {
                                   </TableCell>
                                   <TableCell className="font-mono text-muted-foreground text-sm">
                                       {rec.overtime}
+                                  </TableCell>
+                                   <TableCell className="font-mono text-orange-600 text-sm">
+                                      {rec.overShortLeave}
                                   </TableCell>
                                   <TableCell>
                                     {rec.leaveInfo && <Badge variant="outline" className="capitalize border-sky-500 text-sky-500">{rec.leaveInfo}</Badge>}
