@@ -48,35 +48,75 @@ export default function MyAttendancePage() {
   const combinedMonthData = useMemo(() => {
     if (!attendanceData) return [];
 
+    // 1. Create records for all data present in the fetched timesheet
+    const recordsFromData = attendanceData.map(rec => {
+        const day = new Date(rec.date);
+        const leaveForDay = approvedLeaves.find(req => isSameDay(parseISO(req.date), day));
+        const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+        
+        let status = 'Present';
+         if (leaveForDay) {
+            status = 'On Leave';
+        } else if (isWeekend && !rec.checkIn) {
+            status = 'Weekend';
+        } else if (!rec.checkIn) {
+            status = 'Absent'
+        }
+
+        return {
+            dateObj: day, // For sorting
+            date: format(day, 'MMM d, yyyy (EEE)'),
+            checkIn: rec.checkIn || '-',
+            checkOut: rec.checkOut || '-',
+            overtime: rec.overtime || '-',
+            earlyLeave: rec.earlyLeave || '-',
+            leaveInfo: leaveForDay ? leaveForDay.leaveType.replace('-', ' ') : (rec.leaveInfo || '-'),
+            status: status,
+        };
+    });
+
+    // 2. Find which days of the *selected month* are not yet in our list
     const monthStart = new Date(selectedYear, selectedMonth, 1);
     const monthEnd = new Date(selectedYear, selectedMonth + 1, 0);
-    const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    const daysInSelectedMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    
+    const missingDayRecords = daysInSelectedMonth.map(day => {
+        const isDayPresent = recordsFromData.some(rec => isSameDay(rec.dateObj, day));
+        if (isDayPresent) {
+            return null; // This day is already covered by the attendance data
+        }
 
-    return daysInMonth.map(day => {
-      const attendanceForDay = attendanceData.find(rec => rec.date === format(day, 'MMM d, yyyy'));
-      const leaveForDay = approvedLeaves.find(req => isSameDay(parseISO(req.date), day));
-      
-      const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+        // The day is missing, so we create a placeholder "Absent" or "Weekend" record for it
+        const leaveForDay = approvedLeaves.find(req => isSameDay(parseISO(req.date), day));
+        const isWeekend = day.getDay() === 0 || day.getDay() === 6;
 
-      let status = 'Present';
-      if (leaveForDay) {
-          status = 'On Leave';
-      } else if (isWeekend) {
-          status = 'Weekend';
-      } else if (!attendanceForDay || !attendanceForDay.checkIn) {
-          status = 'Absent';
-      }
+        let status = 'Absent';
+        if (leaveForDay) {
+            status = 'On Leave';
+        } else if (isWeekend) {
+            status = 'Weekend';
+        }
 
-      return {
-          date: format(day, 'MMM d, yyyy (EEE)'),
-          checkIn: attendanceForDay?.checkIn || '-',
-          checkOut: attendanceForDay?.checkOut || '-',
-          overtime: attendanceForDay?.overtime || '-',
-          earlyLeave: attendanceForDay?.earlyLeave || '-',
-          leaveInfo: leaveForDay ? leaveForDay.leaveType.replace('-', ' ') : '-',
-          status: status,
-      };
-    });
+        return {
+            dateObj: day,
+            date: format(day, 'MMM d, yyyy (EEE)'),
+            checkIn: '-',
+            checkOut: '-',
+            overtime: '-',
+            earlyLeave: '-',
+            leaveInfo: leaveForDay ? leaveForDay.leaveType.replace('-', ' ') : '-',
+            status: status,
+        };
+    }).filter(Boolean);
+
+    // 3. Combine the records from data and the placeholder records
+    const allRecords = [...recordsFromData, ...missingDayRecords];
+
+    // 4. Sort all records chronologically
+    allRecords.sort((a, b) => a!.dateObj.getTime() - b!.dateObj.getTime());
+    
+    // 5. Remove the temporary dateObj before returning for display
+    return allRecords.map(({ dateObj, ...rest }) => rest);
 
   }, [attendanceData, approvedLeaves, selectedYear, selectedMonth]);
   
