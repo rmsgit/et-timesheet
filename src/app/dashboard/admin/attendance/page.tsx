@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { User as EditorUser } from '@/lib/types';
+import { eachDayOfInterval, format } from 'date-fns';
 
 interface AttendanceRecord {
   date: string;
@@ -77,15 +78,42 @@ export default function AttendancePage() {
     setIsProcessing(true);
     // Mock processing for a single editor
     setTimeout(() => {
-      setDateRange('From: 2025-12-23 00:00:00 To: 2026-01-22 23:59:59');
-      setAttendanceData([
-        { date: '23', checkIn: '7:37:58', checkOut: '17:49:30' },
-        { date: '24', checkIn: '7:46:50', checkOut: '17:59:08' },
-        { date: '25', checkIn: '', checkOut: '' }, // Example of a day off
-        { date: '26', checkIn: '8:01:12', checkOut: '18:05:00' },
-        { date: '27', checkIn: '7:55:00', checkOut: '18:10:00' },
-        { date: '28', checkIn: '8:00:00', checkOut: '18:00:00' },
-      ]);
+      const fromDate = new Date('2025-12-23T00:00:00');
+      const toDate = new Date('2026-01-22T23:59:59');
+      
+      setDateRange(`From: ${format(fromDate, 'yyyy-MM-dd HH:mm:ss')} To: ${format(toDate, 'yyyy-MM-dd HH:mm:ss')}`);
+
+      const days = eachDayOfInterval({ start: fromDate, end: toDate });
+      
+      const newAttendanceData: AttendanceRecord[] = days.map(day => {
+        const dayOfWeek = day.getDay(); // Sunday is 0
+        
+        // Make Sundays a day off, and some other random days off
+        if (dayOfWeek === 0 || Math.random() > 0.9) {
+             return { 
+                 date: format(day, 'MMM d'), // Format date as 'Dec 23'
+                 checkIn: '', 
+                 checkOut: '' 
+             };
+        }
+        
+        // Generate some random-ish times for work days
+        const checkInHour = 7 + Math.floor(Math.random() * 2); // 7 or 8 AM
+        const checkInMinute = Math.floor(Math.random() * 60);
+        const checkInSecond = Math.floor(Math.random() * 60);
+        
+        const checkOutHour = 17 + Math.floor(Math.random() * 2); // 5 or 6 PM
+        const checkOutMinute = Math.floor(Math.random() * 60);
+        const checkOutSecond = Math.floor(Math.random() * 60);
+
+        return {
+          date: format(day, 'MMM d'),
+          checkIn: `${String(checkInHour).padStart(2, '0')}:${String(checkInMinute).padStart(2, '0')}:${String(checkInSecond).padStart(2, '0')}`,
+          checkOut: `${String(checkOutHour).padStart(2, '0')}:${String(checkOutMinute).padStart(2, '0')}:${String(checkOutSecond).padStart(2, '0')}`
+        };
+      });
+      
+      setAttendanceData(newAttendanceData);
       setIsProcessing(false);
       toast({
         title: 'File Processed',
