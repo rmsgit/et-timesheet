@@ -44,6 +44,7 @@ import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { auth } from '@/lib/firebase'; 
 import { createUserWithEmailAndPassword, deleteUser as deleteAuthUser, sendPasswordResetEmail } from 'firebase/auth'; 
 import { cn } from '@/lib/utils';
+import { Checkbox } from '../ui/checkbox';
 
 
 type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role'> | 'editorLevelName';
@@ -59,6 +60,7 @@ export const UserManagementTable: React.FC = () => {
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<'editor' | 'admin'>('editor');
   const [newUserEditorLevelId, setNewUserEditorLevelId] = useState<string | undefined>(undefined);
+  const [newUserIsEligibleForMorningOT, setNewUserIsEligibleForMorningOT] = useState(false);
   
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -70,11 +72,12 @@ export const UserManagementTable: React.FC = () => {
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
-  const [editUserFormState, setEditUserFormState] = useState<{ username: string; email: string; role: 'editor' | 'admin'; editorLevelId?: string }>({
+  const [editUserFormState, setEditUserFormState] = useState<{ username: string; email: string; role: 'editor' | 'admin'; editorLevelId?: string; isEligibleForMorningOT?: boolean; }>({
     username: '',
     email: '',
     role: 'editor',
     editorLevelId: undefined,
+    isEligibleForMorningOT: false,
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -151,6 +154,7 @@ export const UserManagementTable: React.FC = () => {
     setNewUserName('');
     setNewUserRole('editor');
     setNewUserEditorLevelId(sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined);
+    setNewUserIsEligibleForMorningOT(false);
     setIsAddUserDialogOpen(true);
   };
 
@@ -181,7 +185,8 @@ export const UserManagementTable: React.FC = () => {
         newUserEmail, 
         newUserName, 
         newUserRole, 
-        newUserRole === 'editor' ? newUserEditorLevelId : undefined
+        newUserRole === 'editor' ? newUserEditorLevelId : undefined,
+        newUserRole === 'editor' ? newUserIsEligibleForMorningOT : false
       );
 
       if (profileResult.success) {
@@ -320,6 +325,7 @@ export const UserManagementTable: React.FC = () => {
         email: user.email || '',
         role: user.role || 'editor',
         editorLevelId: user.editorLevelId || (user.role === 'editor' && sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined),
+        isEligibleForMorningOT: user.isEligibleForMorningOT ?? false,
     });
     setIsEditUserDialogOpen(true);
   };
@@ -351,7 +357,8 @@ export const UserManagementTable: React.FC = () => {
         editUserFormState.email,
         editUserFormState.username,
         editUserFormState.role,
-        editUserFormState.role === 'editor' ? editUserFormState.editorLevelId : undefined
+        editUserFormState.role === 'editor' ? editUserFormState.editorLevelId : undefined,
+        editUserFormState.role === 'editor' ? editUserFormState.isEligibleForMorningOT : false
     );
 
     if (result.success) {
@@ -551,27 +558,40 @@ export const UserManagementTable: React.FC = () => {
               </Select>
             </div>
             {newUserRole === 'editor' && (
-              <div className="space-y-1.5">
-                <Label htmlFor="new-user-editor-level">Editor Level</Label>
-                {isLoadingEditorLevels ? (
-                     <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                     </div>
-                ) : sortedEditorLevelsForSelect.length > 0 ? (
-                    <Select value={newUserEditorLevelId} onValueChange={setNewUserEditorLevelId} disabled={isSubmittingForm || isLoadingEditorLevels}>
-                    <SelectTrigger id="new-user-editor-level">
-                        <SelectValue placeholder="Select editor level" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {sortedEditorLevelsForSelect.map((level) => (
-                        <SelectItem key={level.id} value={level.id}>{level.name}</SelectItem>
-                        ))}
-                    </SelectContent>
-                    </Select>
-                ) : (
-                     <p className="text-sm text-muted-foreground p-2 border rounded-md">No editor levels defined yet. Please add levels in Admin > Editor Levels.</p>
-                )}
-              </div>
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="new-user-editor-level">Editor Level</Label>
+                  {isLoadingEditorLevels ? (
+                      <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      </div>
+                  ) : sortedEditorLevelsForSelect.length > 0 ? (
+                      <Select value={newUserEditorLevelId} onValueChange={setNewUserEditorLevelId} disabled={isSubmittingForm || isLoadingEditorLevels}>
+                      <SelectTrigger id="new-user-editor-level">
+                          <SelectValue placeholder="Select editor level" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          {sortedEditorLevelsForSelect.map((level) => (
+                          <SelectItem key={level.id} value={level.id}>{level.name}</SelectItem>
+                          ))}
+                      </SelectContent>
+                      </Select>
+                  ) : (
+                      <p className="text-sm text-muted-foreground p-2 border rounded-md">No editor levels defined yet. Please add levels in Admin > Editor Levels.</p>
+                  )}
+                </div>
+                <div className="flex items-center space-x-2 pt-2">
+                    <Checkbox
+                        id="new-user-morning-ot"
+                        checked={newUserIsEligibleForMorningOT}
+                        onCheckedChange={(checked) => setNewUserIsEligibleForMorningOT(checked as boolean)}
+                        disabled={isSubmittingForm}
+                    />
+                    <Label htmlFor="new-user-morning-ot" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        Eligible for Morning OT
+                    </Label>
+                </div>
+              </>
             )}
           </div>
           <DialogFooter>
@@ -642,31 +662,44 @@ export const UserManagementTable: React.FC = () => {
                         </Select>
                     </div>
                     {editUserFormState.role === 'editor' && (
-                        <div className="space-y-1.5">
-                            <Label htmlFor="edit-user-editor-level">Editor Level</Label>
-                            {isLoadingEditorLevels ? (
-                                 <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
-                                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                                 </div>
-                            ) : sortedEditorLevelsForSelect.length > 0 ? (
-                                <Select 
-                                    value={editUserFormState.editorLevelId} 
-                                    onValueChange={(value) => setEditUserFormState(prev => ({ ...prev, editorLevelId: value }))} 
-                                    disabled={isSubmittingForm || isLoadingEditorLevels}
-                                >
-                                <SelectTrigger id="edit-user-editor-level">
-                                    <SelectValue placeholder="Select editor level" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {sortedEditorLevelsForSelect.map((level) => (
-                                    <SelectItem key={level.id} value={level.id}>{level.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                                </Select>
-                            ) : (
-                                <p className="text-sm text-muted-foreground p-2 border rounded-md">No editor levels defined yet. Cannot assign.</p>
-                            )}
-                        </div>
+                        <>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="edit-user-editor-level">Editor Level</Label>
+                                {isLoadingEditorLevels ? (
+                                    <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
+                                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : sortedEditorLevelsForSelect.length > 0 ? (
+                                    <Select 
+                                        value={editUserFormState.editorLevelId} 
+                                        onValueChange={(value) => setEditUserFormState(prev => ({ ...prev, editorLevelId: value }))} 
+                                        disabled={isSubmittingForm || isLoadingEditorLevels}
+                                    >
+                                    <SelectTrigger id="edit-user-editor-level">
+                                        <SelectValue placeholder="Select editor level" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {sortedEditorLevelsForSelect.map((level) => (
+                                        <SelectItem key={level.id} value={level.id}>{level.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                    </Select>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground p-2 border rounded-md">No editor levels defined yet. Cannot assign.</p>
+                                )}
+                            </div>
+                            <div className="flex items-center space-x-2 pt-2">
+                                <Checkbox
+                                    id="edit-user-morning-ot"
+                                    checked={editUserFormState.isEligibleForMorningOT}
+                                    onCheckedChange={(checked) => setEditUserFormState(prev => ({ ...prev, isEligibleForMorningOT: checked as boolean }))}
+                                    disabled={isSubmittingForm}
+                                />
+                                <Label htmlFor="edit-user-morning-ot" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                    Eligible for Morning OT
+                                </Label>
+                            </div>
+                        </>
                     )}
                 </div>
                 <DialogFooter>

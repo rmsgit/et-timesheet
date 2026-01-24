@@ -22,7 +22,7 @@ interface AttendanceRecord {
   overtime: string;
 }
 
-const calculateOvertime = (checkIn: string, checkOut: string): string => {
+const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorningOT?: boolean): string => {
     if (!checkOut || typeof checkOut !== 'string' || !checkOut.includes(':') || !checkIn || typeof checkIn !== 'string' || !checkIn.includes(':')) {
         return '';
     }
@@ -47,6 +47,7 @@ const calculateOvertime = (checkIn: string, checkOut: string): string => {
 
     const dummyDate = '1970-01-01T';
     try {
+        const isEligible = isEligibleForMorningOT === true;
         const startTime = new Date(`${dummyDate}08:15:00`);
         const endTime = new Date(`${dummyDate}17:15:00`);
         const checkInTime = new Date(`${dummyDate}${normalizedCheckInTime}`);
@@ -56,8 +57,8 @@ const calculateOvertime = (checkIn: string, checkOut: string): string => {
             return '';
         }
 
-        // Condition: If check-in time is after company start time, no OT
-        if (checkInTime > startTime) {
+        // Condition: If check-in time is after company start time, no OT, unless eligible
+        if (!isEligible && checkInTime > startTime) {
             return '';
         }
 
@@ -203,7 +204,7 @@ export default function AttendancePage() {
                     date: format(day, 'MMM d, yyyy'),
                     checkIn: checkInValue,
                     checkOut: checkOutValue,
-                    overtime: calculateOvertime(checkInValue, checkOutValue),
+                    overtime: calculateOvertime(checkInValue, checkOutValue, selectedEditor.isEligibleForMorningOT),
                 };
             });
 
@@ -232,7 +233,7 @@ export default function AttendancePage() {
       record[field] = value;
       
       if (field === 'checkIn' || field === 'checkOut') {
-        record.overtime = calculateOvertime(record.checkIn, record.checkOut);
+        record.overtime = calculateOvertime(record.checkIn, record.checkOut, selectedEditor?.isEligibleForMorningOT);
       }
       
       setAttendanceData(updatedData);

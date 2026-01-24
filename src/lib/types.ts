@@ -7,6 +7,7 @@ export interface User {
   username: string; // From RTDB (can be email as fallback if not in RTDB)
   role: 'admin' | 'editor' | null; // From RTDB
   editorLevelId?: string; // ID of the assigned EditorLevel
+  isEligibleForMorningOT?: boolean;
 }
 
 export interface CategoryRating {
