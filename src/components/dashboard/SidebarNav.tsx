@@ -13,7 +13,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award, Library, Star, ClipboardCheck, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award, Library, Star, ClipboardCheck, TrendingUp, CalendarCheck } from 'lucide-react';
 
 export function SidebarNav() {
   const pathname = usePathname();
@@ -32,6 +32,7 @@ export function SidebarNav() {
     { href: '/dashboard/admin/editor-report', label: 'Editor Specific Report', icon: UserCheck },
     { href: '/dashboard/admin/project-overview', label: 'Project Overview', icon: Layers },
     { href: '/dashboard/admin/performance-reviews', label: 'Performance Reviews', icon: ClipboardCheck },
+    { href: '/dashboard/admin/attendance', label: 'Attendance', icon: CalendarCheck },
     { href: '/dashboard/admin/project-types', label: 'Project Types', icon: FolderKanban },
     { href: '/dashboard/admin/editor-levels', label: 'Editor Levels', icon: Award },
     { href: '/dashboard/admin/rating-categories', label: 'Rating Categories', icon: Star },
