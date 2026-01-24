@@ -317,9 +317,10 @@ export default function AttendancePage() {
     reader.readAsArrayBuffer(selectedFile);
   };
   
-  const handleAttendanceChange = (recordIndex: number, field: 'checkIn' | 'checkOut', value: string) => {
+  const handleAttendanceChange = (recordIndex: number, field: 'checkIn' | 'checkOut' | 'earlyLeave', value: string) => {
       const updatedData = [...attendanceData];
       const record = updatedData[recordIndex];
+      
       record[field] = value;
       
       if (field === 'checkIn' || field === 'checkOut') {
@@ -446,11 +447,17 @@ export default function AttendancePage() {
                                           className="h-9"
                                       />
                                   </TableCell>
-                                  <TableCell className="font-mono text-muted-foreground text-sm">
-                                      {rec.overtime}
+                                  <TableCell className="text-sm">
+                                      <span className="font-mono text-muted-foreground">{rec.overtime}</span>
                                   </TableCell>
-                                   <TableCell className="font-mono text-orange-600 text-sm">
-                                      {rec.earlyLeave}
+                                   <TableCell>
+                                      <Input 
+                                          type="text" 
+                                          value={rec.earlyLeave} 
+                                          onChange={(e) => handleAttendanceChange(recordIndex, 'earlyLeave', e.target.value)}
+                                          placeholder="--h --m"
+                                          className="h-9 font-mono text-orange-600"
+                                      />
                                   </TableCell>
                                   <TableCell>
                                     {rec.leaveInfo && <Badge variant="outline" className="capitalize border-sky-500 text-sky-500">{rec.leaveInfo}</Badge>}
@@ -492,3 +499,5 @@ export default function AttendancePage() {
     </div>
   );
 }
+
+    
