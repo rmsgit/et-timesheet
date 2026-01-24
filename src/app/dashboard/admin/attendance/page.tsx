@@ -23,26 +23,30 @@ interface AttendanceRecord {
 }
 
 const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorningOT?: boolean): string => {
-    if (!checkOut || typeof checkOut !== 'string' || !checkOut.includes(':') || !checkIn || typeof checkIn !== 'string' || !checkIn.includes(':')) {
+    if ((!checkIn || typeof checkIn !== 'string' || !checkIn.includes(':')) && (!checkOut || typeof checkOut !== 'string' || !checkOut.includes(':'))){
         return '';
     }
 
-    // Normalize check-in time
-    const checkInParts = checkIn.split(':');
-    let normalizedCheckInTime = checkIn;
-    if (checkInParts.length === 2) {
-        normalizedCheckInTime = `${checkIn}:00`;
-    } else if (checkInParts.length !== 3) {
-        return ''; // Invalid check-in format
+    let normalizedCheckInTime = '';
+    if (checkIn && typeof checkIn === 'string' && checkIn.includes(':')) {
+        const checkInParts = checkIn.split(':');
+        normalizedCheckInTime = checkIn;
+        if (checkInParts.length === 2) {
+            normalizedCheckInTime = `${checkIn}:00`;
+        } else if (checkInParts.length !== 3) {
+            normalizedCheckInTime = ''; 
+        }
     }
     
-    // Normalize check-out time
-    const checkOutParts = checkOut.split(':');
-    let normalizedCheckOutTime = checkOut;
-    if (checkOutParts.length === 2) {
-        normalizedCheckOutTime = `${checkOut}:00`;
-    } else if (checkOutParts.length !== 3) {
-        return ''; // Invalid check-out format
+    let normalizedCheckOutTime = '';
+     if (checkOut && typeof checkOut === 'string' && checkOut.includes(':')) {
+        const checkOutParts = checkOut.split(':');
+        normalizedCheckOutTime = checkOut;
+        if (checkOutParts.length === 2) {
+            normalizedCheckOutTime = `${checkOut}:00`;
+        } else if (checkOutParts.length !== 3) {
+            normalizedCheckOutTime = ''; 
+        }
     }
 
     const dummyDate = '1970-01-01T';
@@ -50,28 +54,46 @@ const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorni
         const isEligible = isEligibleForMorningOT === true;
         const startTime = new Date(`${dummyDate}08:15:00`);
         const endTime = new Date(`${dummyDate}17:15:00`);
-        const checkInTime = new Date(`${dummyDate}${normalizedCheckInTime}`);
-        const checkOutTime = new Date(`${dummyDate}${normalizedCheckOutTime}`);
         
-        if (isNaN(checkInTime.getTime()) || isNaN(checkOutTime.getTime()) || isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+        const checkInTime = normalizedCheckInTime ? new Date(`${dummyDate}${normalizedCheckInTime}`) : null;
+        const checkOutTime = normalizedCheckOutTime ? new Date(`${dummyDate}${normalizedCheckOutTime}`) : null;
+        
+        if ((checkInTime && isNaN(checkInTime.getTime())) || (checkOutTime && isNaN(checkOutTime.getTime()))) {
             return '';
         }
 
-        // Condition: If check-in time is after company start time, no OT, unless eligible
-        if (!isEligible && checkInTime > startTime) {
+        // If user is NOT eligible for morning OT and they arrive late, they get no OT at all.
+        if (checkInTime && !isEligible && checkInTime > startTime) {
             return '';
         }
 
-        if (checkOutTime > endTime) {
-            const diffSeconds = Math.floor((checkOutTime.getTime() - endTime.getTime()) / 1000);
-            const hours = Math.floor(diffSeconds / 3600);
-            const minutes = Math.floor((diffSeconds % 3600) / 60);
+        let morningOtSeconds = 0;
+        let eveningOtSeconds = 0;
 
-            const partStrings: string[] = [];
-            if (hours > 0) partStrings.push(`${hours}h`);
-            if (minutes > 0) partStrings.push(`${minutes}m`);
-            return partStrings.join(' ');
+        // Calculate morning OT if eligible and arrived early
+        if (checkInTime && isEligible && checkInTime < startTime) {
+            morningOtSeconds = Math.floor((startTime.getTime() - checkInTime.getTime()) / 1000);
         }
+
+        // Calculate evening OT if they stayed late
+        if (checkOutTime && checkOutTime > endTime) {
+            eveningOtSeconds = Math.floor((checkOutTime.getTime() - endTime.getTime()) / 1000);
+        }
+        
+        const totalOtSeconds = morningOtSeconds + eveningOtSeconds;
+
+        if (totalOtSeconds <= 0) {
+            return '';
+        }
+
+        const hours = Math.floor(totalOtSeconds / 3600);
+        const minutes = Math.floor((totalOtSeconds % 3600) / 60);
+
+        const partStrings: string[] = [];
+        if (hours > 0) partStrings.push(`${hours}h`);
+        if (minutes > 0) partStrings.push(`${minutes}m`);
+        return partStrings.join(' ');
+
     } catch (e) {
         console.error("Error calculating overtime for:", checkIn, checkOut, e);
         return '';
@@ -385,7 +407,3 @@ export default function AttendancePage() {
     </div>
   );
 }
-
-    
-
-    
