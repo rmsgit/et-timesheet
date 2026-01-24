@@ -3,7 +3,7 @@
 
 import React, { createContext, ReactNode, useState, useEffect, useCallback } from 'react';
 import { database } from '@/lib/firebase';
-import { ref, onValue, set, push, update as firebaseUpdate } from 'firebase/database';
+import { ref, onValue, set, push, update as firebaseUpdate, remove } from 'firebase/database';
 import { FIREBASE_LEAVE_REQUESTS_PATH } from '@/lib/constants';
 import type { LeaveRequest, LeaveType } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,6 +17,7 @@ interface LeaveContextType {
   isLoading: boolean;
   applyForLeave: (date: Date, leaveType: LeaveType, reason: string) => Promise<{ success: boolean; id?: string }>;
   updateLeaveStatus: (leaveId: string, status: 'approved' | 'rejected') => Promise<{ success: boolean }>;
+  cancelLeaveRequest: (leaveId: string) => Promise<{ success: boolean }>;
 }
 
 export const LeaveContext = createContext<LeaveContextType | undefined>(undefined);
@@ -129,9 +130,41 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
       return { success: false };
     }
   }, [user, toast]);
+
+  const cancelLeaveRequest = useCallback(async (leaveId: string): Promise<{ success: boolean }> => {
+    if (!user) {
+        toast({ title: "Not Authenticated", description: "You must be logged in to cancel a request.", variant: "destructive" });
+        return { success: false };
+    }
+    if (!database) return { success: false };
+
+    const requestToCancel = leaveRequests.find(req => req.id === leaveId);
+    if (!requestToCancel) {
+        toast({ title: "Not Found", description: "The leave request could not be found.", variant: "destructive" });
+        return { success: false };
+    }
+    if (requestToCancel.userId !== user.id) {
+        toast({ title: "Permission Denied", description: "You can only cancel your own leave requests.", variant: "destructive" });
+        return { success: false };
+    }
+     if (requestToCancel.status !== 'pending') {
+        toast({ title: "Action Not Allowed", description: "You can only cancel pending leave requests.", variant: "destructive" });
+        return { success: false };
+    }
+
+    try {
+        await remove(ref(database, `${FIREBASE_LEAVE_REQUESTS_PATH}/${leaveId}`));
+        toast({ title: "Success", description: "Your leave request has been cancelled." });
+        return { success: true };
+    } catch (error) {
+        console.error("Firebase cancel leave request error:", error);
+        toast({ title: "Error", description: "Failed to cancel leave request.", variant: "destructive" });
+        return { success: false };
+    }
+}, [user, toast, leaveRequests]);
   
   return (
-    <LeaveContext.Provider value={{ leaveRequests, isLoading, applyForLeave, updateLeaveStatus }}>
+    <LeaveContext.Provider value={{ leaveRequests, isLoading, applyForLeave, updateLeaveStatus, cancelLeaveRequest }}>
       {children}
     </LeaveContext.Provider>
   );

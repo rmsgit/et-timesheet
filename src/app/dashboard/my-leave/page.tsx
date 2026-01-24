@@ -32,15 +32,14 @@ type LeaveFormData = z.infer<typeof leaveFormSchema>;
 
 export default function MyLeavePage() {
   const { user } = useAuth();
-  const { leaveRequests, isLoading, applyForLeave } = useLeave();
+  const { leaveRequests, isLoading, applyForLeave, cancelLeaveRequest } = useLeave();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [isCancelling, setIsCancelling] = useState<string | null>(null);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<LeaveFormData>({
     resolver: zodResolver(leaveFormSchema),
     defaultValues: {
-      date: new Date(),
-      leaveType: 'full-day',
       reason: '',
     },
   });
@@ -89,6 +88,12 @@ export default function MyLeavePage() {
       reset();
     }
     setIsSubmitting(false);
+  };
+  
+  const handleCancel = async (leaveId: string) => {
+    setIsCancelling(leaveId);
+    await cancelLeaveRequest(leaveId);
+    setIsCancelling(null);
   };
 
   const getStatusBadge = (status: LeaveRequest['status']) => {
@@ -222,14 +227,16 @@ export default function MyLeavePage() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <TableSkeleton columnCount={4} rowCount={5} />
+              <TableSkeleton columnCount={5} rowCount={5} />
             ) : filteredLeaveRequestsForYear.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Type</TableHead>
+                    <TableHead>Reason</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -237,7 +244,26 @@ export default function MyLeavePage() {
                     <TableRow key={req.id}>
                       <TableCell>{format(parseISO(req.date), 'PPP')}</TableCell>
                       <TableCell className="capitalize">{req.leaveType.replace('-', ' ')}</TableCell>
+                      <TableCell className="max-w-[150px] truncate">{req.reason}</TableCell>
                       <TableCell>{getStatusBadge(req.status)}</TableCell>
+                      <TableCell className="text-right">
+                        {req.status === 'pending' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                            onClick={() => handleCancel(req.id)}
+                            disabled={isCancelling === req.id || isSubmitting}
+                          >
+                            {isCancelling === req.id ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <XCircle className="mr-1 h-4 w-4" />
+                            )}
+                            Cancel
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
