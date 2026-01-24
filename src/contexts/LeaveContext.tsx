@@ -19,6 +19,7 @@ interface LeaveContextType {
   updateLeaveStatus: (leaveId: string, status: 'approved' | 'rejected') => Promise<{ success: boolean }>;
   cancelLeaveRequest: (leaveId: string) => Promise<{ success: boolean }>;
   updateLeaveRequest: (leaveId: string, updates: Partial<LeaveRequest>) => Promise<{ success: boolean }>;
+  deleteLeaveRequest: (leaveId: string) => Promise<{ success: boolean }>;
 }
 
 export const LeaveContext = createContext<LeaveContextType | undefined>(undefined);
@@ -186,8 +187,29 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
     }
   }, [toast]);
   
+  const deleteLeaveRequest = useCallback(async (leaveId: string): Promise<{ success: boolean }> => {
+    if (!user || user.role !== 'admin') {
+      toast({ title: "Permission Denied", description: "Only admins can delete leave requests.", variant: "destructive" });
+      return { success: false };
+    }
+    if (!database) {
+      toast({ title: "Error", description: "Database not connected.", variant: "destructive" });
+      return { success: false };
+    }
+
+    try {
+      await remove(ref(database, `${FIREBASE_LEAVE_REQUESTS_PATH}/${leaveId}`));
+      toast({ title: "Success", description: "Leave request has been permanently deleted." });
+      return { success: true };
+    } catch (error) {
+      console.error("Firebase delete leave request error:", error);
+      toast({ title: "Error", description: "Failed to delete leave request.", variant: "destructive" });
+      return { success: false };
+    }
+  }, [user, toast]);
+
   return (
-    <LeaveContext.Provider value={{ leaveRequests, isLoading, applyForLeave, updateLeaveStatus, cancelLeaveRequest, updateLeaveRequest }}>
+    <LeaveContext.Provider value={{ leaveRequests, isLoading, applyForLeave, updateLeaveStatus, cancelLeaveRequest, updateLeaveRequest, deleteLeaveRequest }}>
       {children}
     </LeaveContext.Provider>
   );

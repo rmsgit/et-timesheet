@@ -10,14 +10,33 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, Hourglass, Plane, Loader2, User, Ban } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { CheckCircle, XCircle, Hourglass, Plane, Loader2, User, Ban, MoreHorizontal, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 
 export default function LeaveManagementPage() {
-  const { leaveRequests, isLoading: isLoadingLeave, updateLeaveStatus } = useLeave();
+  const { leaveRequests, isLoading: isLoadingLeave, updateLeaveStatus, deleteLeaveRequest } = useLeave();
   const { users, isUsersLoading } = useMockUsers();
-  const [isUpdating, setIsUpdating] = useState<string | null>(null); // Store ID of leave being updated
+  const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [leaveRequestToDelete, setLeaveRequestToDelete] = useState<(LeaveRequest & { username: string }) | null>(null);
 
   const isLoading = isLoadingLeave || isUsersLoading;
 
@@ -43,6 +62,18 @@ export default function LeaveManagementPage() {
     setIsUpdating(null);
   };
   
+  const handleDelete = (req: LeaveRequest & { username: string }) => {
+    setLeaveRequestToDelete(req);
+  };
+
+  const confirmDelete = async () => {
+    if (!leaveRequestToDelete) return;
+    setIsDeleting(leaveRequestToDelete.id);
+    await deleteLeaveRequest(leaveRequestToDelete.id);
+    setIsDeleting(null);
+    setLeaveRequestToDelete(null);
+  };
+
   const renderTable = (requests: (LeaveRequest & { username: string })[]) => {
       if (isLoading) return <TableSkeleton columnCount={6} />;
       if (requests.length === 0) return <p className="text-center text-muted-foreground py-8">No requests in this category.</p>;
@@ -57,10 +88,10 @@ export default function LeaveManagementPage() {
                       <TableHead>Date</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Reason</TableHead>
-                      {currentStatus === 'pending' && <TableHead className="text-right">Actions</TableHead>}
                       {currentStatus === 'approved' && <TableHead>Approved By</TableHead>}
                       {currentStatus === 'rejected' && <TableHead>Rejected By</TableHead>}
                       {currentStatus === 'cancelled' && <TableHead>Cancelled By</TableHead>}
+                      <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
               </TableHeader>
               <TableBody>
@@ -70,22 +101,46 @@ export default function LeaveManagementPage() {
                           <TableCell>{format(parseISO(req.date), 'PPP')}</TableCell>
                           <TableCell className="capitalize">{req.leaveType.replace('-', ' ')}</TableCell>
                           <TableCell className="max-w-xs truncate">{req.reason}</TableCell>
-                          {req.status === 'pending' ? (
-                            <TableCell className="text-right space-x-2">
-                                <Button size="sm" variant="outline" className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700" onClick={() => handleUpdateStatus(req.id, 'approved')} disabled={isUpdating === req.id}>
-                                    {isUpdating === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="mr-1 h-4 w-4" />}
-                                    Approve
+                          
+                          {currentStatus === 'approved' && <TableCell>{req.reviewedBy ? getUsername(req.reviewedBy) : 'N/A'}</TableCell>}
+                          {currentStatus === 'rejected' && <TableCell>{req.reviewedBy ? getUsername(req.reviewedBy) : 'N/A'}</TableCell>}
+                          {currentStatus === 'cancelled' && <TableCell>{req.cancelledBy ? getUsername(req.cancelledBy) : 'N/A'}</TableCell>}
+
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0" disabled={isUpdating === req.id || isDeleting === req.id}>
+                                  <span className="sr-only">Open menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
                                 </Button>
-                                <Button size="sm" variant="outline" className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => handleUpdateStatus(req.id, 'rejected')} disabled={isUpdating === req.id}>
-                                     {isUpdating === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="mr-1 h-4 w-4" />}
-                                    Reject
-                                </Button>
-                            </TableCell>
-                          ) : (
-                            <TableCell>
-                                {req.status === 'cancelled' && req.cancelledBy ? getUsername(req.cancelledBy) : (req.reviewedBy ? getUsername(req.reviewedBy) : 'N/A')}
-                            </TableCell>
-                          )}
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {currentStatus === 'pending' && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => handleUpdateStatus(req.id, 'approved')} disabled={isUpdating === req.id}>
+                                      <CheckCircle className="mr-2 h-4 w-4" /> Approve
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleUpdateStatus(req.id, 'rejected')} disabled={isUpdating === req.id}>
+                                      <XCircle className="mr-2 h-4 w-4" /> Reject
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
+                                <DropdownMenuItem
+                                  onClick={() => handleDelete(req)}
+                                  className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
+                                  disabled={isDeleting === req.id}
+                                >
+                                  {isDeleting === req.id ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                  )}
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
                       </TableRow>
                   ))}
               </TableBody>
@@ -134,6 +189,24 @@ export default function LeaveManagementPage() {
             </Tabs>
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!leaveRequestToDelete} onOpenChange={(open) => !open && setLeaveRequestToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the leave request for <span className="font-semibold">{leaveRequestToDelete?.username}</span> on <span className="font-semibold">{leaveRequestToDelete && format(parseISO(leaveRequestToDelete.date), 'PPP')}</span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={!!isDeleting}>
+              {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
