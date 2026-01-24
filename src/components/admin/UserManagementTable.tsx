@@ -35,7 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Award, ChevronsUpDown } from 'lucide-react';
+import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Award, ChevronsUpDown, Leaf, Edit } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -47,7 +47,7 @@ import { cn } from '@/lib/utils';
 import { Checkbox } from '../ui/checkbox';
 
 
-type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role'> | 'editorLevelName';
+type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role' | 'availableLeaves'> | 'editorLevelName';
 
 export const UserManagementTable: React.FC = () => {
   const { users: allUsers, addUserProfileToRTDB, deleteUserProfileFromRTDB, isUsersLoading } = useMockUsers();
@@ -61,6 +61,7 @@ export const UserManagementTable: React.FC = () => {
   const [newUserRole, setNewUserRole] = useState<'editor' | 'admin'>('editor');
   const [newUserEditorLevelId, setNewUserEditorLevelId] = useState<string | undefined>(undefined);
   const [newUserIsEligibleForMorningOT, setNewUserIsEligibleForMorningOT] = useState(false);
+  const [newUserAvailableLeaves, setNewUserAvailableLeaves] = useState<number | string>(0);
   
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -72,13 +73,18 @@ export const UserManagementTable: React.FC = () => {
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
-  const [editUserFormState, setEditUserFormState] = useState<{ username: string; email: string; role: 'editor' | 'admin'; editorLevelId?: string; isEligibleForMorningOT?: boolean; }>({
+  const [editUserFormState, setEditUserFormState] = useState<{ username: string; email: string; role: 'editor' | 'admin'; editorLevelId?: string; isEligibleForMorningOT?: boolean; availableLeaves?: number; }>({
     username: '',
     email: '',
     role: 'editor',
     editorLevelId: undefined,
     isEligibleForMorningOT: false,
+    availableLeaves: 0,
   });
+
+  const [selectedUserIds, setSelectedUserIds] = useState(new Set<string>());
+  const [isBulkEditDialogOpen, setIsBulkEditDialogOpen] = useState(false);
+  const [bulkLeaves, setBulkLeaves] = useState<number | string>('');
 
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 15;
@@ -113,7 +119,9 @@ export const UserManagementTable: React.FC = () => {
         let comparison = 0;
         if (valA === null || valA === undefined || valA === '') comparison = -1;
         else if (valB === null || valB === undefined || valB === '') comparison = 1;
-        else if (typeof valA === 'string' && typeof valB === 'string') {
+        else if (typeof valA === 'number' && typeof valB === 'number') {
+          comparison = valA - valB;
+        } else if (typeof valA === 'string' && typeof valB === 'string') {
           comparison = valA.localeCompare(valB);
         } else {
           const strA = String(valA).toLowerCase();
@@ -147,6 +155,26 @@ export const UserManagementTable: React.FC = () => {
     return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
   };
 
+  const handleSelectUser = (userId: string) => {
+    setSelectedUserIds(prev => {
+      const newSelection = new Set(prev);
+      if (newSelection.has(userId)) {
+        newSelection.delete(userId);
+      } else {
+        newSelection.add(userId);
+      }
+      return newSelection;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedUserIds.size === paginatedUsers.length) {
+      setSelectedUserIds(new Set());
+    } else {
+      setSelectedUserIds(new Set(paginatedUsers.map(u => u.id)));
+    }
+  };
+
 
   const handleOpenAddUserDialog = () => {
     setNewUserEmail('');
@@ -155,6 +183,7 @@ export const UserManagementTable: React.FC = () => {
     setNewUserRole('editor');
     setNewUserEditorLevelId(sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined);
     setNewUserIsEligibleForMorningOT(false);
+    setNewUserAvailableLeaves(0);
     setIsAddUserDialogOpen(true);
   };
 
@@ -186,7 +215,8 @@ export const UserManagementTable: React.FC = () => {
         newUserName, 
         newUserRole, 
         newUserRole === 'editor' ? newUserEditorLevelId : undefined,
-        newUserRole === 'editor' ? newUserIsEligibleForMorningOT : false
+        newUserRole === 'editor' ? newUserIsEligibleForMorningOT : false,
+        Number(newUserAvailableLeaves)
       );
 
       if (profileResult.success) {
@@ -326,6 +356,7 @@ export const UserManagementTable: React.FC = () => {
         role: user.role || 'editor',
         editorLevelId: user.editorLevelId || (user.role === 'editor' && sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined),
         isEligibleForMorningOT: user.isEligibleForMorningOT ?? false,
+        availableLeaves: user.availableLeaves ?? 0,
     });
     setIsEditUserDialogOpen(true);
   };
@@ -358,7 +389,8 @@ export const UserManagementTable: React.FC = () => {
         editUserFormState.username,
         editUserFormState.role,
         editUserFormState.role === 'editor' ? editUserFormState.editorLevelId : undefined,
-        editUserFormState.role === 'editor' ? editUserFormState.isEligibleForMorningOT : false
+        editUserFormState.role === 'editor' ? editUserFormState.isEligibleForMorningOT : false,
+        editUserFormState.availableLeaves
     );
 
     if (result.success) {
@@ -370,6 +402,51 @@ export const UserManagementTable: React.FC = () => {
     }
     setIsSubmittingForm(false);
   };
+
+  const handleConfirmBulkEdit = async () => {
+    const leaves = parseInt(String(bulkLeaves), 10);
+    if (isNaN(leaves) || leaves < 0) {
+        toast({ title: 'Invalid Input', description: 'Please enter a valid non-negative number for leaves.', variant: 'destructive' });
+        return;
+    }
+
+    setIsSubmittingForm(true);
+
+    const updatePromises = Array.from(selectedUserIds).map(userId => {
+        const userToUpdate = allUsers.find(u => u.id === userId);
+        if (!userToUpdate || !userToUpdate.email || !userToUpdate.role) {
+            console.error(`Skipping bulk update for user ${userId}: missing data.`);
+            return Promise.resolve({ success: false, message: `User ${userId} not found or has incomplete data.` });
+        }
+        
+        return addUserProfileToRTDB(
+            userToUpdate.id,
+            userToUpdate.email,
+            userToUpdate.username,
+            userToUpdate.role,
+            userToUpdate.editorLevelId,
+            userToUpdate.isEligibleForMorningOT,
+            leaves
+        );
+    });
+
+    try {
+        const results = await Promise.all(updatePromises);
+        const failedUpdates = results.filter(r => !r.success);
+
+        if (failedUpdates.length > 0) {
+            toast({ title: 'Bulk Update Partially Failed', description: `${failedUpdates.length} of ${selectedUserIds.size} user profiles could not be updated.`, variant: 'destructive'});
+        } else {
+            toast({ title: 'Bulk Update Successful', description: `Updated available leaves for ${selectedUserIds.size} users.`});
+        }
+    } catch (error) {
+        toast({ title: 'Bulk Update Error', description: 'An unexpected error occurred during bulk update.', variant: 'destructive'});
+    } finally {
+        setIsSubmittingForm(false);
+        setIsBulkEditDialogOpen(false);
+        setSelectedUserIds(new Set());
+    }
+};
 
   const renderSortableHeader = (label: string, columnKey: SortableUserKeys, className?: string) => (
     <TableHead className={cn("cursor-pointer hover:bg-muted/50", className)} onClick={() => requestSort(columnKey)}>
@@ -385,24 +462,31 @@ export const UserManagementTable: React.FC = () => {
     <>
       <Card className="shadow-lg">
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <div >
+          <div className="flex justify-between items-center flex-wrap gap-4">
+            <div>
               <CardTitle className="text-2xl font-semibold">User Profiles & Roles</CardTitle>
               <CardDescription>Manage user profiles (RTDB) and associated Firebase Auth accounts.</CardDescription>
             </div>
-            <Button onClick={handleOpenAddUserDialog} disabled={isUsersLoading || isSubmittingForm || isLoadingEditorLevels}>
-              <UserPlus className="mr-2 h-4 w-4" /> Add User
-            </Button>
+            <div className="flex items-center gap-2">
+                {selectedUserIds.size > 0 && (
+                    <Button variant="outline" onClick={() => setIsBulkEditDialogOpen(true)} disabled={isSubmittingForm}>
+                        <Edit className="mr-2 h-4 w-4" /> Bulk Edit ({selectedUserIds.size})
+                    </Button>
+                )}
+                <Button onClick={handleOpenAddUserDialog} disabled={isUsersLoading || isSubmittingForm || isLoadingEditorLevels}>
+                <UserPlus className="mr-2 h-4 w-4" /> Add User
+                </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
           {isUsersLoading ? (
             <TableSkeleton 
-              columnCount={5} 
+              columnCount={6} 
               rowCount={3} 
               showTableHeader={true} 
-              headerTexts={["User", "Email", "Role", "Editor Level", "Actions"]} 
-              cellWidths={["w-[25%]", "w-[25%]", "w-[15%]", "w-[20%]", "w-[15%] text-right"]} 
+              headerTexts={["", "User", "Email", "Role", "Editor Level", "Actions"]} 
+              cellWidths={["w-12", "w-[25%]", "w-[25%]", "w-[15%]", "w-[15%]", "w-[15%] text-right"]} 
             />
           ) : sortedUsers.length === 0 ? (
             <div className="text-center py-10 border-2 border-dashed rounded-lg bg-card">
@@ -418,16 +502,30 @@ export const UserManagementTable: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                    <TableHead padding="checkbox">
+                        <Checkbox
+                            checked={selectedUserIds.size === paginatedUsers.length && paginatedUsers.length > 0}
+                            indeterminate={selectedUserIds.size > 0 && selectedUserIds.size < paginatedUsers.length}
+                            onCheckedChange={handleSelectAll}
+                        />
+                    </TableHead>
                   {renderSortableHeader("User", "username")}
                   {renderSortableHeader("Email", "email")}
                   {renderSortableHeader("Role", "role")}
                   {renderSortableHeader("Editor Level", "editorLevelName")}
+                  {renderSortableHeader("Available Leaves", "availableLeaves")}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedUsers.map((user) => (
-                  <TableRow key={user.id}>
+                  <TableRow key={user.id} data-state={selectedUserIds.has(user.id) && "selected"}>
+                    <TableCell padding="checkbox">
+                        <Checkbox
+                            checked={selectedUserIds.has(user.id)}
+                            onCheckedChange={() => handleSelectUser(user.id)}
+                        />
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-9 w-9">
@@ -455,6 +553,9 @@ export const UserManagementTable: React.FC = () => {
                         ) : (
                             user.role === 'editor' && sortedEditorLevelsForSelect.length > 0 ? <span className="text-xs text-muted-foreground">Not Set</span> : 'N/A'
                         )}
+                    </TableCell>
+                    <TableCell>
+                        {user.availableLeaves ?? 0}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -580,6 +681,17 @@ export const UserManagementTable: React.FC = () => {
                       <p className="text-sm text-muted-foreground p-2 border rounded-md">No editor levels defined yet. Please add levels in Admin > Editor Levels.</p>
                   )}
                 </div>
+                <div className="space-y-1.5">
+                    <Label htmlFor="new-user-available-leaves">Available Leaves</Label>
+                    <Input
+                        id="new-user-available-leaves"
+                        type="number"
+                        value={newUserAvailableLeaves}
+                        onChange={(e) => setNewUserAvailableLeaves(e.target.value)}
+                        placeholder="e.g., 15"
+                        disabled={isSubmittingForm}
+                    />
+                </div>
                 <div className="flex items-center space-x-2 pt-2">
                     <Checkbox
                         id="new-user-morning-ot"
@@ -688,6 +800,17 @@ export const UserManagementTable: React.FC = () => {
                                     <p className="text-sm text-muted-foreground p-2 border rounded-md">No editor levels defined yet. Cannot assign.</p>
                                 )}
                             </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="edit-user-available-leaves">Available Leaves</Label>
+                                <Input
+                                    id="edit-user-available-leaves"
+                                    type="number"
+                                    value={editUserFormState.availableLeaves ?? ''}
+                                    onChange={(e) => setEditUserFormState(prev => ({ ...prev, availableLeaves: e.target.value === '' ? undefined : Number(e.target.value) }))}
+                                    placeholder="e.g., 15"
+                                    disabled={isSubmittingForm}
+                                />
+                            </div>
                             <div className="flex items-center space-x-2 pt-2">
                                 <Checkbox
                                     id="edit-user-morning-ot"
@@ -752,6 +875,43 @@ export const UserManagementTable: React.FC = () => {
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      <Dialog open={isBulkEditDialogOpen} onOpenChange={setIsBulkEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Bulk Edit Available Leaves</DialogTitle>
+            <DialogDescription>
+              Set the number of available leaves for all {selectedUserIds.size} selected users. This will overwrite their current value.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="bulk-leaves-input">Available Leaves</Label>
+              <div className="relative">
+                <Leaf className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="bulk-leaves-input"
+                  type="number"
+                  value={bulkLeaves}
+                  onChange={(e) => setBulkLeaves(e.target.value)}
+                  placeholder="e.g., 20"
+                  disabled={isSubmittingForm}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isSubmittingForm}><X className="mr-2 h-4 w-4" />Cancel</Button>
+            </DialogClose>
+            <Button type="button" onClick={handleConfirmBulkEdit} disabled={isSubmittingForm}>
+              {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Apply to All
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

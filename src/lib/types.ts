@@ -8,6 +8,7 @@ export interface User {
   role: 'admin' | 'editor' | null; // From RTDB
   editorLevelId?: string; // ID of the assigned EditorLevel
   isEligibleForMorningOT?: boolean;
+  availableLeaves?: number;
 }
 
 export interface CategoryRating {
