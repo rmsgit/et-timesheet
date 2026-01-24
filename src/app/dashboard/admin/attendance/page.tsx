@@ -7,19 +7,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CalendarCheck, Upload, AlertCircle, User, Loader2, Hourglass } from 'lucide-react';
+import { CalendarCheck, Upload, AlertCircle, User, Loader2, Hourglass, Plane } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { User as EditorUser } from '@/lib/types';
-import { eachDayOfInterval, format, parseISO } from 'date-fns';
+import { eachDayOfInterval, format, parseISO, isSameDay } from 'date-fns';
 import * as XLSX from 'xlsx';
+import { useLeave } from '@/hooks/useLeave';
+import { Badge } from '@/components/ui/badge';
 
 interface AttendanceRecord {
   date: string;
   checkIn: string;
   checkOut: string;
   overtime: string;
+  leaveInfo: string;
 }
 
 const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorningOT?: boolean): string => {
@@ -115,7 +118,8 @@ export default function AttendancePage() {
   const { toast } = useToast();
   
   const { users: allUsers, isUsersLoading } = useMockUsers();
-  const isLoading = isUsersLoading;
+  const { leaveRequests, isLoading: isLoadingLeave } = useLeave();
+  const isLoading = isUsersLoading || isLoadingLeave;
 
   const editorUsers = useMemo(() => {
     if (isUsersLoading || !allUsers) return [];
@@ -216,17 +220,29 @@ export default function AttendancePage() {
             }
             
             const daysInRange = eachDayOfInterval({ start: fromDate, end: toDate });
+            
+            const editorLeaveRequests = leaveRequests.filter(
+                req => req.userId === selectedEditor.id && (req.status === 'approved')
+            );
+            
             const newAttendanceData: AttendanceRecord[] = daysInRange.map((day, index) => {
                 const colIndex = index + 1;
                 const dataForDay = columnDataMap.get(colIndex);
                 const checkInValue = dataForDay?.checkIn || '';
                 const checkOutValue = dataForDay?.checkOut || '';
 
+                const leaveForDay = editorLeaveRequests.find(req => isSameDay(parseISO(req.date), day));
+                let leaveInfo = '';
+                if (leaveForDay) {
+                    leaveInfo = leaveForDay.leaveType.replace('-', ' ');
+                }
+
                 return {
                     date: format(day, 'MMM d, yyyy'),
                     checkIn: checkInValue,
                     checkOut: checkOutValue,
                     overtime: calculateOvertime(checkInValue, checkOutValue, selectedEditor.isEligibleForMorningOT),
+                    leaveInfo,
                 };
             });
 
@@ -343,6 +359,11 @@ export default function AttendancePage() {
                                   <Hourglass className="mr-2 h-4 w-4" /> OT
                                 </div>
                               </TableHead>
+                              <TableHead className="w-[120px]">
+                                <div className="flex items-center">
+                                    <Plane className="mr-2 h-4 w-4" /> Leave
+                                </div>
+                              </TableHead>
                           </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -369,6 +390,9 @@ export default function AttendancePage() {
                                   </TableCell>
                                   <TableCell className="font-mono text-muted-foreground text-sm">
                                       {rec.overtime}
+                                  </TableCell>
+                                  <TableCell>
+                                    {rec.leaveInfo && <Badge variant="outline" className="capitalize border-sky-500 text-sky-500">{rec.leaveInfo}</Badge>}
                                   </TableCell>
                               </TableRow>
                           ))}
