@@ -18,38 +18,38 @@ const DayContent = ({ date, attendance, leave }: { date: Date, attendance?: Atte
 
   return (
     <div className="relative flex flex-col h-full p-2 text-left">
-      <time dateTime={date.toISOString()} className={cn("text-sm font-semibold", isWeekend && "text-muted-foreground/80")}>
+      <time dateTime={date.toISOString()} className={cn("font-semibold", isWeekend && "text-muted-foreground/80")}>
         {format(date, 'd')}
       </time>
       
       {leave ? (
         <div className="flex-grow flex items-center justify-center">
-            <Badge variant="outline" className="capitalize border-sky-500 text-sky-500 text-xs text-center">
-                <Plane className="mr-1 h-3 w-3"/> {leave.leaveType.replace('-', ' ')}
+            <Badge variant="outline" className="capitalize border-sky-500 text-sky-500 text-sm text-center p-2">
+                <Plane className="mr-1.5 h-4 w-4"/> {leave.leaveType.replace('-', ' ')}
             </Badge>
         </div>
       ) : attendance && attendance.checkIn ? (
-        <div className="mt-1 space-y-1 text-xs flex-grow">
-          <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3 text-green-500" />
+        <div className="mt-1 space-y-1.5 text-sm flex-grow">
+          <div className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4 text-green-500" />
               <span className="text-muted-foreground">{attendance.checkIn} - {attendance.checkOut || '...'}</span>
           </div>
           {attendance.overtime && (
-            <div className="flex items-center gap-1">
-                <Hourglass className="h-3 w-3 text-primary" />
+            <div className="flex items-center gap-1.5">
+                <Hourglass className="h-4 w-4 text-primary" />
                 <span className="text-muted-foreground">{attendance.overtime} OT</span>
             </div>
           )}
            {attendance.earlyLeave && (
-            <div className="flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3 text-orange-500" />
+            <div className="flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4 text-orange-500" />
                 <span className="text-muted-foreground">{attendance.earlyLeave} Early</span>
             </div>
           )}
         </div>
       ) : !isWeekend && (
          <div className="flex-grow flex items-center justify-center">
-            <Badge variant="destructive" className="text-xs">Absent</Badge>
+            <Badge variant="destructive" className="text-sm p-2">Absent</Badge>
          </div>
       )}
     </div>
@@ -157,10 +157,10 @@ export default function MyAttendancePage() {
                 onMonthChange={setCurrentDisplayDate}
                 className="p-0 [&_td]:p-0 [&_tr]:border-0"
                 classNames={{
-                    day: 'h-32 w-full align-top border',
+                    day: 'h-40 w-full align-top border',
                     day_selected: 'bg-accent/50 text-accent-foreground',
                     day_today: 'bg-accent/50 text-accent-foreground',
-                    head_cell: 'w-full',
+                    head_cell: 'w-full text-base',
                 }}
                 components={{
                     DayContent: (props) => {
