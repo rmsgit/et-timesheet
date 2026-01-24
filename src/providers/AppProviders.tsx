@@ -6,6 +6,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { TimesheetProvider } from '@/contexts/TimesheetContext';
 import { PerformanceReviewProvider } from '@/contexts/PerformanceReviewContext';
 import { LeaveProvider } from '@/contexts/LeaveContext';
+import { AttendanceProvider } from '@/contexts/AttendanceContext';
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LoaderProvider } from '@/contexts/LoaderContext';
@@ -28,12 +29,14 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
         <TimesheetProvider>
           <PerformanceReviewProvider>
             <LeaveProvider>
-              <TooltipProvider>
-                <AdminNotificationInitializer />
-                {children}
-                <Toaster />
-                <GlobalLoader />
-              </TooltipProvider>
+              <AttendanceProvider>
+                <TooltipProvider>
+                  <AdminNotificationInitializer />
+                  {children}
+                  <Toaster />
+                  <GlobalLoader />
+                </TooltipProvider>
+              </AttendanceProvider>
             </LeaveProvider>
           </PerformanceReviewProvider>
         </TimesheetProvider>

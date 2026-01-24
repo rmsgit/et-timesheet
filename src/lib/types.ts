@@ -76,3 +76,12 @@ export interface LeaveRequest {
   cancelledBy?: string; // user id who cancelled
   cancelledAt?: string; // ISO string
 }
+
+export interface AttendanceRecord {
+  date: string;
+  checkIn: string;
+  checkOut: string;
+  overtime: string;
+  leaveInfo: string;
+  earlyLeave: string;
+}

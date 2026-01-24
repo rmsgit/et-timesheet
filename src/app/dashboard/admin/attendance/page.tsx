@@ -10,21 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { CalendarCheck, Upload, AlertCircle, User, Loader2, Hourglass, Plane, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMockUsers } from '@/hooks/useMockUsers';
+import { useAttendance } from '@/hooks/useAttendance';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { User as EditorUser } from '@/lib/types';
+import type { AttendanceRecord, User as EditorUser } from '@/lib/types';
 import { eachDayOfInterval, format, parseISO, isSameDay } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { useLeave } from '@/hooks/useLeave';
 import { Badge } from '@/components/ui/badge';
-
-interface AttendanceRecord {
-  date: string;
-  checkIn: string;
-  checkOut: string;
-  overtime: string;
-  leaveInfo: string;
-  earlyLeave: string;
-}
 
 const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorningOT?: boolean): string => {
     if ((!checkIn || typeof checkIn !== 'string' || !checkIn.includes(':')) && (!checkOut || typeof checkOut !== 'string' || !checkOut.includes(':'))){
@@ -165,11 +157,13 @@ export default function AttendancePage() {
 
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   
   const { users: allUsers, isUsersLoading } = useMockUsers();
   const { leaveRequests, isLoading: isLoadingLeave } = useLeave();
   const isLoading = isUsersLoading || isLoadingLeave;
+  const { saveAttendanceForMonth } = useAttendance();
 
   const editorUsers = useMemo(() => {
     if (isUsersLoading || !allUsers) return [];
@@ -330,6 +324,30 @@ export default function AttendancePage() {
       
       setAttendanceData(updatedData);
   }
+  
+  const handleSaveAttendance = async () => {
+        if (!selectedEditorId || !dateRange) {
+            toast({ title: 'Cannot Save', description: 'No editor or date range selected.', variant: 'destructive'});
+            return;
+        }
+
+        const fromMatch = dateRange.match(/From: (\d{4}-\d{2}-\d{2})/);
+        if (!fromMatch) {
+            toast({ title: 'Error', description: 'Could not determine the year and month from the date range.', variant: 'destructive' });
+            return;
+        }
+
+        const fromDate = parseISO(fromMatch[1]);
+        const year = fromDate.getFullYear().toString();
+        const month = (fromDate.getMonth() + 1).toString().padStart(2, '0'); // getMonth is 0-indexed
+
+        setIsSaving(true);
+        const result = await saveAttendanceForMonth(selectedEditorId, year, month, attendanceData);
+        if (!result.success) {
+            // Error toast is already handled in the context
+        }
+        setIsSaving(false);
+    };
 
   return (
     <div className="space-y-6">
@@ -467,7 +485,10 @@ export default function AttendancePage() {
                       </TableBody>
                   </Table>
                    <div className="flex justify-end mt-6">
-                        <Button>Save Attendance</Button>
+                        <Button onClick={handleSaveAttendance} disabled={isSaving || isProcessing}>
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Save Attendance
+                        </Button>
                     </div>
               </CardContent>
           </Card>
@@ -499,5 +520,3 @@ export default function AttendancePage() {
     </div>
   );
 }
-
-    
