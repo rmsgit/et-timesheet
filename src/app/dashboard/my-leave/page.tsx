@@ -17,7 +17,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, PlusCircle, Send, Loader2, Plane, CheckCircle, XCircle, Hourglass } from 'lucide-react';
+import { Calendar as CalendarIcon, PlusCircle, Send, Loader2, Plane, CheckCircle, XCircle, Hourglass, Ban } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
@@ -107,6 +107,8 @@ export default function MyLeavePage() {
         return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3" />Rejected</Badge>;
       case 'pending':
         return <Badge variant="secondary"><Hourglass className="mr-1 h-3 w-3" />Pending</Badge>;
+      case 'cancelled':
+        return <Badge variant="outline" className="border-slate-400 text-slate-500"><Ban className="mr-1 h-3 w-3" />Cancelled</Badge>;
     }
   };
 
@@ -254,7 +256,7 @@ export default function MyLeavePage() {
                     <TableCell className="max-w-[150px] truncate">{req.reason}</TableCell>
                     <TableCell>{getStatusBadge(req.status)}</TableCell>
                     <TableCell className="text-right">
-                      {req.status === 'pending' && (
+                      {(req.status === 'pending' || req.status === 'approved') && (
                         <Button
                           variant="ghost"
                           size="sm"

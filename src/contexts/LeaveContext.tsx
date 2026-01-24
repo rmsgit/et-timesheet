@@ -87,7 +87,7 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
     const newId = newRequestRef.key;
     if (!newId) return { success: false };
 
-    const leaveData: Omit<LeaveRequest, 'id'> = {
+    const leaveData: Omit<LeaveRequest, 'id' | 'cancelledBy' | 'cancelledAt'> = {
         userId: user.id,
         leaveType,
         date: date.toISOString(),
@@ -147,13 +147,19 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
         toast({ title: "Permission Denied", description: "You can only cancel your own leave requests.", variant: "destructive" });
         return { success: false };
     }
-     if (requestToCancel.status !== 'pending') {
-        toast({ title: "Action Not Allowed", description: "You can only cancel pending leave requests.", variant: "destructive" });
+     if (requestToCancel.status !== 'pending' && requestToCancel.status !== 'approved') {
+        toast({ title: "Action Not Allowed", description: "You can only cancel pending or approved leave requests.", variant: "destructive" });
         return { success: false };
     }
 
+    const updates = {
+      status: 'cancelled',
+      cancelledBy: user.id,
+      cancelledAt: new Date().toISOString(),
+    };
+
     try {
-        await remove(ref(database, `${FIREBASE_LEAVE_REQUESTS_PATH}/${leaveId}`));
+        await firebaseUpdate(ref(database, `${FIREBASE_LEAVE_REQUESTS_PATH}/${leaveId}`), updates);
         toast({ title: "Success", description: "Your leave request has been cancelled." });
         return { success: true };
     } catch (error) {

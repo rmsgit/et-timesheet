@@ -69,8 +69,10 @@ export interface LeaveRequest {
   leaveType: LeaveType;
   date: string; // ISO string
   reason: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   requestedAt: string; // ISO string
   reviewedBy?: string; // admin user id
   reviewedAt?: string; // ISO string
+  cancelledBy?: string; // user id who cancelled
+  cancelledAt?: string; // ISO string
 }
