@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -52,10 +53,14 @@ export default function MyLeavePage() {
   }, [leaveRequests, user]);
 
   const availableYears = useMemo(() => {
-      const yearsFromRequests = myLeaveRequests.map(req => parseISO(req.date).getFullYear());
-      const allYears = new Set([new Date().getFullYear(), ...yearsFromRequests]);
-      return Array.from(allYears).sort((a,b) => b - a);
-  }, [myLeaveRequests]);
+      const startYear = 2015;
+      const endYear = 2040;
+      const years = [];
+      for (let i = endYear; i >= startYear; i--) {
+          years.push(i);
+      }
+      return years;
+  }, []);
 
   const { availableLeaves, bookedLeaves, remainingLeaves } = useMemo(() => {
     const available = user?.availableLeaves ?? 0;
@@ -125,7 +130,12 @@ export default function MyLeavePage() {
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0">
-                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          initialFocus
+                        />
                       </PopoverContent>
                     </Popover>
                   )}
