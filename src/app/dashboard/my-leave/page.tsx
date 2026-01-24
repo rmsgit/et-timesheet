@@ -52,6 +52,10 @@ export default function MyLeavePage() {
       .sort((a, b) => parseISO(b.requestedAt).getTime() - parseISO(a.requestedAt).getTime());
   }, [leaveRequests, user]);
 
+  const filteredLeaveRequestsForYear = useMemo(() => {
+    return myLeaveRequests.filter(req => parseISO(req.date).getFullYear() === selectedYear);
+  }, [myLeaveRequests, selectedYear]);
+
   const availableYears = useMemo(() => {
       const startYear = 2015;
       const endYear = 2040;
@@ -219,7 +223,7 @@ export default function MyLeavePage() {
           <CardContent>
             {isLoading ? (
               <TableSkeleton columnCount={4} rowCount={5} />
-            ) : myLeaveRequests.length > 0 ? (
+            ) : filteredLeaveRequestsForYear.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -229,7 +233,7 @@ export default function MyLeavePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {myLeaveRequests.map(req => (
+                  {filteredLeaveRequestsForYear.map(req => (
                     <TableRow key={req.id}>
                       <TableCell>{format(parseISO(req.date), 'PPP')}</TableCell>
                       <TableCell className="capitalize">{req.leaveType.replace('-', ' ')}</TableCell>
@@ -240,7 +244,7 @@ export default function MyLeavePage() {
               </Table>
             ) : (
               <div className="text-center py-10">
-                <p className="text-muted-foreground">You have not submitted any leave requests.</p>
+                <p className="text-muted-foreground">You have no leave requests for {selectedYear}.</p>
               </div>
             )}
           </CardContent>
