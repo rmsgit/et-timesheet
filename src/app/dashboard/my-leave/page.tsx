@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -50,6 +49,19 @@ export default function MyLeavePage() {
       .filter(req => req.userId === user.id)
       .sort((a, b) => parseISO(b.requestedAt).getTime() - parseISO(a.requestedAt).getTime());
   }, [leaveRequests, user]);
+
+  const { availableLeaves, bookedLeaves, remainingLeaves } = useMemo(() => {
+    const available = user?.availableLeaves ?? 0;
+    const booked = myLeaveRequests.reduce((total, req) => {
+      if (req.status === 'approved') {
+        if (req.leaveType === 'full-day') return total + 1;
+        if (req.leaveType === 'half-day') return total + 0.5;
+      }
+      return total;
+    }, 0);
+    const remaining = available - booked;
+    return { availableLeaves: available, bookedLeaves: booked, remainingLeaves: remaining };
+  }, [myLeaveRequests, user?.availableLeaves]);
 
   const onSubmit = async (data: LeaveFormData) => {
     setIsSubmitting(true);
@@ -154,6 +166,20 @@ export default function MyLeavePage() {
           <CardHeader>
             <CardTitle>My Leave History</CardTitle>
             <CardDescription>A record of your past and pending leave requests.</CardDescription>
+            <div className="border-t pt-4 mt-4 flex justify-around text-center">
+              <div>
+                  <p className="text-2xl font-bold">{availableLeaves}</p>
+                  <p className="text-xs text-muted-foreground">Available</p>
+              </div>
+              <div>
+                  <p className="text-2xl font-bold">{bookedLeaves}</p>
+                  <p className="text-xs text-muted-foreground">Booked</p>
+              </div>
+              <div>
+                  <p className="text-2xl font-bold">{remainingLeaves}</p>
+                  <p className="text-xs text-muted-foreground">Remaining</p>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
