@@ -76,34 +76,33 @@ export default function AttendancePage() {
         return;
     }
     setIsProcessing(true);
-    // Mock processing for a single editor
+    // This timeout mocks the file processing time.
     setTimeout(() => {
       const fromDate = new Date('2025-12-23T00:00:00');
       const toDate = new Date('2026-01-22T23:59:59');
       
       setDateRange(`From: ${format(fromDate, 'yyyy-MM-dd HH:mm:ss')} To: ${format(toDate, 'yyyy-MM-dd HH:mm:ss')}`);
 
+      // This mock data now exactly matches your Excel sample.
+      const sampleData: { [key: string]: { checkIn: string; checkOut: string } } = {
+        '2025-12-23': { checkIn: '7:37:58', checkOut: '17:49:30' },
+        '2025-12-24': { checkIn: '7:46:50', checkOut: '17:59:08' },
+        '2025-12-25': { checkIn: '', checkOut: '' }, // Corresponds to '-' in the sheet
+        '2025-12-26': { checkIn: '7:47:00', checkOut: '18:09:00' }, // From the sheet
+      };
+
       const daysInRange = eachDayOfInterval({ start: fromDate, end: toDate });
       
+      // Generate attendance data: use sample data if available, otherwise leave blank.
       const newAttendanceData: AttendanceRecord[] = daysInRange.map(day => {
         const dayKey = format(day, 'yyyy-MM-dd');
+        const dataForDay = sampleData[dayKey];
         
-        if (dayKey === '2025-12-23') {
-          return { date: format(day, 'MMM d, yyyy'), checkIn: '7:37:58', checkOut: '17:49:30' };
-        }
-        if (dayKey === '2025-12-24') {
-          return { date: format(day, 'MMM d, yyyy'), checkIn: '7:46:50', checkOut: '17:59:08' };
-        }
-        // Make Sundays and Christmas day off
-        if (day.getDay() === 0 || dayKey === '2025-12-25') {
-            return { date: format(day, 'MMM d, yyyy'), checkIn: '', checkOut: '' };
-        }
-
-        // Generate predictable, non-random times for other work days
-        const checkIn = '08:00:00';
-        const checkOut = '17:00:00';
-        
-        return { date: format(day, 'MMM d, yyyy'), checkIn, checkOut };
+        return {
+            date: format(day, 'MMM d, yyyy'),
+            checkIn: dataForDay ? dataForDay.checkIn : '',
+            checkOut: dataForDay ? dataForDay.checkOut : ''
+        };
       });
       
       setAttendanceData(newAttendanceData);
