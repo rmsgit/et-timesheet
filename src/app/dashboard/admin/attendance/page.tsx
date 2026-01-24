@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -91,18 +90,18 @@ export default function AttendancePage() {
             const worksheet = workbook.Sheets[sheetName];
             const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
 
-            // Find the date range string in row 4 (jsonData[3])
-            const dateRangeRow = jsonData[3] || [];
-            const dateRangeString = dateRangeRow.find(cell => typeof cell === 'string' && cell.includes('From:')) || '';
-            if (!dateRangeString) {
-                throw new Error('Date range "From: ... To: ..." not found in row 4.');
+            // The user specified the date range is in cell A4.
+            const dateRangeString = (jsonData[3] && typeof jsonData[3][0] === 'string') ? jsonData[3][0] : '';
+            
+            if (!dateRangeString || !dateRangeString.includes('From:')) {
+                throw new Error('Date range "From: ... To: ..." not found in cell A4.');
             }
 
             const fromMatch = dateRangeString.match(/From: (\d{4}-\d{2}-\d{2})/);
             const toMatch = dateRangeString.match(/To: (\d{4}-\d{2}-\d{2})/);
 
             if (!fromMatch || !toMatch) {
-                throw new Error('Could not parse start or end date from the date range string in row 4.');
+                throw new Error('Could not parse start or end date from the date range string in cell A4.');
             }
             
             const fromDate = parseISO(fromMatch[1]);
