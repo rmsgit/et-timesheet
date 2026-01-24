@@ -53,8 +53,11 @@ export default function MyLeavePage() {
 
   const { availableLeaves, bookedLeaves, remainingLeaves } = useMemo(() => {
     const available = user?.availableLeaves ?? 0;
+    const currentYear = new Date().getFullYear();
+
     const booked = myLeaveRequests.reduce((total, req) => {
-      if (req.status === 'approved') {
+      const requestYear = parseISO(req.date).getFullYear();
+      if (req.status === 'approved' && requestYear === currentYear) {
         if (req.leaveType === 'full-day') return total + 1;
         if (req.leaveType === 'half-day') return total + 0.5;
       }
