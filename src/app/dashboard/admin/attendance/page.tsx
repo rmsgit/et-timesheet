@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -161,6 +161,7 @@ export default function AttendancePage() {
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const isProcessingFileRef = useRef(false);
   const { toast } = useToast();
   
   const { users: allUsers, isUsersLoading } = useMockUsers();
@@ -200,6 +201,11 @@ export default function AttendancePage() {
 
   useEffect(() => {
     const fetchAttendance = async () => {
+        if (isProcessingFileRef.current) {
+            // When a file is being processed, it sets the attendance data itself.
+            // We prevent this effect from re-fetching and overwriting it.
+            return;
+        }
         if (selectedEditorId && selectedYear && selectedMonth) {
             setFile(null); // Clear any selected file
             const data = await getAttendanceForMonth(selectedEditorId, selectedYear, selectedMonth);
@@ -249,6 +255,7 @@ export default function AttendancePage() {
 
     const reader = new FileReader();
     reader.onload = (event) => {
+        isProcessingFileRef.current = true;
         try {
             const arrayBuffer = event.target?.result;
             if (!arrayBuffer) {
@@ -278,9 +285,9 @@ export default function AttendancePage() {
             
             const fileYear = fromDate.getFullYear().toString();
             const fileMonth = (fromDate.getMonth() + 1).toString().padStart(2, '0');
-            if (fileYear !== selectedYear || fileMonth !== selectedMonth) {
-                throw new Error(`The uploaded file is for ${format(fromDate, 'MMMM yyyy')}, but you have selected ${format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}. Please upload the correct file or change your selection.`);
-            }
+
+            setSelectedYear(fileYear);
+            setSelectedMonth(fileMonth);
 
             setDateRange(`From: ${format(fromDate, 'yyyy-MM-dd HH:mm:ss')} To: ${format(toDate, 'yyyy-MM-dd HH:mm:ss')}`);
 
@@ -345,6 +352,7 @@ export default function AttendancePage() {
             console.error("Error processing file:", error);
             toast({ title: 'File Processing Error', description: error.message || 'Could not read or parse the uploaded file.', variant: 'destructive' });
         } finally {
+            isProcessingFileRef.current = false;
             setIsProcessing(false);
         }
     };
@@ -460,7 +468,7 @@ export default function AttendancePage() {
             <CardHeader>
               <CardTitle>Upload New File</CardTitle>
               <CardDescription>
-                To create a new record for the selected period, or to overwrite existing data, upload an Excel file that matches the selected period.
+                To create a new record for the selected period, or to overwrite existing data, upload an Excel file. The year and month will be read from the file automatically.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -598,3 +606,5 @@ export default function AttendancePage() {
     </div>
   );
 }
+
+    
