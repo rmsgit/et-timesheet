@@ -13,7 +13,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award, Library, Star, ClipboardCheck, TrendingUp, CalendarCheck } from 'lucide-react';
+import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award, Library, Star, ClipboardCheck, TrendingUp, CalendarCheck, Plane } from 'lucide-react';
 
 export function SidebarNav() {
   const pathname = usePathname();
@@ -24,6 +24,7 @@ export function SidebarNav() {
     { href: '/dashboard/my-report', label: 'My Report', icon: FileText },
     { href: '/dashboard/my-progress', label: 'My Progress', icon: TrendingUp },
     { href: '/dashboard/browse-levels', label: 'Browse Editor Levels', icon: Library },
+    { href: '/dashboard/my-leave', label: 'My Leave', icon: Plane },
   ];
 
   const adminOnlyRoutes = [
@@ -33,6 +34,7 @@ export function SidebarNav() {
     { href: '/dashboard/admin/project-overview', label: 'Project Overview', icon: Layers },
     { href: '/dashboard/admin/performance-reviews', label: 'Performance Reviews', icon: ClipboardCheck },
     { href: '/dashboard/admin/attendance', label: 'Attendance', icon: CalendarCheck },
+    { href: '/dashboard/admin/leave-management', label: 'Leave Management', icon: Plane },
     { href: '/dashboard/admin/project-types', label: 'Project Types', icon: FolderKanban },
     { href: '/dashboard/admin/editor-levels', label: 'Editor Levels', icon: Award },
     { href: '/dashboard/admin/rating-categories', label: 'Rating Categories', icon: Star },

@@ -18,6 +18,7 @@ export const FIREBASE_ADMIN_NOTIFICATIONS_PATH = 'adminTaskCompletionNotificatio
 export const FIREBASE_EDITOR_LEVELS_PATH = 'editorLevels';
 export const FIREBASE_EDITOR_RATING_CATEGORIES_PATH = 'editorRatingCategories';
 export const FIREBASE_PERFORMANCE_REVIEWS_PATH = 'performanceReviews';
+export const FIREBASE_LEAVE_REQUESTS_PATH = 'leaveRequests';
 
 export const RATING_SCALE = [
   { value: 5, label: '5 - Outstanding' },

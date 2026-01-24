@@ -59,3 +59,17 @@ export interface EditorRatingCategory {
   description: string;
   weight: number;
 }
+
+export type LeaveType = 'full-day' | 'half-day' | 'short-leave';
+
+export interface LeaveRequest {
+  id: string;
+  userId: string;
+  leaveType: LeaveType;
+  date: string; // ISO string
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: string; // ISO string
+  reviewedBy?: string; // admin user id
+  reviewedAt?: string; // ISO string
+}
