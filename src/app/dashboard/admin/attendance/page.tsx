@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -6,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CalendarCheck, Upload, AlertCircle, User, Loader2 } from 'lucide-react';
+import { CalendarCheck, Upload, AlertCircle, User, Loader2, Hourglass } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -18,7 +19,49 @@ interface AttendanceRecord {
   date: string;
   checkIn: string;
   checkOut: string;
+  overtime: string;
 }
+
+const calculateOvertime = (checkOut: string): string => {
+    if (!checkOut || typeof checkOut !== 'string' || !checkOut.includes(':')) {
+        return '';
+    }
+
+    const parts = checkOut.split(':');
+    let normalizedTime = checkOut;
+    if (parts.length === 2) {
+        normalizedTime = `${checkOut}:00`;
+    } else if (parts.length !== 3) {
+        return ''; // Invalid format
+    }
+
+    const dummyDate = '1970-01-01T';
+    try {
+        const endTime = new Date(`${dummyDate}17:15:00`);
+        const checkOutTime = new Date(`${dummyDate}${normalizedTime}`);
+        
+        if (isNaN(checkOutTime.getTime()) || isNaN(endTime.getTime())) {
+            return '';
+        }
+
+        if (checkOutTime > endTime) {
+            const diffSeconds = Math.floor((checkOutTime.getTime() - endTime.getTime()) / 1000);
+            const hours = Math.floor(diffSeconds / 3600);
+            const minutes = Math.floor((diffSeconds % 3600) / 60);
+
+            const partStrings: string[] = [];
+            if (hours > 0) partStrings.push(`${hours}h`);
+            if (minutes > 0) partStrings.push(`${minutes}m`);
+            return partStrings.join(' ');
+        }
+    } catch (e) {
+        console.error("Error calculating overtime for:", checkOut, e);
+        return '';
+    }
+
+    return '';
+};
+
 
 export default function AttendancePage() {
   const [file, setFile] = useState<File | null>(null);
@@ -89,10 +132,7 @@ export default function AttendancePage() {
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-            console.log("JSON Data:", jsonData);
 
-            // Based on user feedback, sheet_to_json might skip the first row. Adjusting indices.
-            // Excel Row 4 is now jsonData[3] (or jsonData[2] if first row is skipped)
             const dateRangeString = (jsonData[2] && typeof jsonData[2][0] === 'string') ? jsonData[2][0] : '';
             
             if (!dateRangeString || !dateRangeString.includes('From:')) {
@@ -110,24 +150,17 @@ export default function AttendancePage() {
             const toDate = parseISO(toMatch[1]);
             setDateRange(`From: ${format(fromDate, 'yyyy-MM-dd HH:mm:ss')} To: ${format(toDate, 'yyyy-MM-dd HH:mm:ss')}`);
 
-            // Extract relevant rows (adjusting for potentially skipped first row)
-            // Excel Row 6 is jsonData[5] (or jsonData[4] if first row is skipped)
-            const dateRowInExcel = jsonData[4] || [];      // e.g., ["Date", 23, 24, 25, ...]
-            // Excel Row 7 is jsonData[6]
-            const checkInRowFromExcel = jsonData[5] || []; // e.g., ["Check-in1", "7:37:58", ...]
-            // Excel Row 8 is jsonData[7]
-            const checkOutRowFromExcel = jsonData[6] || [];// e.g., ["Check-out1", "17:49:30", ...]
+            const dateRowInExcel = jsonData[4] || [];
+            const checkInRowFromExcel = jsonData[5] || [];
+            const checkOutRowFromExcel = jsonData[6] || [];
             
-            // Map columns to data, starting from column B (index 1)
             const columnDataMap = new Map<number, { checkIn: string, checkOut: string }>();
             for (let i = 1; i < dateRowInExcel.length; i++) {
                 const dayHeader = dateRowInExcel[i];
-                // Process column only if there's a date header for it
                 if (dayHeader !== undefined && dayHeader !== '') {
                     let checkIn = checkInRowFromExcel[i];
                     let checkOut = checkOutRowFromExcel[i];
                     
-                    // Handle Excel's numeric time format (which is a fraction of a day)
                     if (typeof checkIn === 'number' && checkIn > 0 && checkIn < 1) {
                         checkIn = XLSX.SSF.format('hh:mm:ss', checkIn);
                     }
@@ -135,7 +168,6 @@ export default function AttendancePage() {
                         checkOut = XLSX.SSF.format('hh:mm:ss', checkOut);
                     }
 
-                    // Normalize placeholder values like '-' to empty strings
                     if (checkIn === '-') checkIn = '';
                     if (checkOut === '-') checkOut = '';
 
@@ -145,14 +177,15 @@ export default function AttendancePage() {
             
             const daysInRange = eachDayOfInterval({ start: fromDate, end: toDate });
             const newAttendanceData: AttendanceRecord[] = daysInRange.map((day, index) => {
-                // Map date index to excel column index (B=1, C=2, etc.)
                 const colIndex = index + 1;
                 const dataForDay = columnDataMap.get(colIndex);
+                const checkOutValue = dataForDay?.checkOut || '';
 
                 return {
                     date: format(day, 'MMM d, yyyy'),
                     checkIn: dataForDay?.checkIn || '',
-                    checkOut: dataForDay?.checkOut || ''
+                    checkOut: checkOutValue,
+                    overtime: calculateOvertime(checkOutValue),
                 };
             });
 
@@ -177,7 +210,13 @@ export default function AttendancePage() {
   
   const handleAttendanceChange = (recordIndex: number, field: 'checkIn' | 'checkOut', value: string) => {
       const updatedData = [...attendanceData];
-      updatedData[recordIndex][field] = value;
+      const record = updatedData[recordIndex];
+      record[field] = value;
+      
+      if (field === 'checkOut') {
+        record.overtime = calculateOvertime(value);
+      }
+      
       setAttendanceData(updatedData);
   }
 
@@ -258,6 +297,11 @@ export default function AttendancePage() {
                               <TableHead className="w-[150px]">Date</TableHead>
                               <TableHead>Check-in</TableHead>
                               <TableHead>Check-out</TableHead>
+                              <TableHead className="w-[100px]">
+                                <div className="flex items-center">
+                                  <Hourglass className="mr-2 h-4 w-4" /> OT
+                                </div>
+                              </TableHead>
                           </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -281,6 +325,9 @@ export default function AttendancePage() {
                                           placeholder="--:--:--"
                                           className="h-9"
                                       />
+                                  </TableCell>
+                                  <TableCell className="font-mono text-muted-foreground text-sm">
+                                      {rec.overtime}
                                   </TableCell>
                               </TableRow>
                           ))}
@@ -319,3 +366,5 @@ export default function AttendancePage() {
     </div>
   );
 }
+
+    
