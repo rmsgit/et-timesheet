@@ -3,7 +3,7 @@
 
 import React, { createContext, ReactNode, useCallback } from 'react';
 import { database } from '@/lib/firebase';
-import { ref, set } from 'firebase/database';
+import { ref, set, get } from 'firebase/database';
 import { FIREBASE_ATTENDANCE_PATH } from '@/lib/constants';
 import type { AttendanceRecord } from '@/lib/types';
 import { useLoader } from '@/hooks/useLoader';
@@ -13,6 +13,7 @@ const ATTENDANCE_LOADER_ID = "firebase_attendance_loader";
 
 interface AttendanceContextType {
   saveAttendanceForMonth: (userId: string, year: string, month: string, records: AttendanceRecord[]) => Promise<{ success: boolean }>;
+  getAttendanceForMonth: (userId: string, year: string, month: string) => Promise<AttendanceRecord[] | null>;
 }
 
 export const AttendanceContext = createContext<AttendanceContextType | undefined>(undefined);
@@ -50,8 +51,33 @@ export const AttendanceProvider: React.FC<AttendanceProviderProps> = ({ children
     }
   }, [toast, showLoader, hideLoader]);
 
+  const getAttendanceForMonth = useCallback(async (userId: string, year: string, month: string): Promise<AttendanceRecord[] | null> => {
+    if (!database) {
+      toast({ title: "Error", description: "Database not connected.", variant: "destructive" });
+      return null;
+    }
+    showLoader(ATTENDANCE_LOADER_ID, "Fetching attendance...");
+    try {
+      const dbRef = ref(database, `${FIREBASE_ATTENDANCE_PATH}/${userId}/${year}-${month}`);
+      const snapshot = await get(dbRef);
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        toast({ title: "Data Loaded", description: "Saved attendance records for this period have been loaded." });
+        return data as AttendanceRecord[];
+      }
+      return null;
+    } catch (error) {
+      console.error("Firebase get attendance error:", error);
+      toast({ title: "Fetch Error", description: "Failed to fetch attendance records.", variant: "destructive" });
+      return null;
+    } finally {
+      hideLoader(ATTENDANCE_LOADER_ID);
+    }
+  }, [toast, showLoader, hideLoader]);
+
+
   return (
-    <AttendanceContext.Provider value={{ saveAttendanceForMonth }}>
+    <AttendanceContext.Provider value={{ saveAttendanceForMonth, getAttendanceForMonth }}>
       {children}
     </AttendanceContext.Provider>
   );

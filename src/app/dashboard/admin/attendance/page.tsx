@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CalendarCheck, Upload, AlertCircle, User, Loader2, Hourglass, Plane, AlertTriangle } from 'lucide-react';
+import { CalendarCheck, Upload, AlertCircle, User, Loader2, Hourglass, Plane, AlertTriangle, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { useAttendance } from '@/hooks/useAttendance';
@@ -155,6 +155,9 @@ export default function AttendancePage() {
   const [selectedEditorId, setSelectedEditorId] = useState<string | undefined>(undefined);
   const [selectedEditor, setSelectedEditor] = useState<EditorUser | null>(null);
 
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() + 1).toString().padStart(2, '0'));
+
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -162,24 +165,60 @@ export default function AttendancePage() {
   
   const { users: allUsers, isUsersLoading } = useMockUsers();
   const { leaveRequests, isLoading: isLoadingLeave } = useLeave();
+  const { saveAttendanceForMonth, getAttendanceForMonth } = useAttendance();
+  
   const isLoading = isUsersLoading || isLoadingLeave;
-  const { saveAttendanceForMonth } = useAttendance();
 
   const editorUsers = useMemo(() => {
     if (isUsersLoading || !allUsers) return [];
     return allUsers.filter(u => u.role === 'editor').sort((a, b) => a.username.localeCompare(b.username));
   }, [allUsers, isUsersLoading]);
 
+  const availableYears = useMemo(() => {
+      const currentYear = new Date().getFullYear();
+      const years = [];
+      for (let i = currentYear; i >= 2020; i--) {
+          years.push(i.toString());
+      }
+      return years;
+  }, []);
+
+  const availableMonths = useMemo(() => {
+      return Array.from({ length: 12 }, (_, i) => ({
+          value: (i + 1).toString().padStart(2, '0'),
+          label: format(new Date(2000, i), 'MMMM'),
+      }));
+  }, []);
+  
   useEffect(() => {
     if (selectedEditorId) {
       setSelectedEditor(allUsers.find(u => u.id === selectedEditorId) || null);
-      // Reset file and data if editor changes
-      setFile(null);
-      setAttendanceData([]);
     } else {
       setSelectedEditor(null);
     }
   }, [selectedEditorId, allUsers]);
+
+  useEffect(() => {
+    const fetchAttendance = async () => {
+        if (selectedEditorId && selectedYear && selectedMonth) {
+            setFile(null); // Clear any selected file
+            const data = await getAttendanceForMonth(selectedEditorId, selectedYear, selectedMonth);
+            if (data) {
+                setAttendanceData(data);
+                const fromDate = new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1, 1);
+                const toDate = new Date(parseInt(selectedYear), parseInt(selectedMonth), 0);
+                setDateRange(`From: ${format(fromDate, 'yyyy-MM-dd')} To: ${format(toDate, 'yyyy-MM-dd')}`);
+            } else {
+                setAttendanceData([]);
+                setDateRange('');
+            }
+        } else {
+            setAttendanceData([]);
+            setDateRange('');
+        }
+    };
+    fetchAttendance();
+  }, [selectedEditorId, selectedYear, selectedMonth, getAttendanceForMonth]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -236,6 +275,13 @@ export default function AttendancePage() {
             
             const fromDate = parseISO(fromMatch[1]);
             const toDate = parseISO(toMatch[1]);
+            
+            const fileYear = fromDate.getFullYear().toString();
+            const fileMonth = (fromDate.getMonth() + 1).toString().padStart(2, '0');
+            if (fileYear !== selectedYear || fileMonth !== selectedMonth) {
+                throw new Error(`The uploaded file is for ${format(fromDate, 'MMMM yyyy')}, but you have selected ${format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}. Please upload the correct file or change your selection.`);
+            }
+
             setDateRange(`From: ${format(fromDate, 'yyyy-MM-dd HH:mm:ss')} To: ${format(toDate, 'yyyy-MM-dd HH:mm:ss')}`);
 
             const dateRowInExcel = jsonData[4] || [];
@@ -326,23 +372,13 @@ export default function AttendancePage() {
   }
   
   const handleSaveAttendance = async () => {
-        if (!selectedEditorId || !dateRange) {
-            toast({ title: 'Cannot Save', description: 'No editor or date range selected.', variant: 'destructive'});
+        if (!selectedEditorId || !selectedYear || !selectedMonth) {
+            toast({ title: 'Cannot Save', description: 'Editor, Year, or Month not selected.', variant: 'destructive'});
             return;
         }
-
-        const fromMatch = dateRange.match(/From: (\d{4}-\d{2}-\d{2})/);
-        if (!fromMatch) {
-            toast({ title: 'Error', description: 'Could not determine the year and month from the date range.', variant: 'destructive' });
-            return;
-        }
-
-        const fromDate = parseISO(fromMatch[1]);
-        const year = fromDate.getFullYear().toString();
-        const month = (fromDate.getMonth() + 1).toString().padStart(2, '0'); // getMonth is 0-indexed
 
         setIsSaving(true);
-        const result = await saveAttendanceForMonth(selectedEditorId, year, month, attendanceData);
+        const result = await saveAttendanceForMonth(selectedEditorId, selectedYear, selectedMonth, attendanceData);
         if (!result.success) {
             // Error toast is already handled in the context
         }
@@ -357,13 +393,13 @@ export default function AttendancePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Upload Attendance File</CardTitle>
+          <CardTitle>Select Period to View or Upload</CardTitle>
           <CardDescription>
-            Select an editor, then upload their Excel (.xlsx, .xls) or CSV attendance file for review.
+            Select an editor, year, and month to view saved attendance. If no records exist, you can upload an attendance file.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
             <div className="space-y-2">
                 <Label htmlFor="editor-select">Editor</Label>
                 {isLoading ? (
@@ -389,34 +425,73 @@ export default function AttendancePage() {
                     </Select>
                 )}
             </div>
-            <div>
-              <Label htmlFor="attendance-file">Attendance File</Label>
-              <div className="flex gap-2 mt-2">
-                  <Input
-                      id="attendance-file"
-                      type="file"
-                      onChange={handleFileChange}
-                      accept=".xlsx, .xls, .csv"
-                      className="flex-grow"
-                      disabled={isProcessing || !selectedEditorId}
-                  />
-                  <Button onClick={() => file && handleProcessFile(file)} disabled={!file || !selectedEditorId || isProcessing}>
-                      {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                      {isProcessing ? 'Processing...' : 'Review File'}
-                  </Button>
-              </div>
-              {file && <p className="text-sm text-muted-foreground mt-2">Selected file: {file.name}</p>}
+             <div className="space-y-2">
+              <Label htmlFor="year-select">Year</Label>
+              <Select value={selectedYear} onValueChange={setSelectedYear} disabled={isLoading || isProcessing}>
+                  <SelectTrigger id="year-select">
+                      <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                      {availableYears.map(year => (
+                          <SelectItem key={year} value={year}>{year}</SelectItem>
+                      ))}
+                  </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="month-select">Month</Label>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth} disabled={isLoading || isProcessing}>
+                  <SelectTrigger id="month-select">
+                      <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                      {availableMonths.map(month => (
+                          <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+                      ))}
+                  </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
       </Card>
+      
+      {selectedEditorId && (
+        <Card>
+            <CardHeader>
+              <CardTitle>Upload New File</CardTitle>
+              <CardDescription>
+                To create a new record for the selected period, or to overwrite existing data, upload an Excel file that matches the selected period.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="flex gap-2 items-end max-w-md">
+                    <div className="flex-grow space-y-2">
+                        <Label htmlFor="attendance-file">Attendance File (.xlsx, .xls, .csv)</Label>
+                        <Input
+                            id="attendance-file"
+                            type="file"
+                            onChange={handleFileChange}
+                            accept=".xlsx, .xls, .csv"
+                            className="flex-grow"
+                            disabled={isProcessing || !selectedEditorId}
+                        />
+                    </div>
+                    <Button onClick={() => file && handleProcessFile(file)} disabled={!file || !selectedEditorId || isProcessing}>
+                        {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                        {isProcessing ? 'Processing...' : 'Review File'}
+                    </Button>
+                </div>
+                {file && <p className="text-sm text-muted-foreground mt-2">Selected file: {file.name}</p>}
+            </CardContent>
+        </Card>
+      )}
       
       {selectedEditorId && attendanceData.length > 0 && (
           <Card>
               <CardHeader>
                 <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5" /> Reviewing Attendance for: <span className="ml-2 font-bold text-primary">{selectedEditor?.username}</span></CardTitle>
                 <CardDescription>
-                    Review and edit the attendance data extracted from the file. Date Range: <span className="font-semibold">{dateRange}</span>
+                    Review and edit the attendance data for {format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -500,19 +575,22 @@ export default function AttendancePage() {
             <User className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-4 text-xl font-medium">Select an Editor</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Please choose an editor from the list above to proceed.
+              Please choose an editor, year, and month to proceed.
             </p>
           </CardContent>
         </Card>
       )}
 
-      {selectedEditorId && !file && !isProcessing && attendanceData.length === 0 && (
+      {selectedEditorId && attendanceData.length === 0 && !isProcessing && (
           <Card className="shadow-md text-center py-10">
           <CardContent>
-            <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-xl font-medium">Awaiting File</h3>
+            <Search className="mx-auto h-12 w-12 text-muted-foreground" />
+            <h3 className="mt-4 text-xl font-medium">No Saved Records</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Please upload an attendance sheet for {selectedEditor?.username} to begin the review process.
+              No attendance records found for {selectedEditor?.username} for {format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}.
+            </p>
+             <p className="mt-1 text-sm text-muted-foreground">
+              Upload a file to create a new attendance sheet for this period.
             </p>
           </CardContent>
         </Card>
