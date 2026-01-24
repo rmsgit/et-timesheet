@@ -21,6 +21,7 @@ import { Calendar as CalendarIcon, PlusCircle, Send, Loader2, Plane, CheckCircle
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
 const leaveFormSchema = z.object({
   date: z.date({ required_error: "Please select a date for your leave." }),
@@ -36,6 +37,7 @@ export default function MyLeavePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
+  const [isApplyDialogOpen, setIsApplyDialogOpen] = useState(false);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<LeaveFormData>({
     resolver: zodResolver(leaveFormSchema),
@@ -86,6 +88,7 @@ export default function MyLeavePage() {
     const result = await applyForLeave(data.date, data.leaveType, data.reason);
     if (result.success) {
       reset();
+      setIsApplyDialogOpen(false);
     }
     setIsSubmitting(false);
   };
@@ -109,18 +112,22 @@ export default function MyLeavePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight flex items-center">
-        <Plane className="mr-3 h-8 w-8 text-primary" /> My Leave Requests
-      </h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-3xl font-bold tracking-tight flex items-center">
+            <Plane className="mr-3 h-8 w-8 text-primary" /> My Leave Requests
+        </h1>
+        <Button onClick={() => setIsApplyDialogOpen(true)} disabled={isSubmitting}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Apply for Leave
+        </Button>
+      </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Apply for Leave</CardTitle>
-            <CardDescription>Fill out the form to submit a new leave request.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <Dialog open={isApplyDialogOpen} onOpenChange={setIsApplyDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>Apply for Leave</DialogTitle>
+                <DialogDescription>Fill out the form to submit a new leave request.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
               <div>
                 <Label htmlFor="date">Leave Date</Label>
                 <Controller
@@ -180,102 +187,101 @@ export default function MyLeavePage() {
                 />
                  {errors.reason && <p className="text-sm text-destructive mt-1">{errors.reason.message}</p>}
               </div>
-
-              <div className="flex justify-end">
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                  Submit Request
-                </Button>
-              </div>
+              <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsApplyDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                    Submit Request
+                  </Button>
+              </DialogFooter>
             </form>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>My Leave History</CardTitle>
-            <CardDescription>A record of your past and pending leave requests.</CardDescription>
-            <div className="border-t pt-4 mt-4">
-                <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-semibold text-foreground">Leave Balance for {selectedYear}</h4>
-                    <Select value={String(selectedYear)} onValueChange={(value) => setSelectedYear(Number(value))}>
-                        <SelectTrigger className="w-[120px]">
-                            <SelectValue placeholder="Year" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {availableYears.map(year => (
-                            <SelectItem key={year} value={String(year)}>{year}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="flex justify-around text-center">
-                    <div>
-                        <p className="text-2xl font-bold">{availableLeaves}</p>
-                        <p className="text-xs text-muted-foreground">Available</p>
-                    </div>
-                    <div>
-                        <p className="text-2xl font-bold">{bookedLeaves}</p>
-                        <p className="text-xs text-muted-foreground">Booked</p>
-                    </div>
-                    <div>
-                        <p className="text-2xl font-bold">{remainingLeaves}</p>
-                        <p className="text-xs text-muted-foreground">Remaining</p>
-                    </div>
-                </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <TableSkeleton columnCount={5} rowCount={5} />
-            ) : filteredLeaveRequestsForYear.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredLeaveRequestsForYear.map(req => (
-                    <TableRow key={req.id}>
-                      <TableCell>{format(parseISO(req.date), 'PPP')}</TableCell>
-                      <TableCell className="capitalize">{req.leaveType.replace('-', ' ')}</TableCell>
-                      <TableCell className="max-w-[150px] truncate">{req.reason}</TableCell>
-                      <TableCell>{getStatusBadge(req.status)}</TableCell>
-                      <TableCell className="text-right">
-                        {req.status === 'pending' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                            onClick={() => handleCancel(req.id)}
-                            disabled={isCancelling === req.id || isSubmitting}
-                          >
-                            {isCancelling === req.id ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <XCircle className="mr-1 h-4 w-4" />
-                            )}
-                            Cancel
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-10">
-                <p className="text-muted-foreground">You have no leave requests for {selectedYear}.</p>
+        </DialogContent>
+      </Dialog>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>My Leave History</CardTitle>
+          <CardDescription>A record of your past and pending leave requests.</CardDescription>
+          <div className="border-t pt-4 mt-4">
+              <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-semibold text-foreground">Leave Balance for {selectedYear}</h4>
+                  <Select value={String(selectedYear)} onValueChange={(value) => setSelectedYear(Number(value))}>
+                      <SelectTrigger className="w-[120px]">
+                          <SelectValue placeholder="Year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          {availableYears.map(year => (
+                          <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              <div className="flex justify-around text-center">
+                  <div>
+                      <p className="text-2xl font-bold">{availableLeaves}</p>
+                      <p className="text-xs text-muted-foreground">Available</p>
+                  </div>
+                  <div>
+                      <p className="text-2xl font-bold">{bookedLeaves}</p>
+                      <p className="text-xs text-muted-foreground">Booked</p>
+                  </div>
+                  <div>
+                      <p className="text-2xl font-bold">{remainingLeaves}</p>
+                      <p className="text-xs text-muted-foreground">Remaining</p>
+                  </div>
+              </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <TableSkeleton columnCount={5} rowCount={5} />
+          ) : filteredLeaveRequestsForYear.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredLeaveRequestsForYear.map(req => (
+                  <TableRow key={req.id}>
+                    <TableCell>{format(parseISO(req.date), 'PPP')}</TableCell>
+                    <TableCell className="capitalize">{req.leaveType.replace('-', ' ')}</TableCell>
+                    <TableCell className="max-w-[150px] truncate">{req.reason}</TableCell>
+                    <TableCell>{getStatusBadge(req.status)}</TableCell>
+                    <TableCell className="text-right">
+                      {req.status === 'pending' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => handleCancel(req.id)}
+                          disabled={isCancelling === req.id || isSubmitting}
+                        >
+                          {isCancelling === req.id ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <XCircle className="mr-1 h-4 w-4" />
+                          )}
+                          Cancel
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-10">
+              <p className="text-muted-foreground">You have no leave requests for {selectedYear}.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
