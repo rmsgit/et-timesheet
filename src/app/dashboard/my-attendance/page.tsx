@@ -8,7 +8,7 @@ import { useLeave } from '@/hooks/useLeave';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format, getMonth, getYear, isSameDay, parseISO, eachDayOfInterval } from 'date-fns';
+import { format, getMonth, getYear, isSameDay, parseISO } from 'date-fns';
 import type { AttendanceRecord, LeaveRequest } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Hourglass, AlertTriangle, Plane, Calendar as CalendarIcon, Loader2, BookOpen } from 'lucide-react';
@@ -46,9 +46,10 @@ export default function MyAttendancePage() {
   }, [leaveRequests, user]);
 
   const combinedMonthData = useMemo(() => {
-    if (!attendanceData) return [];
+    if (!attendanceData) {
+      return [];
+    }
 
-    // 1. Create records for all data present in the fetched timesheet
     const recordsFromData = attendanceData.map(rec => {
         const day = new Date(rec.date);
         const leaveForDay = approvedLeaves.find(req => isSameDay(parseISO(req.date), day));
@@ -57,9 +58,9 @@ export default function MyAttendancePage() {
         let status = 'Present';
          if (leaveForDay) {
             status = 'On Leave';
-        } else if (isWeekend && !rec.checkIn) {
+        } else if (isWeekend && !rec.checkIn && !rec.checkOut) {
             status = 'Weekend';
-        } else if (!rec.checkIn) {
+        } else if (!rec.checkIn && !rec.checkOut) {
             status = 'Absent'
         }
 
@@ -75,50 +76,11 @@ export default function MyAttendancePage() {
         };
     });
 
-    // 2. Find which days of the *selected month* are not yet in our list
-    const monthStart = new Date(selectedYear, selectedMonth, 1);
-    const monthEnd = new Date(selectedYear, selectedMonth + 1, 0);
-    const daysInSelectedMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    recordsFromData.sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
     
-    const missingDayRecords = daysInSelectedMonth.map(day => {
-        const isDayPresent = recordsFromData.some(rec => isSameDay(rec.dateObj, day));
-        if (isDayPresent) {
-            return null; // This day is already covered by the attendance data
-        }
+    return recordsFromData.map(({ dateObj, ...rest }) => rest);
 
-        // The day is missing, so we create a placeholder "Absent" or "Weekend" record for it
-        const leaveForDay = approvedLeaves.find(req => isSameDay(parseISO(req.date), day));
-        const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-
-        let status = 'Absent';
-        if (leaveForDay) {
-            status = 'On Leave';
-        } else if (isWeekend) {
-            status = 'Weekend';
-        }
-
-        return {
-            dateObj: day,
-            date: format(day, 'MMM d, yyyy (EEE)'),
-            checkIn: '-',
-            checkOut: '-',
-            overtime: '-',
-            earlyLeave: '-',
-            leaveInfo: leaveForDay ? leaveForDay.leaveType.replace('-', ' ') : '-',
-            status: status,
-        };
-    }).filter(Boolean);
-
-    // 3. Combine the records from data and the placeholder records
-    const allRecords = [...recordsFromData, ...missingDayRecords];
-
-    // 4. Sort all records chronologically
-    allRecords.sort((a, b) => a!.dateObj.getTime() - b!.dateObj.getTime());
-    
-    // 5. Remove the temporary dateObj before returning for display
-    return allRecords.map(({ dateObj, ...rest }) => rest);
-
-  }, [attendanceData, approvedLeaves, selectedYear, selectedMonth]);
+  }, [attendanceData, approvedLeaves]);
   
   const availableYears = useMemo(() => {
       const currentYear = new Date().getFullYear();
@@ -204,7 +166,7 @@ export default function MyAttendancePage() {
                       <Loader2 className="h-10 w-10 animate-spin text-primary"/>
                   </div>
               </div>
-            ) : attendanceData ? (
+            ) : attendanceData && combinedMonthData.length > 0 ? (
               <div className="border rounded-md">
                 <Table>
                     <TableHeader>
