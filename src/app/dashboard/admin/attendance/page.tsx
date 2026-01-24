@@ -91,7 +91,7 @@ export default function AttendancePage() {
         // Make Sundays a day off, and some other random days off
         if (dayOfWeek === 0 || Math.random() > 0.9) {
              return { 
-                 date: format(day, 'MMM d'), // Format date as 'Dec 23'
+                 date: format(day, 'MMM d, yyyy'), // Format date as 'Dec 23, 2025'
                  checkIn: '', 
                  checkOut: '' 
              };
@@ -107,7 +107,7 @@ export default function AttendancePage() {
         const checkOutSecond = Math.floor(Math.random() * 60);
 
         return {
-          date: format(day, 'MMM d'),
+          date: format(day, 'MMM d, yyyy'),
           checkIn: `${String(checkInHour).padStart(2, '0')}:${String(checkInMinute).padStart(2, '0')}:${String(checkInSecond).padStart(2, '0')}`,
           checkOut: `${String(checkOutHour).padStart(2, '0')}:${String(checkOutMinute).padStart(2, '0')}:${String(checkOutSecond).padStart(2, '0')}`
         };
