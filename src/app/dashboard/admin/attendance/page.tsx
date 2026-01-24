@@ -171,48 +171,40 @@ export default function AttendancePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                  <div className="overflow-x-auto">
-                    <Table className="min-w-full">
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="font-semibold w-[150px]">Entry</TableHead>
-                                {attendanceData.map((rec, index) => (
-                                    <TableHead key={index} className="text-center w-[150px]">{rec.date}</TableHead>
-                                ))}
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            <TableRow>
-                                <TableCell className="font-medium bg-muted/50">Check-in</TableCell>
-                                {attendanceData.map((rec, recordIndex) => (
-                                    <TableCell key={`${recordIndex}-checkin`} className="p-1">
-                                        <Input 
-                                            type="text" 
-                                            value={rec.checkIn}
-                                            onChange={(e) => handleAttendanceChange(recordIndex, 'checkIn', e.target.value)}
-                                            placeholder="--:--:--"
-                                            className="h-8 text-center text-sm border-t-0 border-x-0 rounded-none border-b-2 border-b-transparent focus:border-b-primary focus:ring-0" 
-                                        />
-                                    </TableCell>
-                                ))}
-                            </TableRow>
-                            <TableRow>
-                                <TableCell className="font-medium bg-muted/50">Check-out</TableCell>
-                                {attendanceData.map((rec, recordIndex) => (
-                                    <TableCell key={`${recordIndex}-checkout`} className="p-1">
-                                        <Input 
-                                            type="text" 
-                                            value={rec.checkOut} 
-                                            onChange={(e) => handleAttendanceChange(recordIndex, 'checkOut', e.target.value)}
-                                            placeholder="--:--:--"
-                                            className="h-8 text-center text-sm border-t-0 border-x-0 rounded-none border-b-2 border-b-transparent focus:border-b-primary focus:ring-0" 
-                                        />
-                                    </TableCell>
-                                ))}
-                            </TableRow>
-                        </TableBody>
-                    </Table>
-                  </div>
+                  <Table>
+                      <TableHeader>
+                          <TableRow>
+                              <TableHead className="w-[100px]">Date</TableHead>
+                              <TableHead>Check-in</TableHead>
+                              <TableHead>Check-out</TableHead>
+                          </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                          {attendanceData.map((rec, recordIndex) => (
+                              <TableRow key={recordIndex}>
+                                  <TableCell className="font-medium">{rec.date}</TableCell>
+                                  <TableCell>
+                                      <Input 
+                                          type="text" 
+                                          value={rec.checkIn}
+                                          onChange={(e) => handleAttendanceChange(recordIndex, 'checkIn', e.target.value)}
+                                          placeholder="--:--:--"
+                                          className="h-9" 
+                                      />
+                                  </TableCell>
+                                  <TableCell>
+                                      <Input 
+                                          type="text" 
+                                          value={rec.checkOut} 
+                                          onChange={(e) => handleAttendanceChange(recordIndex, 'checkOut', e.target.value)}
+                                          placeholder="--:--:--"
+                                          className="h-9"
+                                      />
+                                  </TableCell>
+                              </TableRow>
+                          ))}
+                      </TableBody>
+                  </Table>
                    <div className="flex justify-end mt-6">
                         <Button>Save Attendance</Button>
                     </div>
