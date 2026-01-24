@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -34,6 +33,7 @@ export default function MyLeavePage() {
   const { user } = useAuth();
   const { leaveRequests, isLoading, applyForLeave } = useLeave();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<LeaveFormData>({
     resolver: zodResolver(leaveFormSchema),
@@ -51,9 +51,15 @@ export default function MyLeavePage() {
       .sort((a, b) => parseISO(b.requestedAt).getTime() - parseISO(a.requestedAt).getTime());
   }, [leaveRequests, user]);
 
+  const availableYears = useMemo(() => {
+      const yearsFromRequests = myLeaveRequests.map(req => parseISO(req.date).getFullYear());
+      const allYears = new Set([new Date().getFullYear(), ...yearsFromRequests]);
+      return Array.from(allYears).sort((a,b) => b - a);
+  }, [myLeaveRequests]);
+
   const { availableLeaves, bookedLeaves, remainingLeaves } = useMemo(() => {
     const available = user?.availableLeaves ?? 0;
-    const currentYear = new Date().getFullYear();
+    const currentYear = selectedYear;
 
     const booked = myLeaveRequests.reduce((total, req) => {
       const requestYear = parseISO(req.date).getFullYear();
@@ -65,7 +71,7 @@ export default function MyLeavePage() {
     }, 0);
     const remaining = available - booked;
     return { availableLeaves: available, bookedLeaves: booked, remainingLeaves: remaining };
-  }, [myLeaveRequests, user?.availableLeaves]);
+  }, [myLeaveRequests, user?.availableLeaves, selectedYear]);
 
   const onSubmit = async (data: LeaveFormData) => {
     setIsSubmitting(true);
@@ -170,19 +176,34 @@ export default function MyLeavePage() {
           <CardHeader>
             <CardTitle>My Leave History</CardTitle>
             <CardDescription>A record of your past and pending leave requests.</CardDescription>
-            <div className="border-t pt-4 mt-4 flex justify-around text-center">
-              <div>
-                  <p className="text-2xl font-bold">{availableLeaves}</p>
-                  <p className="text-xs text-muted-foreground">Available</p>
-              </div>
-              <div>
-                  <p className="text-2xl font-bold">{bookedLeaves}</p>
-                  <p className="text-xs text-muted-foreground">Booked</p>
-              </div>
-              <div>
-                  <p className="text-2xl font-bold">{remainingLeaves}</p>
-                  <p className="text-xs text-muted-foreground">Remaining</p>
-              </div>
+            <div className="border-t pt-4 mt-4">
+                <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-semibold text-foreground">Leave Balance for {selectedYear}</h4>
+                    <Select value={String(selectedYear)} onValueChange={(value) => setSelectedYear(Number(value))}>
+                        <SelectTrigger className="w-[120px]">
+                            <SelectValue placeholder="Year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {availableYears.map(year => (
+                            <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="flex justify-around text-center">
+                    <div>
+                        <p className="text-2xl font-bold">{availableLeaves}</p>
+                        <p className="text-xs text-muted-foreground">Available</p>
+                    </div>
+                    <div>
+                        <p className="text-2xl font-bold">{bookedLeaves}</p>
+                        <p className="text-xs text-muted-foreground">Booked</p>
+                    </div>
+                    <div>
+                        <p className="text-2xl font-bold">{remainingLeaves}</p>
+                        <p className="text-xs text-muted-foreground">Remaining</p>
+                    </div>
+                </div>
             </div>
           </CardHeader>
           <CardContent>
