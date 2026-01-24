@@ -93,7 +93,7 @@ export default function AttendancePage() {
 
             // Find the date range string in row 4 (jsonData[3])
             const dateRangeRow = jsonData[3] || [];
-            const dateRangeString = dateRangeRow.find(cell => typeof cell === 'string' && cell.startsWith('From:')) || '';
+            const dateRangeString = dateRangeRow.find(cell => typeof cell === 'string' && cell.includes('From:')) || '';
             if (!dateRangeString) {
                 throw new Error('Date range "From: ... To: ..." not found in row 4.');
             }
