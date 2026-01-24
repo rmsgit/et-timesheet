@@ -9,10 +9,41 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, getMonth, getYear, isSameDay, parseISO } from 'date-fns';
-import type { AttendanceRecord, LeaveRequest } from '@/lib/types';
+import type { AttendanceRecord } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Hourglass, AlertTriangle, Plane, Calendar as CalendarIcon, Loader2, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+const parseDurationToSeconds = (duration: string): number => {
+    if (!duration || duration === '-') return 0;
+    
+    let totalSeconds = 0;
+    const parts = duration.split(' ');
+    
+    parts.forEach(part => {
+        if (part.endsWith('h')) {
+            totalSeconds += parseInt(part.replace('h', ''), 10) * 3600;
+        } else if (part.endsWith('m')) {
+            totalSeconds += parseInt(part.replace('m', ''), 10) * 60;
+        }
+    });
+
+    return totalSeconds;
+};
+
+const formatDurationFromTotalSeconds = (totalSeconds: number): string => {
+  if (isNaN(totalSeconds) || totalSeconds <= 0) return '0m';
+  
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+  const parts: string[] = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  
+  return parts.length > 0 ? parts.join(' ') : '0m';
+};
+
 
 export default function MyAttendancePage() {
   const { user, isAuthLoading } = useAuth();
@@ -82,6 +113,28 @@ export default function MyAttendancePage() {
 
   }, [attendanceData, approvedLeaves]);
   
+  const summaryStats = useMemo(() => {
+    let totalOvertimeSeconds = 0;
+    let totalEarlyLeaveSeconds = 0;
+    let totalLeaves = 0;
+
+    combinedMonthData.forEach(rec => {
+        totalOvertimeSeconds += parseDurationToSeconds(rec.overtime);
+        totalEarlyLeaveSeconds += parseDurationToSeconds(rec.earlyLeave);
+        if (rec.leaveInfo.toLowerCase().includes('full')) {
+            totalLeaves += 1;
+        } else if (rec.leaveInfo.toLowerCase().includes('half')) {
+            totalLeaves += 0.5;
+        }
+    });
+
+    return {
+        totalOvertime: formatDurationFromTotalSeconds(totalOvertimeSeconds),
+        totalEarlyLeave: formatDurationFromTotalSeconds(totalEarlyLeaveSeconds),
+        totalLeaves: totalLeaves,
+    };
+  }, [combinedMonthData]);
+
   const availableYears = useMemo(() => {
       const currentYear = new Date().getFullYear();
       const years = [];
@@ -126,6 +179,40 @@ export default function MyAttendancePage() {
       <h1 className="text-3xl font-bold tracking-tight flex items-center">
         <CalendarIcon className="mr-3 h-8 w-8 text-primary" /> My Attendance Log
       </h1>
+      
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Overtime</CardTitle>
+                <Hourglass className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{summaryStats.totalOvertime}</div>
+                <p className="text-xs text-muted-foreground">For the selected month</p>
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Leaves Taken</CardTitle>
+                <Plane className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{summaryStats.totalLeaves}</div>
+                <p className="text-xs text-muted-foreground">Full & half days</p>
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Early Leave</CardTitle>
+                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold text-orange-600">{summaryStats.totalEarlyLeave}</div>
+                <p className="text-xs text-muted-foreground">For the selected month</p>
+            </CardContent>
+        </Card>
+      </div>
+      
       <Card>
         <CardHeader>
           <CardTitle>View Your Attendance</CardTitle>
@@ -209,3 +296,5 @@ export default function MyAttendancePage() {
     </div>
   );
 }
+
+    
