@@ -22,25 +22,42 @@ interface AttendanceRecord {
   overtime: string;
 }
 
-const calculateOvertime = (checkOut: string): string => {
-    if (!checkOut || typeof checkOut !== 'string' || !checkOut.includes(':')) {
+const calculateOvertime = (checkIn: string, checkOut: string): string => {
+    if (!checkOut || typeof checkOut !== 'string' || !checkOut.includes(':') || !checkIn || typeof checkIn !== 'string' || !checkIn.includes(':')) {
         return '';
     }
 
-    const parts = checkOut.split(':');
-    let normalizedTime = checkOut;
-    if (parts.length === 2) {
-        normalizedTime = `${checkOut}:00`;
-    } else if (parts.length !== 3) {
-        return ''; // Invalid format
+    // Normalize check-in time
+    const checkInParts = checkIn.split(':');
+    let normalizedCheckInTime = checkIn;
+    if (checkInParts.length === 2) {
+        normalizedCheckInTime = `${checkIn}:00`;
+    } else if (checkInParts.length !== 3) {
+        return ''; // Invalid check-in format
+    }
+    
+    // Normalize check-out time
+    const checkOutParts = checkOut.split(':');
+    let normalizedCheckOutTime = checkOut;
+    if (checkOutParts.length === 2) {
+        normalizedCheckOutTime = `${checkOut}:00`;
+    } else if (checkOutParts.length !== 3) {
+        return ''; // Invalid check-out format
     }
 
     const dummyDate = '1970-01-01T';
     try {
+        const startTime = new Date(`${dummyDate}08:15:00`);
         const endTime = new Date(`${dummyDate}17:15:00`);
-        const checkOutTime = new Date(`${dummyDate}${normalizedTime}`);
+        const checkInTime = new Date(`${dummyDate}${normalizedCheckInTime}`);
+        const checkOutTime = new Date(`${dummyDate}${normalizedCheckOutTime}`);
         
-        if (isNaN(checkOutTime.getTime()) || isNaN(endTime.getTime())) {
+        if (isNaN(checkInTime.getTime()) || isNaN(checkOutTime.getTime()) || isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+            return '';
+        }
+
+        // Condition: If check-in time is after company start time, no OT
+        if (checkInTime > startTime) {
             return '';
         }
 
@@ -55,7 +72,7 @@ const calculateOvertime = (checkOut: string): string => {
             return partStrings.join(' ');
         }
     } catch (e) {
-        console.error("Error calculating overtime for:", checkOut, e);
+        console.error("Error calculating overtime for:", checkIn, checkOut, e);
         return '';
     }
 
@@ -179,13 +196,14 @@ export default function AttendancePage() {
             const newAttendanceData: AttendanceRecord[] = daysInRange.map((day, index) => {
                 const colIndex = index + 1;
                 const dataForDay = columnDataMap.get(colIndex);
+                const checkInValue = dataForDay?.checkIn || '';
                 const checkOutValue = dataForDay?.checkOut || '';
 
                 return {
                     date: format(day, 'MMM d, yyyy'),
-                    checkIn: dataForDay?.checkIn || '',
+                    checkIn: checkInValue,
                     checkOut: checkOutValue,
-                    overtime: calculateOvertime(checkOutValue),
+                    overtime: calculateOvertime(checkInValue, checkOutValue),
                 };
             });
 
@@ -213,8 +231,8 @@ export default function AttendancePage() {
       const record = updatedData[recordIndex];
       record[field] = value;
       
-      if (field === 'checkOut') {
-        record.overtime = calculateOvertime(value);
+      if (field === 'checkIn' || field === 'checkOut') {
+        record.overtime = calculateOvertime(record.checkIn, record.checkOut);
       }
       
       setAttendanceData(updatedData);
@@ -366,5 +384,7 @@ export default function AttendancePage() {
     </div>
   );
 }
+
+    
 
     
