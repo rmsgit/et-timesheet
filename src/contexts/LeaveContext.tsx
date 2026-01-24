@@ -18,6 +18,7 @@ interface LeaveContextType {
   applyForLeave: (date: Date, leaveType: LeaveType, reason: string) => Promise<{ success: boolean; id?: string }>;
   updateLeaveStatus: (leaveId: string, status: 'approved' | 'rejected') => Promise<{ success: boolean }>;
   cancelLeaveRequest: (leaveId: string) => Promise<{ success: boolean }>;
+  updateLeaveRequest: (leaveId: string, updates: Partial<LeaveRequest>) => Promise<{ success: boolean }>;
 }
 
 export const LeaveContext = createContext<LeaveContextType | undefined>(undefined);
@@ -168,9 +169,25 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
         return { success: false };
     }
 }, [user, toast, leaveRequests]);
+
+  const updateLeaveRequest = useCallback(async (leaveId: string, updates: Partial<LeaveRequest>): Promise<{ success: boolean }> => {
+    if (!database) {
+      toast({ title: "Error", description: "Database not connected.", variant: "destructive" });
+      return { success: false };
+    }
+    try {
+      await firebaseUpdate(ref(database, `${FIREBASE_LEAVE_REQUESTS_PATH}/${leaveId}`), updates);
+      toast({ title: "Success", description: "Leave request updated successfully." });
+      return { success: true };
+    } catch (error) {
+      console.error("Firebase update leave request error:", error);
+      toast({ title: "Error", description: "Failed to update leave request.", variant: "destructive" });
+      return { success: false };
+    }
+  }, [toast]);
   
   return (
-    <LeaveContext.Provider value={{ leaveRequests, isLoading, applyForLeave, updateLeaveStatus, cancelLeaveRequest }}>
+    <LeaveContext.Provider value={{ leaveRequests, isLoading, applyForLeave, updateLeaveStatus, cancelLeaveRequest, updateLeaveRequest }}>
       {children}
     </LeaveContext.Provider>
   );

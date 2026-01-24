@@ -2,49 +2,72 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/hooks/useAuth';
 import { useLeave } from '@/hooks/useLeave';
 import type { LeaveRequest } from '@/lib/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, PlusCircle, Send, Loader2, Plane, CheckCircle, XCircle, Hourglass, Ban } from 'lucide-react';
+import { Calendar as CalendarIcon, PlusCircle, Send, Loader2, Plane, CheckCircle, XCircle, Hourglass, Ban, Edit } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Input } from '@/components/ui/input';
+
+const leaveReasons = [
+  'Vacation',
+  'Personal Leave',
+  'Family and Medical Leave',
+  'Funeral/Bereavement Leave',
+  'Other'
+] as const;
 
 const leaveFormSchema = z.object({
   date: z.date({ required_error: "Please select a date for your leave." }),
   leaveType: z.enum(['full-day', 'half-day', 'short-leave'], { required_error: "Please select a leave type." }),
-  reason: z.string().min(10, "Please provide a reason (min. 10 characters).").max(500, "Reason cannot exceed 500 characters."),
+  reason: z.enum(leaveReasons, { required_error: "Please select a reason." }),
+  otherReason: z.string().optional(),
+}).refine(data => {
+    if (data.reason === 'Other') {
+        return !!data.otherReason && data.otherReason.trim().length > 0;
+    }
+    return true;
+}, {
+    message: "Please specify the reason if you select 'Other'.",
+    path: ['otherReason'],
 });
+
 
 type LeaveFormData = z.infer<typeof leaveFormSchema>;
 
 export default function MyLeavePage() {
   const { user } = useAuth();
-  const { leaveRequests, isLoading, applyForLeave, cancelLeaveRequest } = useLeave();
+  const { leaveRequests, isLoading, applyForLeave, cancelLeaveRequest, updateLeaveRequest } = useLeave();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
-  const [isApplyDialogOpen, setIsApplyDialogOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
 
-  const { control, handleSubmit, reset, formState: { errors } } = useForm<LeaveFormData>({
+  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<LeaveFormData>({
     resolver: zodResolver(leaveFormSchema),
     defaultValues: {
-      reason: '',
+      reason: undefined,
+      otherReason: '',
     },
   });
+
+  const reasonValue = watch("reason");
 
   const myLeaveRequests = useMemo(() => {
     if (!user) return [];
@@ -83,12 +106,51 @@ export default function MyLeavePage() {
     return { availableLeaves: available, bookedLeaves: booked, remainingLeaves: remaining };
   }, [myLeaveRequests, user?.availableLeaves, selectedYear]);
 
-  const onSubmit = async (data: LeaveFormData) => {
+  const handleOpenForm = (request: LeaveRequest | null) => {
+    setEditingRequest(request);
+    if (request) { // Editing
+      const reasonParts = request.reason.split('Other: ');
+      let reasonVal: typeof leaveReasons[number] = 'Other';
+      let otherReasonVal = '';
+      if (reasonParts.length > 1) {
+        reasonVal = 'Other';
+        otherReasonVal = reasonParts[1];
+      } else if (leaveReasons.includes(request.reason as any)) {
+        reasonVal = request.reason as typeof leaveReasons[number];
+      } else {
+        reasonVal = 'Other';
+        otherReasonVal = request.reason;
+      }
+      reset({
+        date: parseISO(request.date),
+        leaveType: request.leaveType,
+        reason: reasonVal,
+        otherReason: otherReasonVal,
+      });
+    } else { // Adding new
+      reset({
+        date: new Date(),
+        leaveType: 'full-day',
+        reason: undefined,
+        otherReason: '',
+      });
+    }
+    setIsFormOpen(true);
+  };
+  
+  const onFormSubmit = async (data: LeaveFormData) => {
     setIsSubmitting(true);
-    const result = await applyForLeave(data.date, data.leaveType, data.reason);
+    const finalReason = data.reason === 'Other' && data.otherReason ? `Other: ${data.otherReason}` : data.reason;
+
+    let result;
+    if (editingRequest) {
+        result = await updateLeaveRequest(editingRequest.id, { reason: finalReason });
+    } else {
+        result = await applyForLeave(data.date, data.leaveType, finalReason);
+    }
+
     if (result.success) {
-      reset();
-      setIsApplyDialogOpen(false);
+      setIsFormOpen(false);
     }
     setIsSubmitting(false);
   };
@@ -118,18 +180,18 @@ export default function MyLeavePage() {
         <h1 className="text-3xl font-bold tracking-tight flex items-center">
             <Plane className="mr-3 h-8 w-8 text-primary" /> My Leave Requests
         </h1>
-        <Button onClick={() => setIsApplyDialogOpen(true)} disabled={isSubmitting}>
+        <Button onClick={() => handleOpenForm(null)} disabled={isSubmitting}>
             <PlusCircle className="mr-2 h-4 w-4" /> Apply for Leave
         </Button>
       </div>
 
-      <Dialog open={isApplyDialogOpen} onOpenChange={setIsApplyDialogOpen}>
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
-                <DialogTitle>Apply for Leave</DialogTitle>
-                <DialogDescription>Fill out the form to submit a new leave request.</DialogDescription>
+                <DialogTitle>{editingRequest ? 'Edit Leave Request' : 'Apply for Leave'}</DialogTitle>
+                <DialogDescription>{editingRequest ? 'Update the reason for your leave.' : 'Fill out the form to submit a new leave request.'}</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
+            <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4 pt-4">
               <div>
                 <Label htmlFor="date">Leave Date</Label>
                 <Controller
@@ -141,7 +203,7 @@ export default function MyLeavePage() {
                         <Button
                           variant={"outline"}
                           className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
-                          disabled={isSubmitting}
+                          disabled={!!editingRequest || isSubmitting}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
@@ -153,6 +215,7 @@ export default function MyLeavePage() {
                           selected={field.value}
                           onSelect={field.onChange}
                           initialFocus
+                          disabled={!!editingRequest || isSubmitting}
                         />
                       </PopoverContent>
                     </Popover>
@@ -167,7 +230,7 @@ export default function MyLeavePage() {
                   name="leaveType"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isSubmitting}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={!!editingRequest || isSubmitting}>
                       <SelectTrigger id="leaveType"><SelectValue placeholder="Select a type" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="full-day">Full Day Leave</SelectItem>
@@ -181,19 +244,43 @@ export default function MyLeavePage() {
               </div>
               
               <div>
-                <Label htmlFor="reason">Reason</Label>
+                <Label>Reason</Label>
                 <Controller
-                    name="reason"
-                    control={control}
-                    render={({ field }) => <Textarea id="reason" {...field} placeholder="Please provide a brief reason for your leave..." rows={3} disabled={isSubmitting}/>}
+                  name="reason"
+                  control={control}
+                  render={({ field }) => (
+                    <RadioGroup onValueChange={field.onChange} value={field.value} className="space-y-2 mt-2" disabled={isSubmitting}>
+                      {leaveReasons.map(r => (
+                        <div key={r} className="flex items-center space-x-2">
+                          <RadioGroupItem value={r} id={r.replace(/\s+/g, '')} />
+                          <Label htmlFor={r.replace(/\s+/g, '')} className="font-normal">{r}</Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  )}
                 />
-                 {errors.reason && <p className="text-sm text-destructive mt-1">{errors.reason.message}</p>}
+                {errors.reason && <p className="text-sm text-destructive mt-1">{errors.reason.message}</p>}
               </div>
+
+              {reasonValue === 'Other' && (
+                <div>
+                  <Label htmlFor="otherReason">Please Specify</Label>
+                   <Controller
+                      name="otherReason"
+                      control={control}
+                      render={({ field }) => (
+                        <Input id="otherReason" {...field} placeholder="Specify other reason" disabled={isSubmitting} />
+                      )}
+                    />
+                  {errors.otherReason && <p className="text-sm text-destructive mt-1">{errors.otherReason.message}</p>}
+                </div>
+              )}
+
               <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsApplyDialogOpen(false)}>Cancel</Button>
+                  <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>Cancel</Button>
                   <Button type="submit" disabled={isSubmitting}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                    Submit Request
+                    {editingRequest ? 'Save Changes' : 'Submit Request'}
                   </Button>
               </DialogFooter>
             </form>
@@ -255,7 +342,10 @@ export default function MyLeavePage() {
                     <TableCell className="capitalize">{req.leaveType.replace('-', ' ')}</TableCell>
                     <TableCell className="max-w-[150px] truncate">{req.reason}</TableCell>
                     <TableCell>{getStatusBadge(req.status)}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right space-x-1">
+                       <Button variant="ghost" size="sm" onClick={() => handleOpenForm(req)} disabled={isCancelling === req.id || isSubmitting}>
+                          <Edit className="mr-1 h-4 w-4" /> Edit
+                       </Button>
                       {(req.status === 'pending' || req.status === 'approved') && (
                         <Button
                           variant="ghost"
