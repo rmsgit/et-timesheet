@@ -100,10 +100,8 @@ export default function AttendancePage() {
         }
 
         // Generate predictable, non-random times for other work days
-        const baseHour = 7 + (day.getDate() % 3); // 7, 8, 9
-        const baseMinute = (day.getDate() * 2) % 60;
-        const checkIn = `${String(baseHour).padStart(2, '0')}:${String(baseMinute).padStart(2, '0')}:${String((baseMinute + 5) % 60).padStart(2, '0')}`;
-        const checkOut = `${String(baseHour + 9).padStart(2, '0')}:${String((baseMinute + 15) % 60).padStart(2, '0')}:${String((baseMinute + 20) % 60).padStart(2, '0')}`;
+        const checkIn = '08:00:00';
+        const checkOut = '17:00:00';
         
         return { date: format(day, 'MMM d, yyyy'), checkIn, checkOut };
       });
