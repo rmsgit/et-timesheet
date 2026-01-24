@@ -23,7 +23,7 @@ interface AttendanceRecord {
   checkOut: string;
   overtime: string;
   leaveInfo: string;
-  overShortLeave: string;
+  earlyLeave: string;
 }
 
 const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorningOT?: boolean): string => {
@@ -106,8 +106,8 @@ const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorni
     return '';
 };
 
-const calculateOverShortLeave = (checkIn: string, checkOut: string, leaveInfo: string): string => {
-    if (leaveInfo.toLowerCase() !== 'short leave' || !checkIn || !checkOut) {
+const calculateEarlyLeave = (checkOut: string, leaveInfo: string): string => {
+    if (!checkOut || (leaveInfo && (leaveInfo.toLowerCase().includes('full') || leaveInfo.toLowerCase().includes('half')))) {
         return '';
     }
 
@@ -119,28 +119,28 @@ const calculateOverShortLeave = (checkIn: string, checkOut: string, leaveInfo: s
         return '';
     }
     
-    const normalizedCheckIn = normalizeTime(checkIn);
     const normalizedCheckOut = normalizeTime(checkOut);
     
-    if (!normalizedCheckIn || !normalizedCheckOut) return '';
+    if (!normalizedCheckOut) return '';
 
     const dummyDate = '1970-01-01T';
     try {
-        const checkInTime = new Date(`${dummyDate}${normalizedCheckIn}`);
+        const companyEndTime = new Date(`${dummyDate}17:15:00`);
         const checkOutTime = new Date(`${dummyDate}${normalizedCheckOut}`);
 
-        if (isNaN(checkInTime.getTime()) || isNaN(checkOutTime.getTime())) {
+        if (isNaN(checkOutTime.getTime()) || checkOutTime >= companyEndTime) {
             return '';
         }
 
-        const durationSeconds = (checkOutTime.getTime() - checkInTime.getTime()) / 1000;
-        const shortLeaveAllowanceSeconds = 3600; // 1 hour
+        let earlySeconds = Math.floor((companyEndTime.getTime() - checkOutTime.getTime()) / 1000);
 
-        if (durationSeconds > shortLeaveAllowanceSeconds) {
-            const overageSeconds = durationSeconds - shortLeaveAllowanceSeconds;
-            
-            const hours = Math.floor(overageSeconds / 3600);
-            const minutes = Math.floor((overageSeconds % 3600) / 60);
+        if (leaveInfo.toLowerCase().includes('short')) {
+            earlySeconds -= 3600; // 1 hour grace period for short leave
+        }
+
+        if (earlySeconds > 0) {
+            const hours = Math.floor(earlySeconds / 3600);
+            const minutes = Math.floor((earlySeconds % 3600) / 60);
 
             const partStrings: string[] = [];
             if (hours > 0) partStrings.push(`${hours}h`);
@@ -150,7 +150,7 @@ const calculateOverShortLeave = (checkIn: string, checkOut: string, leaveInfo: s
         
         return '';
     } catch (e) {
-        console.error("Error calculating over short leave for:", checkIn, checkOut, e);
+        console.error("Error calculating early leave for:", checkOut, leaveInfo, e);
         return '';
     }
 };
@@ -286,7 +286,7 @@ export default function AttendancePage() {
                 if (leaveForDay) {
                     leaveInfo = leaveForDay.leaveType.replace('-', ' ');
                 }
-                const overShortLeave = calculateOverShortLeave(checkInValue, checkOutValue, leaveInfo);
+                const earlyLeave = calculateEarlyLeave(checkOutValue, leaveInfo);
 
                 return {
                     date: format(day, 'MMM d, yyyy'),
@@ -294,7 +294,7 @@ export default function AttendancePage() {
                     checkOut: checkOutValue,
                     overtime: calculateOvertime(checkInValue, checkOutValue, selectedEditor.isEligibleForMorningOT),
                     leaveInfo,
-                    overShortLeave,
+                    earlyLeave,
                 };
             });
 
@@ -324,7 +324,7 @@ export default function AttendancePage() {
       
       if (field === 'checkIn' || field === 'checkOut') {
         record.overtime = calculateOvertime(record.checkIn, record.checkOut, selectedEditor?.isEligibleForMorningOT);
-        record.overShortLeave = calculateOverShortLeave(record.checkIn, record.checkOut, record.leaveInfo);
+        record.earlyLeave = calculateEarlyLeave(record.checkOut, record.leaveInfo);
       }
       
       setAttendanceData(updatedData);
@@ -414,7 +414,7 @@ export default function AttendancePage() {
                               </TableHead>
                               <TableHead className="w-[120px]">
                                 <div className="flex items-center text-orange-600">
-                                  <AlertTriangle className="mr-2 h-4 w-4" /> Over SL
+                                  <AlertTriangle className="mr-2 h-4 w-4" /> Early Leave
                                 </div>
                               </TableHead>
                               <TableHead className="w-[120px]">
@@ -450,7 +450,7 @@ export default function AttendancePage() {
                                       {rec.overtime}
                                   </TableCell>
                                    <TableCell className="font-mono text-orange-600 text-sm">
-                                      {rec.overShortLeave}
+                                      {rec.earlyLeave}
                                   </TableCell>
                                   <TableCell>
                                     {rec.leaveInfo && <Badge variant="outline" className="capitalize border-sky-500 text-sky-500">{rec.leaveInfo}</Badge>}
