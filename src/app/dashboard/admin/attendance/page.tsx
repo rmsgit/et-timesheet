@@ -89,9 +89,11 @@ export default function AttendancePage() {
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+            console.log("JSON Data:", jsonData);
 
-            // The user specified the date range is in cell A4.
-            const dateRangeString = (jsonData[3] && typeof jsonData[3][0] === 'string') ? jsonData[3][0] : '';
+            // Based on user feedback, sheet_to_json might skip the first row. Adjusting indices.
+            // Excel Row 4 is now jsonData[3] (or jsonData[2] if first row is skipped)
+            const dateRangeString = (jsonData[2] && typeof jsonData[2][0] === 'string') ? jsonData[2][0] : '';
             
             if (!dateRangeString || !dateRangeString.includes('From:')) {
                 throw new Error('Date range "From: ... To: ..." not found in cell A4.');
@@ -108,10 +110,13 @@ export default function AttendancePage() {
             const toDate = parseISO(toMatch[1]);
             setDateRange(`From: ${format(fromDate, 'yyyy-MM-dd HH:mm:ss')} To: ${format(toDate, 'yyyy-MM-dd HH:mm:ss')}`);
 
-            // Extract relevant rows
-            const dateRowInExcel = jsonData[5] || [];      // e.g., ["Date", 23, 24, 25, ...]
-            const checkInRowFromExcel = jsonData[6] || []; // e.g., ["Check-in1", "7:37:58", ...]
-            const checkOutRowFromExcel = jsonData[7] || [];// e.g., ["Check-out1", "17:49:30", ...]
+            // Extract relevant rows (adjusting for potentially skipped first row)
+            // Excel Row 6 is jsonData[5] (or jsonData[4] if first row is skipped)
+            const dateRowInExcel = jsonData[4] || [];      // e.g., ["Date", 23, 24, 25, ...]
+            // Excel Row 7 is jsonData[6]
+            const checkInRowFromExcel = jsonData[5] || []; // e.g., ["Check-in1", "7:37:58", ...]
+            // Excel Row 8 is jsonData[7]
+            const checkOutRowFromExcel = jsonData[6] || [];// e.g., ["Check-out1", "17:49:30", ...]
             
             // Map columns to data, starting from column B (index 1)
             const columnDataMap = new Map<number, { checkIn: string, checkOut: string }>();
