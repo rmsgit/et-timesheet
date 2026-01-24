@@ -53,13 +53,7 @@ export default function MyAttendancePage() {
     const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
     return daysInMonth.map(day => {
-      const attendanceForDay = attendanceData.find(rec => {
-        try {
-          return isSameDay(parseISO(rec.date), day);
-        } catch (e) {
-          return false;
-        }
-      });
+      const attendanceForDay = attendanceData.find(rec => rec.date === format(day, 'MMM d, yyyy'));
       const leaveForDay = approvedLeaves.find(req => isSameDay(parseISO(req.date), day));
       
       const isWeekend = day.getDay() === 0 || day.getDay() === 6;
