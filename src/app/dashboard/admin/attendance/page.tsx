@@ -83,34 +83,29 @@ export default function AttendancePage() {
       
       setDateRange(`From: ${format(fromDate, 'yyyy-MM-dd HH:mm:ss')} To: ${format(toDate, 'yyyy-MM-dd HH:mm:ss')}`);
 
-      const days = eachDayOfInterval({ start: fromDate, end: toDate });
+      const daysInRange = eachDayOfInterval({ start: fromDate, end: toDate });
       
-      const newAttendanceData: AttendanceRecord[] = days.map(day => {
-        const dayOfWeek = day.getDay(); // Sunday is 0
+      const newAttendanceData: AttendanceRecord[] = daysInRange.map(day => {
+        const dayKey = format(day, 'yyyy-MM-dd');
         
-        // Make Sundays a day off, and some other random days off
-        if (dayOfWeek === 0 || Math.random() > 0.9) {
-             return { 
-                 date: format(day, 'MMM d, yyyy'), // Format date as 'Dec 23, 2025'
-                 checkIn: '', 
-                 checkOut: '' 
-             };
+        if (dayKey === '2025-12-23') {
+          return { date: format(day, 'MMM d, yyyy'), checkIn: '7:37:58', checkOut: '17:49:30' };
         }
-        
-        // Generate some random-ish times for work days
-        const checkInHour = 7 + Math.floor(Math.random() * 2); // 7 or 8 AM
-        const checkInMinute = Math.floor(Math.random() * 60);
-        const checkInSecond = Math.floor(Math.random() * 60);
-        
-        const checkOutHour = 17 + Math.floor(Math.random() * 2); // 5 or 6 PM
-        const checkOutMinute = Math.floor(Math.random() * 60);
-        const checkOutSecond = Math.floor(Math.random() * 60);
+        if (dayKey === '2025-12-24') {
+          return { date: format(day, 'MMM d, yyyy'), checkIn: '7:46:50', checkOut: '17:59:08' };
+        }
+        // Make Sundays and Christmas day off
+        if (day.getDay() === 0 || dayKey === '2025-12-25') {
+            return { date: format(day, 'MMM d, yyyy'), checkIn: '', checkOut: '' };
+        }
 
-        return {
-          date: format(day, 'MMM d, yyyy'),
-          checkIn: `${String(checkInHour).padStart(2, '0')}:${String(checkInMinute).padStart(2, '0')}:${String(checkInSecond).padStart(2, '0')}`,
-          checkOut: `${String(checkOutHour).padStart(2, '0')}:${String(checkOutMinute).padStart(2, '0')}:${String(checkOutSecond).padStart(2, '0')}`
-        };
+        // Generate predictable, non-random times for other work days
+        const baseHour = 7 + (day.getDate() % 3); // 7, 8, 9
+        const baseMinute = (day.getDate() * 2) % 60;
+        const checkIn = `${String(baseHour).padStart(2, '0')}:${String(baseMinute).padStart(2, '0')}:${String((baseMinute + 5) % 60).padStart(2, '0')}`;
+        const checkOut = `${String(baseHour + 9).padStart(2, '0')}:${String((baseMinute + 15) % 60).padStart(2, '0')}:${String((baseMinute + 20) % 60).padStart(2, '0')}`;
+        
+        return { date: format(day, 'MMM d, yyyy'), checkIn, checkOut };
       });
       
       setAttendanceData(newAttendanceData);
