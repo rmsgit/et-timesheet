@@ -12,7 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { User as EditorUser } from '@/lib/types';
-import { eachDayOfInterval, format } from 'date-fns';
+import { eachDayOfInterval, format, parseISO } from 'date-fns';
+import * as XLSX from 'xlsx';
 
 interface AttendanceRecord {
   date: string;
@@ -76,42 +77,98 @@ export default function AttendancePage() {
         return;
     }
     setIsProcessing(true);
-    // This timeout mocks the file processing time.
-    setTimeout(() => {
-      const fromDate = new Date('2025-12-23T00:00:00');
-      const toDate = new Date('2026-01-22T23:59:59');
-      
-      setDateRange(`From: ${format(fromDate, 'yyyy-MM-dd HH:mm:ss')} To: ${format(toDate, 'yyyy-MM-dd HH:mm:ss')}`);
 
-      // This mock data now exactly matches your Excel sample.
-      const sampleData: { [key: string]: { checkIn: string; checkOut: string } } = {
-        '2025-12-23': { checkIn: '7:37:58', checkOut: '17:49:30' },
-        '2025-12-24': { checkIn: '7:46:50', checkOut: '17:59:08' },
-        '2025-12-25': { checkIn: '', checkOut: '' }, // Corresponds to '-' in the sheet
-        '2025-12-26': { checkIn: '7:47:00', checkOut: '18:09:00' }, // From the sheet
-      };
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const arrayBuffer = event.target?.result;
+            if (!arrayBuffer) {
+                throw new Error("Could not read file buffer.");
+            }
+            
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
 
-      const daysInRange = eachDayOfInterval({ start: fromDate, end: toDate });
-      
-      // Generate attendance data: use sample data if available, otherwise leave blank.
-      const newAttendanceData: AttendanceRecord[] = daysInRange.map(day => {
-        const dayKey = format(day, 'yyyy-MM-dd');
-        const dataForDay = sampleData[dayKey];
-        
-        return {
-            date: format(day, 'MMM d, yyyy'),
-            checkIn: dataForDay ? dataForDay.checkIn : '',
-            checkOut: dataForDay ? dataForDay.checkOut : ''
-        };
-      });
-      
-      setAttendanceData(newAttendanceData);
-      setIsProcessing(false);
-      toast({
-        title: 'File Processed',
-        description: `Review the extracted attendance data for ${selectedFile.name}.`,
-      });
-    }, 1500);
+            // Find the date range string in row 4 (jsonData[3])
+            const dateRangeRow = jsonData[3] || [];
+            const dateRangeString = dateRangeRow.find(cell => typeof cell === 'string' && cell.startsWith('From:')) || '';
+            if (!dateRangeString) {
+                throw new Error('Date range "From: ... To: ..." not found in row 4.');
+            }
+
+            const fromMatch = dateRangeString.match(/From: (\d{4}-\d{2}-\d{2})/);
+            const toMatch = dateRangeString.match(/To: (\d{4}-\d{2}-\d{2})/);
+
+            if (!fromMatch || !toMatch) {
+                throw new Error('Could not parse start or end date from the date range string in row 4.');
+            }
+            
+            const fromDate = parseISO(fromMatch[1]);
+            const toDate = parseISO(toMatch[1]);
+            setDateRange(`From: ${format(fromDate, 'yyyy-MM-dd HH:mm:ss')} To: ${format(toDate, 'yyyy-MM-dd HH:mm:ss')}`);
+
+            // Extract relevant rows
+            const dateRowInExcel = jsonData[5] || [];      // e.g., ["Date", 23, 24, 25, ...]
+            const checkInRowFromExcel = jsonData[6] || []; // e.g., ["Check-in1", "7:37:58", ...]
+            const checkOutRowFromExcel = jsonData[7] || [];// e.g., ["Check-out1", "17:49:30", ...]
+            
+            // Map columns to data, starting from column B (index 1)
+            const columnDataMap = new Map<number, { checkIn: string, checkOut: string }>();
+            for (let i = 1; i < dateRowInExcel.length; i++) {
+                const dayHeader = dateRowInExcel[i];
+                // Process column only if there's a date header for it
+                if (dayHeader !== undefined && dayHeader !== '') {
+                    let checkIn = checkInRowFromExcel[i];
+                    let checkOut = checkOutRowFromExcel[i];
+                    
+                    // Handle Excel's numeric time format (which is a fraction of a day)
+                    if (typeof checkIn === 'number' && checkIn > 0 && checkIn < 1) {
+                        checkIn = XLSX.SSF.format('hh:mm:ss', checkIn);
+                    }
+                    if (typeof checkOut === 'number' && checkOut > 0 && checkOut < 1) {
+                        checkOut = XLSX.SSF.format('hh:mm:ss', checkOut);
+                    }
+
+                    // Normalize placeholder values like '-' to empty strings
+                    if (checkIn === '-') checkIn = '';
+                    if (checkOut === '-') checkOut = '';
+
+                    columnDataMap.set(i, { checkIn: String(checkIn || ''), checkOut: String(checkOut || '') });
+                }
+            }
+            
+            const daysInRange = eachDayOfInterval({ start: fromDate, end: toDate });
+            const newAttendanceData: AttendanceRecord[] = daysInRange.map((day, index) => {
+                // Map date index to excel column index (B=1, C=2, etc.)
+                const colIndex = index + 1;
+                const dataForDay = columnDataMap.get(colIndex);
+
+                return {
+                    date: format(day, 'MMM d, yyyy'),
+                    checkIn: dataForDay?.checkIn || '',
+                    checkOut: dataForDay?.checkOut || ''
+                };
+            });
+
+            setAttendanceData(newAttendanceData);
+            toast({ title: 'File Processed', description: 'Review the attendance data extracted from the file.' });
+
+        } catch (error: any) {
+            console.error("Error processing file:", error);
+            toast({ title: 'File Processing Error', description: error.message || 'Could not read or parse the uploaded file.', variant: 'destructive' });
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+    
+    reader.onerror = () => {
+        toast({ title: 'File Read Error', description: 'There was an error reading the file.', variant: 'destructive' });
+        setIsProcessing(false);
+    };
+
+    reader.readAsArrayBuffer(selectedFile);
   };
   
   const handleAttendanceChange = (recordIndex: number, field: 'checkIn' | 'checkOut', value: string) => {
@@ -172,7 +229,7 @@ export default function AttendancePage() {
                       disabled={isProcessing || !selectedEditorId}
                   />
                   <Button onClick={() => file && handleProcessFile(file)} disabled={!file || !selectedEditorId || isProcessing}>
-                      <Upload className="mr-2 h-4 w-4" />
+                      {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                       {isProcessing ? 'Processing...' : 'Review File'}
                   </Button>
               </div>
@@ -194,7 +251,7 @@ export default function AttendancePage() {
                   <Table>
                       <TableHeader>
                           <TableRow>
-                              <TableHead className="w-[100px]">Date</TableHead>
+                              <TableHead className="w-[150px]">Date</TableHead>
                               <TableHead>Check-in</TableHead>
                               <TableHead>Check-out</TableHead>
                           </TableRow>
