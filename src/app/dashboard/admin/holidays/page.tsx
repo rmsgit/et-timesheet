@@ -1,15 +1,25 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useHolidays } from '@/hooks/useHolidays';
+import type { Holiday } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose
+} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,29 +30,74 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { PartyPopper, CalendarIcon, PlusCircle, Trash2, Loader2 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { PartyPopper, CalendarIcon, PlusCircle, Trash2, Loader2, Edit2, Checkbox, Briefcase, Star } from 'lucide-react';
+import { format, parseISO, getYear } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox as CheckboxUI } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 
 export default function HolidaysPage() {
-    const { holidays, isLoading, addHoliday, deleteHoliday } = useHolidays();
-    const [newHolidayDate, setNewHolidayDate] = useState<Date | undefined>(new Date());
-    const [newHolidayName, setNewHolidayName] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [holidayToDelete, setHolidayToDelete] = useState<{id: string, name: string} | null>(null);
+    const { holidays, isLoading, addHoliday, updateHoliday, deleteHoliday } = useHolidays();
+    
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingHoliday, setEditingHoliday] = useState<Holiday | null>(null);
 
-    const handleAddHoliday = async () => {
-        if (!newHolidayDate || !newHolidayName.trim()) {
-            return; // Basic validation, context handles toast
+    const [holidayDate, setHolidayDate] = useState<Date | undefined>();
+    const [holidayName, setHolidayName] = useState('');
+    const [isWorkingDay, setIsWorkingDay] = useState(false);
+
+    const [holidayToDelete, setHolidayToDelete] = useState<Holiday | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+
+    const availableYears = useMemo(() => {
+        const years = new Set(holidays.map(h => getYear(parseISO(h.date))));
+        const currentYear = new Date().getFullYear();
+        years.add(currentYear);
+        for(let i = 1; i <= 3; i++) {
+            years.add(currentYear + i);
+            years.add(currentYear - i);
         }
+        return Array.from(years).sort((a, b) => b - a);
+    }, [holidays]);
+    
+    const filteredHolidays = useMemo(() => {
+        return holidays.filter(h => getYear(parseISO(h.date)).toString() === selectedYear);
+    }, [holidays, selectedYear]);
+
+    const handleOpenForm = (holiday: Holiday | null) => {
+        setEditingHoliday(holiday);
+        if (holiday) {
+            setHolidayDate(parseISO(holiday.date));
+            setHolidayName(holiday.name);
+            setIsWorkingDay(holiday.isWorkingDay || false);
+        } else {
+            setHolidayDate(new Date(parseInt(selectedYear), new Date().getMonth(), new Date().getDate()));
+            setHolidayName('');
+            setIsWorkingDay(false);
+        }
+        setIsFormOpen(true);
+    };
+    
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!holidayDate || !holidayName.trim()) return;
+
         setIsSubmitting(true);
-        const result = await addHoliday(newHolidayDate, newHolidayName);
-        if (result.success) {
-            setNewHolidayName('');
-            setNewHolidayDate(new Date());
+        if (editingHoliday) {
+            await updateHoliday(editingHoliday.id, {
+                date: holidayDate.toISOString(),
+                name: holidayName,
+                isWorkingDay: isWorkingDay,
+            });
+        } else {
+            await addHoliday(holidayDate, holidayName, isWorkingDay);
         }
         setIsSubmitting(false);
+        setIsFormOpen(false);
     };
 
     const handleDelete = async () => {
@@ -61,77 +116,64 @@ export default function HolidaysPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Add New Holiday</CardTitle>
-                    <CardDescription>Add company-wide holidays to the system.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-col sm:flex-row gap-4 items-end">
-                        <div className="grid w-full sm:w-auto sm:flex-1 gap-1.5">
-                            <Label htmlFor="holiday-date">Date</Label>
-                             <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                    variant={"outline"}
-                                    className={cn("w-full justify-start text-left font-normal", !newHolidayDate && "text-muted-foreground")}
-                                    disabled={isSubmitting}
-                                    >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {newHolidayDate ? format(newHolidayDate, "PPP") : <span>Pick a date</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                    mode="single"
-                                    selected={newHolidayDate}
-                                    onSelect={setNewHolidayDate}
-                                    initialFocus
-                                    disabled={isSubmitting}
-                                    />
-                                </PopoverContent>
-                            </Popover>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle>Holiday List for {selectedYear}</CardTitle>
+                            <CardDescription>Add, edit, or remove company-wide holidays and designated working days.</CardDescription>
                         </div>
-                        <div className="grid w-full sm:w-auto sm:flex-1 gap-1.5">
-                            <Label htmlFor="holiday-name">Holiday Name</Label>
-                            <Input
-                                id="holiday-name"
-                                value={newHolidayName}
-                                onChange={(e) => setNewHolidayName(e.target.value)}
-                                placeholder="e.g., New Year's Day"
-                                disabled={isSubmitting}
-                            />
-                        </div>
-                        <Button onClick={handleAddHoliday} disabled={isSubmitting || !newHolidayDate || !newHolidayName.trim()}>
-                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                            Add Holiday
+                         <Button onClick={() => handleOpenForm(null)} disabled={isSubmitting || isLoading}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Holiday
                         </Button>
                     </div>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Upcoming Holidays</CardTitle>
-                    <CardDescription>List of all defined holidays.</CardDescription>
                 </CardHeader>
                 <CardContent>
+                    <div className="mb-4 max-w-xs">
+                        <Label htmlFor="year-select">Filter by Year</Label>
+                         <Select value={selectedYear} onValueChange={setSelectedYear} disabled={isLoading}>
+                            <SelectTrigger id="year-select">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {availableYears.map(year => (
+                                    <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
                     {isLoading ? (
-                        <TableSkeleton columnCount={3} />
-                    ) : holidays.length > 0 ? (
+                        <TableSkeleton columnCount={4} />
+                    ) : filteredHolidays.length > 0 ? (
                         <Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Date</TableHead>
                                     <TableHead>Name</TableHead>
+                                    <TableHead>Type</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {holidays.map(holiday => (
+                                {filteredHolidays.map(holiday => (
                                     <TableRow key={holiday.id}>
                                         <TableCell>{format(parseISO(holiday.date), 'PPP')}</TableCell>
                                         <TableCell className="font-medium">{holiday.name}</TableCell>
+                                        <TableCell>
+                                            {holiday.isWorkingDay ? (
+                                                <Badge variant="secondary" className="border-green-500 text-green-700">
+                                                    <Briefcase className="mr-1 h-3 w-3"/> Working Day
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="outline">
+                                                    <Star className="mr-1 h-3 w-3 text-yellow-500" /> Holiday
+                                                </Badge>
+                                            )}
+                                        </TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="destructive" size="sm" onClick={() => setHolidayToDelete({id: holiday.id, name: holiday.name})} disabled={isSubmitting}>
+                                             <Button variant="ghost" size="sm" onClick={() => handleOpenForm(holiday)} className="mr-2" disabled={isSubmitting}>
+                                                <Edit2 className="mr-1 h-3 w-3" /> Edit
+                                            </Button>
+                                            <Button variant="destructive" size="sm" onClick={() => setHolidayToDelete(holiday)} disabled={isSubmitting}>
                                                 <Trash2 className="mr-1 h-4 w-4" /> Delete
                                             </Button>
                                         </TableCell>
@@ -141,11 +183,77 @@ export default function HolidaysPage() {
                         </Table>
                     ) : (
                         <div className="text-center text-muted-foreground py-8">
-                            No holidays have been added yet.
+                            No holidays have been added for {selectedYear} yet.
                         </div>
                     )}
                 </CardContent>
             </Card>
+            
+            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                 <DialogContent>
+                    <form onSubmit={handleSubmit}>
+                        <DialogHeader>
+                            <DialogTitle>{editingHoliday ? 'Edit Holiday' : 'Add New Holiday'}</DialogTitle>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="holiday-date">Date</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                        variant={"outline"}
+                                        className={cn("w-full justify-start text-left font-normal", !holidayDate && "text-muted-foreground")}
+                                        disabled={isSubmitting}
+                                        >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {holidayDate ? format(holidayDate, "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                        mode="single"
+                                        selected={holidayDate}
+                                        onSelect={setHolidayDate}
+                                        initialFocus
+                                        disabled={isSubmitting}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="holiday-name">Holiday Name</Label>
+                                <Input
+                                    id="holiday-name"
+                                    value={holidayName}
+                                    onChange={(e) => setHolidayName(e.target.value)}
+                                    placeholder="e.g., New Year's Day"
+                                    disabled={isSubmitting}
+                                />
+                            </div>
+                             <div className="flex items-center space-x-2">
+                                <CheckboxUI
+                                    id="is-working-day"
+                                    checked={isWorkingDay}
+                                    onCheckedChange={(checked) => setIsWorkingDay(checked as boolean)}
+                                    disabled={isSubmitting}
+                                />
+                                <Label htmlFor="is-working-day" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                    Mark as a special working day
+                                </Label>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <DialogClose asChild>
+                                <Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button>
+                            </DialogClose>
+                            <Button type="submit" disabled={isSubmitting || !holidayDate || !holidayName.trim()}>
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                                {editingHoliday ? 'Save Changes' : 'Add Holiday'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
             <AlertDialog open={!!holidayToDelete} onOpenChange={(open) => !open && setHolidayToDelete(null)}>
                 <AlertDialogContent>
@@ -157,9 +265,8 @@ export default function HolidaysPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} disabled={isSubmitting}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Delete
+                    <AlertDialogAction onClick={handleDelete} disabled={isSubmitting} className={cn(buttonVariants({variant: "destructive"}))}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete'}
                     </AlertDialogAction>
                 </AlertDialogFooter>
                 </AlertDialogContent>

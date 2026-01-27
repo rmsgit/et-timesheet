@@ -99,6 +99,7 @@ export interface Holiday {
   id: string;
   date: string; // ISO string
   name: string;
+  isWorkingDay?: boolean;
 }
 
 export interface Paysheet {
