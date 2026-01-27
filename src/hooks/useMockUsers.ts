@@ -85,7 +85,8 @@ export const useMockUsers = () => {
     editorLevelId?: string,
     isEligibleForMorningOT?: boolean,
     availableLeaves?: number,
-    compensatoryLeaves?: number
+    compensatoryLeaves?: number,
+    claimedCompensatoryYears?: { [year: string]: number }
   ): Promise<{ success: boolean, message?: string, user?: User }> => {
     if (!database) {
       toast({ title: "Configuration Error", description: "Firebase RTDB is not connected. User profile not added/updated.", variant: "destructive" });
@@ -141,6 +142,7 @@ export const useMockUsers = () => {
       isEligibleForMorningOT: role === 'editor' ? (isEligibleForMorningOT ?? false) : false,
       availableLeaves: availableLeaves ?? null,
       compensatoryLeaves: compensatoryLeaves ?? null,
+      claimedCompensatoryYears: claimedCompensatoryYears ?? null,
     };
 
     const userRef = ref(database, `${FIREBASE_USERS_PATH}/${id}`);

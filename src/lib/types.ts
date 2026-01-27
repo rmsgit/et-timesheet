@@ -63,7 +63,7 @@ export interface EditorRatingCategory {
   weight: number;
 }
 
-export type LeaveType = 'full-day' | 'half-day' | 'short-leave';
+export type LeaveType = 'full-day' | 'half-day' | 'short-leave' | 'compensatory';
 
 export interface LeaveRequest {
   id: string;

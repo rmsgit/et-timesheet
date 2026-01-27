@@ -220,7 +220,8 @@ export const UserManagementTable: React.FC = () => {
         newUserRole === 'editor' ? newUserEditorLevelId : undefined,
         newUserRole === 'editor' ? newUserIsEligibleForMorningOT : false,
         Number(newUserAvailableLeaves),
-        Number(newUserCompensatoryLeaves)
+        Number(newUserCompensatoryLeaves),
+        {} // Initialize claimedCompensatoryYears
       );
 
       if (profileResult.success) {
@@ -396,7 +397,8 @@ export const UserManagementTable: React.FC = () => {
         editUserFormState.role === 'editor' ? editUserFormState.editorLevelId : undefined,
         editUserFormState.role === 'editor' ? editUserFormState.isEligibleForMorningOT : false,
         editUserFormState.availableLeaves,
-        editUserFormState.compensatoryLeaves
+        editUserFormState.compensatoryLeaves,
+        editingUser.claimedCompensatoryYears
     );
 
     if (result.success) {
@@ -433,7 +435,8 @@ export const UserManagementTable: React.FC = () => {
             userToUpdate.editorLevelId,
             userToUpdate.isEligibleForMorningOT,
             leaves,
-            userToUpdate.compensatoryLeaves
+            userToUpdate.compensatoryLeaves,
+            userToUpdate.claimedCompensatoryYears
         );
     });
 
