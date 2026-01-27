@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval } from 'date-fns';
 import { usePaysheet } from '@/hooks/usePaysheet';
 
 const parseDurationToSeconds = (duration: string): number => {
@@ -116,11 +116,9 @@ export default function SalaryReportPage() {
             const monthNum = parseInt(selectedMonth, 10) - 1;
             const monthStartForCalc = startOfMonth(new Date(yearNum, monthNum));
             const monthEndForCalc = endOfMonth(new Date(yearNum, monthNum));
-            const daysInMonth = getDaysInMonth(new Date(yearNum, monthNum));
-
+            
             const attendance = await getAttendanceForMonth(selectedUserId, selectedYear, selectedMonth) || [];
             
-            // Determine pay period start/end for display
             let payPeriodStart: Date, payPeriodEnd: Date;
             if (attendance.length > 0) {
                 const dates = attendance.map(rec => new Date(rec.date));
@@ -145,18 +143,19 @@ export default function SalaryReportPage() {
             let presentDays = 0;
             let totalOTSeconds = 0;
 
-            for (let i = 1; i <= daysInMonth; i++) {
-                const currentDate = new Date(yearNum, monthNum, i);
+            const daysInPeriod = eachDayOfInterval({ start: monthStartForCalc, end: monthEndForCalc });
+            daysInPeriod.forEach(currentDate => {
                 const isSunday = currentDate.getDay() === 0;
                 const holidayInfo = holidaysInMonth.find(h => isSameDay(parseISO(h.date), currentDate));
 
-                let isWorkingDayForCalc = true;
+                let isWorkingDayForCalc = !isSunday;
 
-                if (isSunday) {
-                    isWorkingDayForCalc = false;
-                } else if (holidayInfo && !holidayInfo.isWorkingDay) {
-                    // It's a non-working holiday
-                    isWorkingDayForCalc = false;
+                if(holidayInfo) {
+                    if(!holidayInfo.isWorkingDay) {
+                        isWorkingDayForCalc = false;
+                    } else {
+                        isWorkingDayForCalc = true; // It's a special working day
+                    }
                 }
                 
                 if (isWorkingDayForCalc) {
@@ -172,7 +171,17 @@ export default function SalaryReportPage() {
                         absentDays++;
                     }
                 }
-            }
+            });
+
+            const leaveDays = userLeavesForMonth.reduce((total, leave) => {
+                if (leave.leaveType === 'full-day' || leave.leaveType === 'compensatory') {
+                    return total + 1;
+                }
+                if (leave.leaveType === 'half-day') {
+                    return total + 0.5;
+                }
+                return total;
+            }, 0);
 
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
             const unpaidLeaveDeduction = absentDays * perDaySalary;
@@ -190,7 +199,7 @@ export default function SalaryReportPage() {
                 netSalary: baseSalary + conveyanceAllowance - unpaidLeaveDeduction,
                 totalWorkingDays,
                 presentDays,
-                leaveDays: userLeavesForMonth.length,
+                leaveDays,
                 absentDays,
                 totalOTHours: formatSecondsToHoursString(totalOTSeconds),
             };
