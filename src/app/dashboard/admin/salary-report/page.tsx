@@ -384,7 +384,6 @@ export default function SalaryReportPage() {
                                    <TableHead>Present</TableHead>
                                    <TableHead>Leave Taken</TableHead>
                                    <TableHead>Allowed Leaves</TableHead>
-                                   <TableHead>Absent</TableHead>
                                    <TableHead>Total OT</TableHead>
                                  </TableRow>
                                </TableHeader>
@@ -394,7 +393,6 @@ export default function SalaryReportPage() {
                                         <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.leaveDays}</TableCell>
                                         <TableCell>{report.allowedLeaves}</TableCell>
-                                        <TableCell>{report.absentDays}</TableCell>
                                         <TableCell>{report.totalOTHours}</TableCell>
                                     </TableRow>
                                 </TableBody>
