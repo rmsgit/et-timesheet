@@ -38,7 +38,7 @@ const formatSecondsToHoursString = (totalSeconds: number): string => {
 interface CompensatoryLeaveSummary {
     userId: string;
     username: string;
-    totalEarlyLeaveSeconds: number;
+    totalOvertimeSeconds: number;
     compensatoryLeaves: number;
 }
 
@@ -63,20 +63,20 @@ export default function CompensatoryLeavePage() {
 
             for (const editor of editorUsers) {
                 const yearlyAttendance = await getAttendanceForYear(editor.id, selectedYear);
-                let totalEarlyLeaveSeconds = 0;
+                let totalOvertimeSeconds = 0;
 
                 if (yearlyAttendance) {
                     yearlyAttendance.forEach(record => {
-                        totalEarlyLeaveSeconds += parseDurationToSeconds(record.earlyLeave);
+                        totalOvertimeSeconds += parseDurationToSeconds(record.overtime);
                     });
                 }
                 
-                const compensatoryLeaves = Math.floor((totalEarlyLeaveSeconds / 3600) / 8);
+                const compensatoryLeaves = Math.floor((totalOvertimeSeconds / 3600) / 8);
 
                 summaries.push({
                     userId: editor.id,
                     username: editor.username,
-                    totalEarlyLeaveSeconds,
+                    totalOvertimeSeconds,
                     compensatoryLeaves,
                 });
             }
@@ -105,7 +105,7 @@ export default function CompensatoryLeavePage() {
                 <CardHeader>
                     <CardTitle>Calculate Compensatory Leaves</CardTitle>
                     <CardDescription>
-                        Calculates compensatory leaves earned by editors based on their total early leave hours for a selected year. The formula is: 1 leave for every 8 hours of early leave.
+                        Calculates compensatory leaves earned by editors based on their total overtime hours for a selected year. The formula is: 1 leave for every 8 hours of overtime.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -139,7 +139,7 @@ export default function CompensatoryLeavePage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead><UserIcon className="inline-block mr-2 h-4 w-4" />Editor</TableHead>
-                                    <TableHead><Hourglass className="inline-block mr-2 h-4 w-4" />Total Early Leave</TableHead>
+                                    <TableHead><Hourglass className="inline-block mr-2 h-4 w-4" />Total Overtime</TableHead>
                                     <TableHead><Gift className="inline-block mr-2 h-4 w-4" />Compensatory Leaves Earned</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -147,7 +147,7 @@ export default function CompensatoryLeavePage() {
                                 {summaryData.map(summary => (
                                     <TableRow key={summary.userId}>
                                         <TableCell className="font-medium">{summary.username}</TableCell>
-                                        <TableCell>{formatSecondsToHoursString(summary.totalEarlyLeaveSeconds)}</TableCell>
+                                        <TableCell>{formatSecondsToHoursString(summary.totalOvertimeSeconds)}</TableCell>
                                         <TableCell className="font-bold text-lg text-primary">{summary.compensatoryLeaves}</TableCell>
                                     </TableRow>
                                 ))}
