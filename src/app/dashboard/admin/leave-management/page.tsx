@@ -30,13 +30,17 @@ import {
 import { CheckCircle, XCircle, Hourglass, Plane, Loader2, User, Ban, MoreHorizontal, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 export default function LeaveManagementPage() {
   const { leaveRequests, isLoading: isLoadingLeave, updateLeaveStatus, deleteLeaveRequest } = useLeave();
   const { users, isUsersLoading } = useMockUsers();
+  
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [leaveRequestToDelete, setLeaveRequestToDelete] = useState<(LeaveRequest & { username: string }) | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string>('all');
 
   const isLoading = isLoadingLeave || isUsersLoading;
 
@@ -51,10 +55,18 @@ export default function LeaveManagementPage() {
     })).sort((a,b) => parseISO(b.requestedAt).getTime() - parseISO(a.requestedAt).getTime());
   }, [leaveRequests, getUsername]);
 
-  const pendingRequests = useMemo(() => requestsWithUsernames.filter(req => req.status === 'pending'), [requestsWithUsernames]);
-  const approvedRequests = useMemo(() => requestsWithUsernames.filter(req => req.status === 'approved'), [requestsWithUsernames]);
-  const rejectedRequests = useMemo(() => requestsWithUsernames.filter(req => req.status === 'rejected'), [requestsWithUsernames]);
-  const cancelledRequests = useMemo(() => requestsWithUsernames.filter(req => req.status === 'cancelled'), [requestsWithUsernames]);
+  const filteredRequests = useMemo(() => {
+    if (selectedUserId === 'all') {
+        return requestsWithUsernames;
+    }
+    return requestsWithUsernames.filter(req => req.userId === selectedUserId);
+  }, [requestsWithUsernames, selectedUserId]);
+
+  const pendingRequests = useMemo(() => filteredRequests.filter(req => req.status === 'pending'), [filteredRequests]);
+  const approvedRequests = useMemo(() => filteredRequests.filter(req => req.status === 'approved'), [filteredRequests]);
+  const rejectedRequests = useMemo(() => filteredRequests.filter(req => req.status === 'rejected'), [filteredRequests]);
+  const cancelledRequests = useMemo(() => filteredRequests.filter(req => req.status === 'cancelled'), [filteredRequests]);
+
 
   const handleUpdateStatus = async (id: string, status: 'approved' | 'rejected') => {
     setIsUpdating(id);
@@ -76,7 +88,7 @@ export default function LeaveManagementPage() {
 
   const renderTable = (requests: (LeaveRequest & { username: string })[]) => {
       if (isLoading) return <TableSkeleton columnCount={7} />;
-      if (requests.length === 0) return <p className="text-center text-muted-foreground py-8">No requests in this category.</p>;
+      if (requests.length === 0) return <p className="text-center text-muted-foreground py-8">No requests in this category for the selected user.</p>;
 
       const currentStatus = requests[0]?.status;
 
@@ -149,6 +161,10 @@ export default function LeaveManagementPage() {
           </Table>
       );
   };
+  
+  const allUsersSorted = useMemo(() => {
+    return [...users].sort((a,b) => a.username.localeCompare(b.username));
+  }, [users]);
 
   return (
     <div className="space-y-6">
@@ -161,6 +177,27 @@ export default function LeaveManagementPage() {
             <CardDescription>Review, approve, or reject leave requests submitted by editors.</CardDescription>
         </CardHeader>
         <CardContent>
+            <div className="mb-6 space-y-2">
+                <Label htmlFor="user-filter">Filter by User</Label>
+                {isUsersLoading ? (
+                    <div className="flex items-center justify-center h-10 border rounded-md bg-muted w-full sm:w-[280px]">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                ) : (
+                    <Select value={selectedUserId} onValueChange={setSelectedUserId} disabled={isLoading}>
+                        <SelectTrigger id="user-filter" className="w-full sm:w-[280px]">
+                            <SelectValue placeholder="Select a user" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Users</SelectItem>
+                            {allUsersSorted.map(user => (
+                                <SelectItem key={user.id} value={user.id}>{user.username} ({user.role})</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
+            </div>
+
             <Tabs defaultValue="pending">
                 <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="pending">
