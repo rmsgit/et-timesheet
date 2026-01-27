@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, User as UserIcon, Gift, AlertTriangle, Send, CheckCircle } from 'lucide-react';
+import { Loader2, User as UserIcon, Gift, AlertTriangle, Send, CheckCircle, Hourglass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -46,6 +46,8 @@ interface DueLeaveSummary {
     totalEarlyLeaveSeconds: number;
     dueCompensatoryLeaves: number;
     claimedLeaves: number;
+    pendingLeaves: number;
+    balanceDueLeaves: number;
 }
 
 export default function CompensatoryLeavePage() {
@@ -94,12 +96,21 @@ export default function CompensatoryLeavePage() {
                     req.earnedInYear?.toString() === selectedYear &&
                     req.status === 'approved'
                 ).length;
+                
+                const pendingLeaves = leaveRequests.filter(
+                    req => req.userId === editor.id &&
+                    req.leaveType === 'compensatory' &&
+                    req.earnedInYear?.toString() === selectedYear &&
+                    req.status === 'pending'
+                ).length;
 
                 summaries.push({
                     user: editor,
                     totalEarlyLeaveSeconds: totalEarlyLeaveSecondsOnShortLeaveDays,
                     dueCompensatoryLeaves,
                     claimedLeaves,
+                    pendingLeaves,
+                    balanceDueLeaves: dueCompensatoryLeaves - claimedLeaves,
                 });
             }
             setSummaryData(summaries);
@@ -192,6 +203,8 @@ export default function CompensatoryLeavePage() {
                                     <TableHead><AlertTriangle className="inline-block mr-2 h-4 w-4 text-orange-600" />Total Early Leave (on Short Leave days)</TableHead>
                                     <TableHead><Gift className="inline-block mr-2 h-4 w-4" />Due Compensatory Leaves</TableHead>
                                     <TableHead><CheckCircle className="inline-block mr-2 h-4 w-4" />Claimed Leaves</TableHead>
+                                    <TableHead><Hourglass className="inline-block mr-2 h-4 w-4" />Pending Approval</TableHead>
+                                    <TableHead><Gift className="inline-block mr-2 h-4 w-4 text-primary" />Balance Due</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -202,12 +215,14 @@ export default function CompensatoryLeavePage() {
                                         <TableCell>{formatSecondsToHoursString(summary.totalEarlyLeaveSeconds)}</TableCell>
                                         <TableCell className="font-bold text-lg text-primary">{summary.dueCompensatoryLeaves}</TableCell>
                                         <TableCell className="font-semibold text-lg">{summary.claimedLeaves}</TableCell>
+                                        <TableCell className="font-semibold text-lg text-yellow-600">{summary.pendingLeaves}</TableCell>
+                                        <TableCell className="font-bold text-lg text-green-600">{summary.balanceDueLeaves > 0 ? summary.balanceDueLeaves : 0}</TableCell>
                                         <TableCell className="text-right">
                                             <Button
                                                 variant="outline"
                                                 size="sm"
                                                 onClick={() => handleOpenApplyDialog(summary.user)}
-                                                disabled={summary.claimedLeaves >= summary.dueCompensatoryLeaves}
+                                                disabled={(summary.claimedLeaves + summary.pendingLeaves) >= summary.dueCompensatoryLeaves}
                                             >
                                                 <Send className="mr-2 h-4 w-4" /> Apply Leave
                                             </Button>
