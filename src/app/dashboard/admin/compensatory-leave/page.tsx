@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -8,7 +9,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, User as UserIcon, Gift, Hourglass, Leaf } from 'lucide-react';
+import { Loader2, User as UserIcon, Gift, Hourglass, Leaf, PlusCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 const parseDurationToSeconds = (duration: string): number => {
     if (!duration || typeof duration !== 'string' || duration === '-') return 0;
@@ -36,19 +49,21 @@ const formatSecondsToHoursString = (totalSeconds: number): string => {
 
 
 interface CompensatoryLeaveSummary {
-    userId: string;
-    username: string;
+    user: User;
     totalOvertimeSeconds: number;
     compensatoryLeavesEarned: number;
-    availableLeaves: number;
 }
 
 export default function CompensatoryLeavePage() {
-    const { users, isUsersLoading } = useMockUsers();
+    const { users, isUsersLoading, addUserProfileToRTDB } = useMockUsers();
     const { getAttendanceForYear } = useAttendance();
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
     const [summaryData, setSummaryData] = useState<CompensatoryLeaveSummary[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(false);
+    const { toast } = useToast();
+
+    const [isApplyingLeaves, setIsApplyingLeaves] = useState(false);
+    const [summaryToApply, setSummaryToApply] = useState<CompensatoryLeaveSummary | null>(null);
 
     const editorUsers = useMemo(() => {
         if (isUsersLoading || !users) return [];
@@ -75,11 +90,9 @@ export default function CompensatoryLeavePage() {
                 const compensatoryLeavesEarned = Math.floor((totalOvertimeSeconds / 3600) / 8);
 
                 summaries.push({
-                    userId: editor.id,
-                    username: editor.username,
+                    user: editor,
                     totalOvertimeSeconds,
                     compensatoryLeavesEarned,
-                    availableLeaves: editor.availableLeaves ?? 0,
                 });
             }
             setSummaryData(summaries);
@@ -96,7 +109,36 @@ export default function CompensatoryLeavePage() {
           years.push(i.toString());
       }
       return years;
-  }, []);
+    }, []);
+
+    const handleApplyEarnedLeaves = async () => {
+        if (!summaryToApply || summaryToApply.compensatoryLeavesEarned <= 0) return;
+
+        setIsApplyingLeaves(true);
+        const userToUpdate = summaryToApply.user;
+        const currentLeaves = userToUpdate.availableLeaves ?? 0;
+        const earnedLeaves = summaryToApply.compensatoryLeavesEarned;
+        const newTotalLeaves = currentLeaves + earnedLeaves;
+
+        const result = await addUserProfileToRTDB(
+            userToUpdate.id,
+            userToUpdate.email!,
+            userToUpdate.username,
+            userToUpdate.role!,
+            userToUpdate.editorLevelId,
+            userToUpdate.isEligibleForMorningOT,
+            newTotalLeaves
+        );
+
+        if (result.success) {
+            toast({ title: 'Leaves Applied', description: `${earnedLeaves} leave(s) added to ${userToUpdate.username}'s balance.` });
+        } else {
+            toast({ title: 'Error', description: result.message || 'Failed to apply leaves.', variant: 'destructive' });
+        }
+
+        setIsApplyingLeaves(false);
+        setSummaryToApply(null);
+    };
 
     return (
         <div className="space-y-6">
@@ -144,15 +186,26 @@ export default function CompensatoryLeavePage() {
                                     <TableHead><Hourglass className="inline-block mr-2 h-4 w-4" />Total Overtime</TableHead>
                                     <TableHead><Gift className="inline-block mr-2 h-4 w-4" />Comp Leaves Earned</TableHead>
                                     <TableHead><Leaf className="inline-block mr-2 h-4 w-4" />Available Leaves</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {summaryData.map(summary => (
-                                    <TableRow key={summary.userId}>
-                                        <TableCell className="font-medium">{summary.username}</TableCell>
+                                    <TableRow key={summary.user.id}>
+                                        <TableCell className="font-medium">{summary.user.username}</TableCell>
                                         <TableCell>{formatSecondsToHoursString(summary.totalOvertimeSeconds)}</TableCell>
                                         <TableCell className="font-bold text-lg text-primary">{summary.compensatoryLeavesEarned}</TableCell>
-                                        <TableCell className="font-bold text-lg text-accent">{summary.availableLeaves}</TableCell>
+                                        <TableCell className="font-bold text-lg text-accent">{summary.user.availableLeaves ?? 0}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button
+                                                onClick={() => setSummaryToApply(summary)}
+                                                disabled={isLoadingData || summary.compensatoryLeavesEarned <= 0 || isApplyingLeaves}
+                                                size="sm"
+                                                variant="outline"
+                                            >
+                                                <PlusCircle className="mr-2 h-4 w-4" /> Apply Earned
+                                            </Button>
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -160,6 +213,26 @@ export default function CompensatoryLeavePage() {
                     )}
                 </CardContent>
             </Card>
+
+            <AlertDialog open={!!summaryToApply} onOpenChange={(open) => !open && setSummaryToApply(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Apply Compensatory Leaves?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to add <span className="font-bold">{summaryToApply?.compensatoryLeavesEarned}</span> earned leave(s) to <span className="font-bold">{summaryToApply?.user.username}</span>'s balance?
+                          <br />
+                          Their current balance is <span className="font-semibold">{summaryToApply?.user.availableLeaves ?? 0}</span>. The new balance will be <span className="font-semibold">{(summaryToApply?.user.availableLeaves ?? 0) + (summaryToApply?.compensatoryLeavesEarned ?? 0)}</span>.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isApplyingLeaves}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleApplyEarnedLeaves} disabled={isApplyingLeaves}>
+                            {isApplyingLeaves ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Apply
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
