@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase } from 'lucide-react';
+import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
@@ -44,6 +44,8 @@ const formatSecondsToHoursString = (totalSeconds: number): string => {
 interface SalaryReport {
   user: User;
   payPeriod: string;
+  payPeriodStart: string;
+  payPeriodEnd: string;
   baseSalary: number;
   conveyanceAllowance: number;
   totalEarnings: number;
@@ -158,6 +160,8 @@ export default function SalaryReportPage() {
             const generatedReport: SalaryReport = {
                 user,
                 payPeriod: format(monthStart, 'MMMM yyyy'),
+                payPeriodStart: format(monthStart, 'PPP'),
+                payPeriodEnd: format(monthEnd, 'PPP'),
                 baseSalary,
                 conveyanceAllowance,
                 totalEarnings: baseSalary + conveyanceAllowance,
@@ -280,6 +284,10 @@ export default function SalaryReportPage() {
                                 <span className="flex items-center"><UserIcon className="mr-2 h-4 w-4 text-muted-foreground" />{report.user.username}</span>
                                 <span className="flex items-center"><Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />{report.user.jobDesignation || 'N/A'}</span>
                             </div>
+                             <div className="flex items-center text-sm text-muted-foreground mt-2 gap-2">
+                                <CalendarDays className="h-4 w-4" />
+                                <span>Pay Period: {report.payPeriodStart} to {report.payPeriodEnd}</span>
+                            </div>
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="grid md:grid-cols-2 gap-8">
@@ -382,3 +390,4 @@ export default function SalaryReportPage() {
         </div>
     );
 }
+
