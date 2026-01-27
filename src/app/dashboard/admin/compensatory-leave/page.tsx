@@ -92,7 +92,7 @@ export default function CompensatoryLeavePage() {
                     req => req.userId === editor.id &&
                     req.leaveType === 'compensatory' &&
                     new Date(req.requestedAt).getFullYear().toString() === selectedYear &&
-                    req.status !== 'cancelled'
+                    req.status === 'approved'
                 ).length;
 
                 summaries.push({
