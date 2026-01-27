@@ -11,6 +11,12 @@ export interface User {
   availableLeaves?: number;
   compensatoryLeaves?: number;
   claimedCompensatoryYears?: { [year: string]: number };
+
+  // Payroll fields
+  baseSalary?: number;
+  department?: string;
+  jobDesignation?: string;
+  conveyanceAllowance?: number;
 }
 
 export interface CategoryRating {
