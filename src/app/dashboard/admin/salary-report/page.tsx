@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWeekend, isWithinInterval } from 'date-fns';
+import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { usePaysheet } from '@/hooks/usePaysheet';
 
 const parseDurationToSeconds = (duration: string): number => {
@@ -134,10 +134,10 @@ export default function SalaryReportPage() {
 
             for (let i = 1; i <= daysInMonth; i++) {
                 const currentDate = new Date(yearNum, monthNum, i);
-                const isWeekendDay = isWeekend(currentDate);
+                const isSunday = currentDate.getDay() === 0;
                 const isHoliday = holidaysInMonth.some(h => isSameDay(parseISO(h.date), currentDate));
 
-                if (!isWeekendDay && !isHoliday) {
+                if (!isSunday && !isHoliday) {
                     totalWorkingDays++;
 
                     const attendanceForDay = attendance.find(a => isSameDay(parseISO(a.date), currentDate));
