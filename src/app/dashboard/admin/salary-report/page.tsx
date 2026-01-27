@@ -148,21 +148,36 @@ export default function SalaryReportPage() {
             for (let i = 1; i <= daysInMonth; i++) {
                 const currentDate = new Date(yearNum, monthNum, i);
                 const isSunday = currentDate.getDay() === 0;
-                
-                if (!isSunday) { // Saturdays are working days
-                    const isHoliday = holidaysInMonth.some(h => isSameDay(parseISO(h.date), currentDate));
-                    if (!isHoliday) {
-                        totalWorkingDays++;
+                const holidayInfo = holidaysInMonth.find(h => isSameDay(parseISO(h.date), currentDate));
 
-                        const attendanceForDay = attendance.find(a => isSameDay(new Date(a.date), currentDate));
-                        const leaveForDay = userLeavesForMonth.find(l => l.date && isSameDay(parseISO(l.date), currentDate));
+                let isWorkingDay = false;
+                if (holidayInfo) {
+                    // It's a holiday, check if it's a special working day
+                    if (holidayInfo.isWorkingDay) {
+                        isWorkingDay = true;
+                    } else {
+                        // It's a non-working holiday
+                        isWorkingDay = false;
+                    }
+                } else if (isSunday) {
+                    // It's a Sunday and not a designated working holiday
+                    isWorkingDay = false;
+                } else {
+                    // It's a weekday (Mon-Sat) and not a holiday
+                    isWorkingDay = true;
+                }
 
-                        if (attendanceForDay && (attendanceForDay.checkIn || attendanceForDay.checkOut)) {
-                            presentDays++;
-                            totalOTSeconds += parseDurationToSeconds(attendanceForDay.overtime);
-                        } else if (!leaveForDay) {
-                            absentDays++;
-                        }
+                if (isWorkingDay) {
+                    totalWorkingDays++;
+
+                    const attendanceForDay = attendance.find(a => isSameDay(new Date(a.date), currentDate));
+                    const leaveForDay = userLeavesForMonth.find(l => l.date && isSameDay(parseISO(l.date), currentDate));
+
+                    if (attendanceForDay && (attendanceForDay.checkIn || attendanceForDay.checkOut)) {
+                        presentDays++;
+                        totalOTSeconds += parseDurationToSeconds(attendanceForDay.overtime);
+                    } else if (!leaveForDay) {
+                        absentDays++;
                     }
                 }
             }
