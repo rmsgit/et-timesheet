@@ -111,14 +111,14 @@ export default function CompensatoryLeavePage() {
       return years;
     }, []);
 
-    const handleApplyEarnedLeaves = async () => {
-        if (!summaryToApply || summaryToApply.compensatoryLeavesEarned <= 0) return;
+    const handleApplyOneLeave = async () => {
+        if (!summaryToApply) return;
 
         setIsApplyingLeaves(true);
         const userToUpdate = summaryToApply.user;
+        const leavesToAdd = 1;
         const currentCompensatoryLeaves = userToUpdate.compensatoryLeaves ?? 0;
-        const earnedLeaves = summaryToApply.compensatoryLeavesEarned;
-        const newTotalCompensatoryLeaves = currentCompensatoryLeaves + earnedLeaves;
+        const newTotalCompensatoryLeaves = currentCompensatoryLeaves + leavesToAdd;
 
         const result = await addUserProfileToRTDB(
             userToUpdate.id,
@@ -128,13 +128,14 @@ export default function CompensatoryLeavePage() {
             userToUpdate.editorLevelId,
             userToUpdate.isEligibleForMorningOT,
             userToUpdate.availableLeaves,
-            newTotalCompensatoryLeaves
+            newTotalCompensatoryLeaves,
+            userToUpdate.claimedCompensatoryYears
         );
 
         if (result.success) {
-            toast({ title: 'Leaves Applied', description: `${earnedLeaves} compensatory leave(s) added to ${userToUpdate.username}'s balance.` });
+            toast({ title: 'Leave Applied', description: `1 compensatory leave added to ${userToUpdate.username}'s balance.` });
         } else {
-            toast({ title: 'Error', description: result.message || 'Failed to apply leaves.', variant: 'destructive' });
+            toast({ title: 'Error', description: result.message || 'Failed to apply leave.', variant: 'destructive' });
         }
 
         setIsApplyingLeaves(false);
@@ -204,7 +205,7 @@ export default function CompensatoryLeavePage() {
                                                 size="sm"
                                                 variant="outline"
                                             >
-                                                <PlusCircle className="mr-2 h-4 w-4" /> Apply Earned
+                                                <PlusCircle className="mr-2 h-4 w-4" /> Apply 1 Leave
                                             </Button>
                                         </TableCell>
                                     </TableRow>
@@ -218,16 +219,16 @@ export default function CompensatoryLeavePage() {
             <AlertDialog open={!!summaryToApply} onOpenChange={(open) => !open && setSummaryToApply(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Apply Compensatory Leaves?</AlertDialogTitle>
+                        <AlertDialogTitle>Apply 1 Compensatory Leave?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Are you sure you want to add <span className="font-bold">{summaryToApply?.compensatoryLeavesEarned}</span> earned leave(s) to <span className="font-bold">{summaryToApply?.user.username}</span>'s compensatory balance?
+                          Are you sure you want to add <span className="font-bold">1</span> compensatory leave to <span className="font-bold">{summaryToApply?.user.username}</span>'s balance?
                           <br />
-                          Their current compensatory balance is <span className="font-semibold">{summaryToApply?.user.compensatoryLeaves ?? 0}</span>. The new balance will be <span className="font-semibold">{(summaryToApply?.user.compensatoryLeaves ?? 0) + (summaryToApply?.compensatoryLeavesEarned ?? 0)}</span>.
+                          Their current compensatory balance is <span className="font-semibold">{summaryToApply?.user.compensatoryLeaves ?? 0}</span>. The new balance will be <span className="font-semibold">{(summaryToApply?.user.compensatoryLeaves ?? 0) + 1}</span>.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={isApplyingLeaves}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleApplyEarnedLeaves} disabled={isApplyingLeaves}>
+                        <AlertDialogAction onClick={handleApplyOneLeave} disabled={isApplyingLeaves}>
                             {isApplyingLeaves ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                             Apply
                         </AlertDialogAction>
