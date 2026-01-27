@@ -63,20 +63,22 @@ export default function CompensatoryLeavePage() {
 
             for (const editor of editorUsers) {
                 const yearlyAttendance = await getAttendanceForYear(editor.id, selectedYear);
-                let totalEarlyLeaveSeconds = 0;
+                let totalEarlyLeaveSecondsOnShortLeaveDays = 0;
 
                 if (yearlyAttendance) {
                     yearlyAttendance.forEach(record => {
-                        // The user wants to calculate based on early leave, which includes deductions for short leaves
-                        totalEarlyLeaveSeconds += parseDurationToSeconds(record.earlyLeave);
+                        // Only accumulate early leave hours on days where the user also took a "short leave".
+                        if (record.leaveInfo && record.leaveInfo.toLowerCase().includes('short')) {
+                            totalEarlyLeaveSecondsOnShortLeaveDays += parseDurationToSeconds(record.earlyLeave);
+                        }
                     });
                 }
                 
-                const dueCompensatoryLeaves = Math.floor((totalEarlyLeaveSeconds / 3600) / 8);
+                const dueCompensatoryLeaves = Math.floor((totalEarlyLeaveSecondsOnShortLeaveDays / 3600) / 8);
 
                 summaries.push({
                     user: editor,
-                    totalEarlyLeaveSeconds,
+                    totalEarlyLeaveSeconds: totalEarlyLeaveSecondsOnShortLeaveDays,
                     dueCompensatoryLeaves,
                 });
             }
@@ -105,7 +107,7 @@ export default function CompensatoryLeavePage() {
                 <CardHeader>
                     <CardTitle>Calculate Due Compensatory Leaves</CardTitle>
                     <CardDescription>
-                        Calculates due compensatory leaves for editors based on their total accumulated early leave hours (with short leaves considered) for a selected year. The formula is: 1 leave is due for every 8 hours of accumulated early leave.
+                        Calculates due compensatory leaves for editors. This is based on the total accumulated early leave hours that occur only on days where a short leave was also taken. The formula is: 1 leave is due for every 8 hours of this specific early leave time for a selected year.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -139,7 +141,7 @@ export default function CompensatoryLeavePage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead><UserIcon className="inline-block mr-2 h-4 w-4" />Editor</TableHead>
-                                    <TableHead><AlertTriangle className="inline-block mr-2 h-4 w-4 text-orange-600" />Total Early Leave</TableHead>
+                                    <TableHead><AlertTriangle className="inline-block mr-2 h-4 w-4 text-orange-600" />Total Early Leave (on Short Leave days)</TableHead>
                                     <TableHead><Gift className="inline-block mr-2 h-4 w-4" />Due Compensatory Leaves</TableHead>
                                 </TableRow>
                             </TableHeader>
