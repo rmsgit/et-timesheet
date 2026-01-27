@@ -1,9 +1,8 @@
-
 "use client";
 
 import React, { createContext, ReactNode, useCallback } from 'react';
 import { database } from '@/lib/firebase';
-import { ref, set, get } from 'firebase/database';
+import { ref, set, get, DataSnapshot } from 'firebase/database';
 import { FIREBASE_ATTENDANCE_PATH } from '@/lib/constants';
 import type { AttendanceRecord } from '@/lib/types';
 import { useLoader } from '@/hooks/useLoader';
@@ -14,6 +13,7 @@ const ATTENDANCE_LOADER_ID = "firebase_attendance_loader";
 interface AttendanceContextType {
   saveAttendanceForMonth: (userId: string, year: string, month: string, records: AttendanceRecord[]) => Promise<{ success: boolean }>;
   getAttendanceForMonth: (userId: string, year: string, month: string) => Promise<AttendanceRecord[] | null>;
+  getAttendanceForYear: (userId: string, year: string) => Promise<AttendanceRecord[] | null>;
 }
 
 export const AttendanceContext = createContext<AttendanceContextType | undefined>(undefined);
@@ -75,9 +75,45 @@ export const AttendanceProvider: React.FC<AttendanceProviderProps> = ({ children
     }
   }, [toast, showLoader, hideLoader]);
 
+  const getAttendanceForYear = useCallback(async (userId: string, year: string): Promise<AttendanceRecord[] | null> => {
+    if (!database) {
+      toast({ title: "Error", description: "Database not connected.", variant: "destructive" });
+      return null;
+    }
+    showLoader(ATTENDANCE_LOADER_ID, `Fetching year attendance for user...`);
+    try {
+      let yearlyRecords: AttendanceRecord[] = [];
+      const monthPromises: Promise<DataSnapshot>[] = [];
+      for (let i = 1; i <= 12; i++) {
+        const month = i.toString().padStart(2, '0');
+        const dbRef = ref(database, `${FIREBASE_ATTENDANCE_PATH}/${userId}/${year}-${month}`);
+        monthPromises.push(get(dbRef));
+      }
+      
+      const snapshots = await Promise.all(monthPromises);
+      
+      snapshots.forEach(snapshot => {
+        if (snapshot.exists()) {
+          const monthlyData = snapshot.val() as AttendanceRecord[];
+          if (Array.isArray(monthlyData)) {
+            yearlyRecords = yearlyRecords.concat(monthlyData);
+          }
+        }
+      });
+
+      return yearlyRecords.length > 0 ? yearlyRecords : null;
+    } catch (error) {
+      console.error("Firebase get year attendance error:", error);
+      toast({ title: "Fetch Error", description: "Failed to fetch yearly attendance records.", variant: "destructive" });
+      return null;
+    } finally {
+      hideLoader(ATTENDANCE_LOADER_ID);
+    }
+  }, [toast, showLoader, hideLoader]);
+
 
   return (
-    <AttendanceContext.Provider value={{ saveAttendanceForMonth, getAttendanceForMonth }}>
+    <AttendanceContext.Provider value={{ saveAttendanceForMonth, getAttendanceForMonth, getAttendanceForYear }}>
       {children}
     </AttendanceContext.Provider>
   );
