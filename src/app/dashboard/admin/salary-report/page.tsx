@@ -145,9 +145,12 @@ export default function SalaryReportPage() {
 
             const holidaysInMonth = holidays.filter(h => isWithinInterval(parseISO(h.date), { start: monthStartForCalc, end: monthEndForCalc }));
 
+            const totalOTSeconds = attendance.reduce((total, record) => {
+                return total + parseDurationToSeconds(record.overtime);
+            }, 0);
+
             let totalWorkingDays = 0;
             let absentDays = 0;
-            let totalOTSeconds = 0;
             let presentDays = 0;
 
             const daysInPeriod = eachDayOfInterval({ start: monthStartForCalc, end: monthEndForCalc });
@@ -168,7 +171,6 @@ export default function SalaryReportPage() {
                 if (isWorkingDayForCalc) {
                     totalWorkingDays++;
 
-                    const attendanceForDay = attendance.find(a => isSameDay(new Date(a.date), currentDate));
                     const leaveForDay = userLeavesForMonth.find(l => l.date && isSameDay(parseISO(l.date), currentDate));
                     const timesheetEntryForDay = timesheetRecordsForMonth.find(t => isSameDay(parseISO(t.date), currentDate));
 
@@ -176,10 +178,6 @@ export default function SalaryReportPage() {
                         presentDays++;
                     } else if (!leaveForDay) {
                         absentDays++;
-                    }
-                    
-                    if (attendanceForDay) {
-                        totalOTSeconds += parseDurationToSeconds(attendanceForDay.overtime);
                     }
                 }
             });
