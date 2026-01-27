@@ -91,7 +91,7 @@ export default function CompensatoryLeavePage() {
                 const claimedLeaves = leaveRequests.filter(
                     req => req.userId === editor.id &&
                     req.leaveType === 'compensatory' &&
-                    new Date(req.requestedAt).getFullYear().toString() === selectedYear &&
+                    req.earnedInYear?.toString() === selectedYear &&
                     req.status === 'approved'
                 ).length;
 
@@ -130,7 +130,7 @@ export default function CompensatoryLeavePage() {
         }
 
         setIsSubmittingLeave(true);
-        const leaveResult = await applyForLeave(null, 'compensatory', 'Compensatory Leave (Applied by Admin)');
+        const leaveResult = await applyForLeave(null, 'compensatory', 'Compensatory Leave (Applied by Admin)', parseInt(selectedYear, 10));
 
         if (leaveResult.success) {
             toast({ title: 'Success', description: `Compensatory leave request created for ${editorToApplyFor.username}.` });

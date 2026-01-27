@@ -77,6 +77,7 @@ export interface LeaveRequest {
   reviewedAt?: string; // ISO string
   cancelledBy?: string; // user id who cancelled
   cancelledAt?: string; // ISO string
+  earnedInYear?: number;
 }
 
 export interface AttendanceRecord {

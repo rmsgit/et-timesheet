@@ -15,7 +15,7 @@ const LEAVE_LOADER_ID = "firebase_leave_requests_loader";
 interface LeaveContextType {
   leaveRequests: LeaveRequest[];
   isLoading: boolean;
-  applyForLeave: (date: Date | null, leaveType: LeaveType, reason: string) => Promise<{ success: boolean; id?: string }>;
+  applyForLeave: (date: Date | null, leaveType: LeaveType, reason: string, earnedInYear?: number) => Promise<{ success: boolean; id?: string }>;
   updateLeaveStatus: (leaveId: string, status: 'approved' | 'rejected') => Promise<{ success: boolean }>;
   cancelLeaveRequest: (leaveId: string) => Promise<{ success: boolean }>;
   updateLeaveRequest: (leaveId: string, updates: Partial<LeaveRequest>) => Promise<{ success: boolean }>;
@@ -78,7 +78,7 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
     };
   }, [showLoader, hideLoader]);
 
-  const applyForLeave = useCallback(async (date: Date | null, leaveType: LeaveType, reason: string): Promise<{ success: boolean, id?: string }> => {
+  const applyForLeave = useCallback(async (date: Date | null, leaveType: LeaveType, reason: string, earnedInYear?: number): Promise<{ success: boolean, id?: string }> => {
     if (!user) {
         toast({ title: "Not Authenticated", description: "You must be logged in to apply for leave.", variant: "destructive" });
         return { success: false };
@@ -97,6 +97,11 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
         status: 'pending',
         requestedAt: new Date().toISOString(),
     };
+
+    if (leaveType === 'compensatory' && earnedInYear) {
+      // Cast to Partial to add optional property
+      (leaveData as Partial<LeaveRequest>).earnedInYear = earnedInYear;
+    }
 
     try {
         await set(newRequestRef, leaveData);
