@@ -9,19 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, User as UserIcon, Gift, Hourglass, Leaf, PlusCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useToast } from '@/hooks/use-toast';
+import { Loader2, User as UserIcon, Gift, AlertTriangle } from 'lucide-react';
 
 const parseDurationToSeconds = (duration: string): number => {
     if (!duration || typeof duration !== 'string' || duration === '-') return 0;
@@ -48,22 +36,18 @@ const formatSecondsToHoursString = (totalSeconds: number): string => {
 };
 
 
-interface CompensatoryLeaveSummary {
+interface DueLeaveSummary {
     user: User;
-    totalOvertimeSeconds: number;
-    compensatoryLeavesEarned: number;
+    totalEarlyLeaveSeconds: number;
+    dueCompensatoryLeaves: number;
 }
 
 export default function CompensatoryLeavePage() {
-    const { users, isUsersLoading, addUserProfileToRTDB } = useMockUsers();
+    const { users, isUsersLoading } = useMockUsers();
     const { getAttendanceForYear } = useAttendance();
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
-    const [summaryData, setSummaryData] = useState<CompensatoryLeaveSummary[]>([]);
+    const [summaryData, setSummaryData] = useState<DueLeaveSummary[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(false);
-    const { toast } = useToast();
-
-    const [isApplyingLeaves, setIsApplyingLeaves] = useState(false);
-    const [summaryToApply, setSummaryToApply] = useState<CompensatoryLeaveSummary | null>(null);
 
     const editorUsers = useMemo(() => {
         if (isUsersLoading || !users) return [];
@@ -75,24 +59,25 @@ export default function CompensatoryLeavePage() {
             if (isUsersLoading || editorUsers.length === 0) return;
 
             setIsLoadingData(true);
-            const summaries: CompensatoryLeaveSummary[] = [];
+            const summaries: DueLeaveSummary[] = [];
 
             for (const editor of editorUsers) {
                 const yearlyAttendance = await getAttendanceForYear(editor.id, selectedYear);
-                let totalOvertimeSeconds = 0;
+                let totalEarlyLeaveSeconds = 0;
 
                 if (yearlyAttendance) {
                     yearlyAttendance.forEach(record => {
-                        totalOvertimeSeconds += parseDurationToSeconds(record.overtime);
+                        // The user wants to calculate based on early leave, which includes deductions for short leaves
+                        totalEarlyLeaveSeconds += parseDurationToSeconds(record.earlyLeave);
                     });
                 }
                 
-                const compensatoryLeavesEarned = Math.floor((totalOvertimeSeconds / 3600) / 8);
+                const dueCompensatoryLeaves = Math.floor((totalEarlyLeaveSeconds / 3600) / 8);
 
                 summaries.push({
                     user: editor,
-                    totalOvertimeSeconds,
-                    compensatoryLeavesEarned,
+                    totalEarlyLeaveSeconds,
+                    dueCompensatoryLeaves,
                 });
             }
             setSummaryData(summaries);
@@ -111,65 +96,16 @@ export default function CompensatoryLeavePage() {
       return years;
     }, []);
 
-    const handleApplyOneLeave = async () => {
-        if (!summaryToApply) return;
-
-        setIsApplyingLeaves(true);
-        const userToUpdate = summaryToApply.user;
-        
-        const year = selectedYear;
-        const claimedYears = userToUpdate.claimedCompensatoryYears || {};
-        const alreadyClaimed = claimedYears[year] || 0;
-
-        if (summaryToApply.compensatoryLeavesEarned <= alreadyClaimed) {
-             toast({ title: 'Cannot Apply Leave', description: 'All earned leaves for this year have already been applied.', variant: 'destructive' });
-             setIsApplyingLeaves(false);
-             setSummaryToApply(null);
-             return;
-        }
-
-        const leavesToAdd = 1;
-        const currentCompensatoryLeaves = userToUpdate.compensatoryLeaves ?? 0;
-        const newTotalCompensatoryLeaves = currentCompensatoryLeaves + leavesToAdd;
-
-        const newClaimedForYear = alreadyClaimed + 1;
-        const newClaimedCompensatoryYears = {
-            ...claimedYears,
-            [year]: newClaimedForYear
-        };
-
-        const result = await addUserProfileToRTDB(
-            userToUpdate.id,
-            userToUpdate.email!,
-            userToUpdate.username,
-            userToUpdate.role!,
-            userToUpdate.editorLevelId,
-            userToUpdate.isEligibleForMorningOT,
-            userToUpdate.availableLeaves,
-            newTotalCompensatoryLeaves,
-            newClaimedCompensatoryYears
-        );
-
-        if (result.success) {
-            toast({ title: 'Leave Applied', description: `1 compensatory leave added to ${userToUpdate.username}'s balance.` });
-        } else {
-            toast({ title: 'Error', description: result.message || 'Failed to apply leave.', variant: 'destructive' });
-        }
-
-        setIsApplyingLeaves(false);
-        setSummaryToApply(null);
-    };
-
     return (
         <div className="space-y-6">
             <h1 className="text-3xl font-bold tracking-tight flex items-center">
-                <Gift className="mr-3 h-8 w-8 text-primary" /> Compensatory Leave Management
+                <Gift className="mr-3 h-8 w-8 text-primary" /> Due Compensatory Leave Report
             </h1>
             <Card>
                 <CardHeader>
-                    <CardTitle>Calculate Compensatory Leaves</CardTitle>
+                    <CardTitle>Calculate Due Compensatory Leaves</CardTitle>
                     <CardDescription>
-                        Calculates compensatory leaves earned by editors based on their total overtime hours for a selected year. The formula is: 1 leave for every 8 hours of overtime.
+                        Calculates due compensatory leaves for editors based on their total accumulated early leave hours (with short leaves considered) for a selected year. The formula is: 1 leave is due for every 8 hours of accumulated early leave.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -203,62 +139,23 @@ export default function CompensatoryLeavePage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead><UserIcon className="inline-block mr-2 h-4 w-4" />Editor</TableHead>
-                                    <TableHead><Hourglass className="inline-block mr-2 h-4 w-4" />Total Overtime</TableHead>
-                                    <TableHead><Gift className="inline-block mr-2 h-4 w-4" />Comp Leaves Earned</TableHead>
-                                    <TableHead><Gift className="inline-block mr-2 h-4 w-4 text-green-600" />Leaves Claimed</TableHead>
-                                    <TableHead><Leaf className="inline-block mr-2 h-4 w-4" />Compensatory Balance</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                                    <TableHead><AlertTriangle className="inline-block mr-2 h-4 w-4 text-orange-600" />Total Early Leave</TableHead>
+                                    <TableHead><Gift className="inline-block mr-2 h-4 w-4" />Due Compensatory Leaves</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {summaryData.map(summary => {
-                                    const leavesAlreadyClaimed = summary.user.claimedCompensatoryYears?.[selectedYear] ?? 0;
-                                    const unclaimedLeaves = summary.compensatoryLeavesEarned - leavesAlreadyClaimed;
-                                    return (
+                                {summaryData.map(summary => (
                                     <TableRow key={summary.user.id}>
                                         <TableCell className="font-medium">{summary.user.username}</TableCell>
-                                        <TableCell>{formatSecondsToHoursString(summary.totalOvertimeSeconds)}</TableCell>
-                                        <TableCell className="font-bold text-lg text-primary">{summary.compensatoryLeavesEarned}</TableCell>
-                                        <TableCell className="font-bold text-lg text-green-600">{leavesAlreadyClaimed}</TableCell>
-                                        <TableCell className="font-bold text-lg text-accent">{summary.user.compensatoryLeaves ?? 0}</TableCell>
-                                        <TableCell className="text-right">
-                                            <Button
-                                                onClick={() => setSummaryToApply(summary)}
-                                                disabled={isLoadingData || unclaimedLeaves <= 0 || isApplyingLeaves}
-                                                size="sm"
-                                                variant="outline"
-                                            >
-                                                <PlusCircle className="mr-2 h-4 w-4" /> Apply 1 Leave
-                                            </Button>
-                                        </TableCell>
+                                        <TableCell>{formatSecondsToHoursString(summary.totalEarlyLeaveSeconds)}</TableCell>
+                                        <TableCell className="font-bold text-lg text-primary">{summary.dueCompensatoryLeaves}</TableCell>
                                     </TableRow>
-                                );
-                                })}
+                                ))}
                             </TableBody>
                         </Table>
                     )}
                 </CardContent>
             </Card>
-
-            <AlertDialog open={!!summaryToApply} onOpenChange={(open) => !open && setSummaryToApply(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Apply 1 Compensatory Leave?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to add <span className="font-bold">1</span> compensatory leave to <span className="font-bold">{summaryToApply?.user.username}</span>'s balance?
-                          <br />
-                          Their current compensatory balance is <span className="font-semibold">{summaryToApply?.user.compensatoryLeaves ?? 0}</span>. The new balance will be <span className="font-semibold">{(summaryToApply?.user.compensatoryLeaves ?? 0) + 1}</span>.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isApplyingLeaves}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleApplyOneLeave} disabled={isApplyingLeaves}>
-                            {isApplyingLeaves ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Apply
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </div>
     );
 }
