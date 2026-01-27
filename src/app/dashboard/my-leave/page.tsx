@@ -77,7 +77,7 @@ export default function MyLeavePage() {
   }, [leaveRequests, user]);
 
   const filteredLeaveRequestsForYear = useMemo(() => {
-    return myLeaveRequests.filter(req => parseISO(req.date).getFullYear() === selectedYear);
+    return myLeaveRequests.filter(req => req.date && parseISO(req.date).getFullYear() === selectedYear);
   }, [myLeaveRequests, selectedYear]);
 
   const availableYears = useMemo(() => {
@@ -95,6 +95,7 @@ export default function MyLeavePage() {
     const currentYear = selectedYear;
 
     const booked = myLeaveRequests.reduce((total, req) => {
+      if (!req.date) return total;
       const requestYear = parseISO(req.date).getFullYear();
       if (req.status === 'approved' && requestYear === currentYear) {
         if (req.leaveType === 'full-day') return total + 1;
@@ -122,7 +123,7 @@ export default function MyLeavePage() {
         otherReasonVal = request.reason;
       }
       reset({
-        date: parseISO(request.date),
+        date: request.date ? parseISO(request.date) : new Date(),
         leaveType: request.leaveType,
         reason: reasonVal,
         otherReason: otherReasonVal,
@@ -338,7 +339,7 @@ export default function MyLeavePage() {
               <TableBody>
                 {filteredLeaveRequestsForYear.map(req => (
                   <TableRow key={req.id}>
-                    <TableCell>{format(parseISO(req.date), 'PPP')}</TableCell>
+                    <TableCell>{req.date ? format(parseISO(req.date), 'PPP') : 'Unassigned'}</TableCell>
                     <TableCell className="capitalize">{req.leaveType.replace('-', ' ')}</TableCell>
                     <TableCell className="max-w-[150px] truncate">{req.reason}</TableCell>
                     <TableCell>{getStatusBadge(req.status)}</TableCell>
