@@ -12,7 +12,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award, Library, Star, ClipboardCheck, TrendingUp, CalendarCheck, Plane, CalendarDays, Gift } from 'lucide-react';
+import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award, Library, Star, ClipboardCheck, TrendingUp, CalendarCheck, Plane, CalendarDays, Gift, PartyPopper } from 'lucide-react';
 
 export function SidebarNav() {
   const pathname = usePathname();
@@ -38,6 +38,7 @@ export function SidebarNav() {
       { href: '/dashboard/admin/leave-management', label: 'Leave Requests', icon: Plane },
       { href: '/dashboard/admin/attendance', label: 'Attendance Sheets', icon: CalendarCheck },
       { href: '/dashboard/admin/compensatory-leave', label: 'Compensatory Leave', icon: Gift },
+      { href: '/dashboard/admin/holidays', label: 'Holidays', icon: PartyPopper },
       { href: '/dashboard/admin/performance-reviews', label: 'Performance Reviews', icon: ClipboardCheck },
     ],
     "Configuration": [

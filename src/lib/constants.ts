@@ -20,6 +20,7 @@ export const FIREBASE_EDITOR_RATING_CATEGORIES_PATH = 'editorRatingCategories';
 export const FIREBASE_PERFORMANCE_REVIEWS_PATH = 'performanceReviews';
 export const FIREBASE_LEAVE_REQUESTS_PATH = 'leaveRequests';
 export const FIREBASE_ATTENDANCE_PATH = 'attendance';
+export const FIREBASE_HOLIDAYS_PATH = 'holidays';
 
 export const RATING_SCALE = [
   { value: 5, label: '5 - Outstanding' },

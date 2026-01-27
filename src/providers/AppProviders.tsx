@@ -12,6 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LoaderProvider } from '@/contexts/LoaderContext';
 import { GlobalLoader } from '@/components/common/GlobalLoader';
 import { useAdminNotifications } from '@/hooks/useAdminNotifications';
+import { HolidayProvider } from '@/contexts/HolidayContext';
 
 const AdminNotificationInitializer: React.FC = () => {
   useAdminNotifications(); // Initialize and run the hook globally for admins
@@ -30,12 +31,14 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
           <PerformanceReviewProvider>
             <LeaveProvider>
               <AttendanceProvider>
-                <TooltipProvider>
-                  <AdminNotificationInitializer />
-                  {children}
-                  <Toaster />
-                  <GlobalLoader />
-                </TooltipProvider>
+                <HolidayProvider>
+                  <TooltipProvider>
+                    <AdminNotificationInitializer />
+                    {children}
+                    <Toaster />
+                    <GlobalLoader />
+                  </TooltipProvider>
+                </HolidayProvider>
               </AttendanceProvider>
             </LeaveProvider>
           </PerformanceReviewProvider>

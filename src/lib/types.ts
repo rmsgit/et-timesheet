@@ -88,3 +88,9 @@ export interface AttendanceRecord {
   leaveInfo: string;
   earlyLeave: string;
 }
+
+export interface Holiday {
+  id: string;
+  date: string; // ISO string
+  name: string;
+}
