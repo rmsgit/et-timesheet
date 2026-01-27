@@ -16,6 +16,7 @@ interface LeaveContextType {
   leaveRequests: LeaveRequest[];
   isLoading: boolean;
   applyForLeave: (date: Date | null, leaveType: LeaveType, reason: string, earnedInYear?: number) => Promise<{ success: boolean; id?: string }>;
+  adminApplyCompensatoryLeave: (editorId: string, reason: string, earnedInYear: number) => Promise<{ success: boolean; id?: string }>;
   updateLeaveStatus: (leaveId: string, status: 'approved' | 'rejected') => Promise<{ success: boolean }>;
   cancelLeaveRequest: (leaveId: string) => Promise<{ success: boolean }>;
   updateLeaveRequest: (leaveId: string, updates: Partial<LeaveRequest>) => Promise<{ success: boolean }>;
@@ -109,6 +110,38 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
         return { success: true, id: newId };
     } catch (error) {
         console.error("Firebase apply for leave error:", error);
+        toast({ title: "Error", description: "Failed to submit leave request.", variant: "destructive" });
+        return { success: false };
+    }
+  }, [user, toast]);
+
+  const adminApplyCompensatoryLeave = useCallback(async (editorId: string, reason: string, earnedInYear: number): Promise<{ success: boolean, id?: string }> => {
+    if (!user || user.role !== 'admin') {
+        toast({ title: "Permission Denied", description: "Only admins can perform this action.", variant: "destructive" });
+        return { success: false };
+    }
+    if (!database) return { success: false };
+    
+    const newRequestRef = push(ref(database, FIREBASE_LEAVE_REQUESTS_PATH));
+    const newId = newRequestRef.key;
+    if (!newId) return { success: false };
+
+    const leaveData: Omit<LeaveRequest, 'id' | 'cancelledBy' | 'cancelledAt'> = {
+        userId: editorId, // Use the passed editorId
+        leaveType: 'compensatory',
+        date: '', // No date
+        reason,
+        status: 'pending',
+        requestedAt: new Date().toISOString(),
+        earnedInYear: earnedInYear,
+    };
+
+    try {
+        await set(newRequestRef, leaveData);
+        toast({ title: "Success", description: "Compensatory leave request has been submitted." });
+        return { success: true, id: newId };
+    } catch (error) {
+        console.error("Firebase admin apply leave error:", error);
         toast({ title: "Error", description: "Failed to submit leave request.", variant: "destructive" });
         return { success: false };
     }
@@ -214,7 +247,7 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
   }, [user, toast]);
 
   return (
-    <LeaveContext.Provider value={{ leaveRequests, isLoading, applyForLeave, updateLeaveStatus, cancelLeaveRequest, updateLeaveRequest, deleteLeaveRequest }}>
+    <LeaveContext.Provider value={{ leaveRequests, isLoading, applyForLeave, adminApplyCompensatoryLeave, updateLeaveStatus, cancelLeaveRequest, updateLeaveRequest, deleteLeaveRequest }}>
       {children}
     </LeaveContext.Provider>
   );

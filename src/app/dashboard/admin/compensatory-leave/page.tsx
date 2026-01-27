@@ -51,7 +51,7 @@ interface DueLeaveSummary {
 export default function CompensatoryLeavePage() {
     const { users, isUsersLoading } = useMockUsers();
     const { getAttendanceForYear } = useAttendance();
-    const { leaveRequests, applyForLeave, isLoading: isLeaveLoading } = useLeave();
+    const { leaveRequests, adminApplyCompensatoryLeave, isLoading: isLeaveLoading } = useLeave();
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
     const [summaryData, setSummaryData] = useState<DueLeaveSummary[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(false);
@@ -130,7 +130,7 @@ export default function CompensatoryLeavePage() {
         }
 
         setIsSubmittingLeave(true);
-        const leaveResult = await applyForLeave(null, 'compensatory', 'Compensatory Leave (Applied by Admin)', parseInt(selectedYear, 10));
+        const leaveResult = await adminApplyCompensatoryLeave(editorToApplyFor.id, 'Compensatory Leave (Applied by Admin)', parseInt(selectedYear, 10));
 
         if (leaveResult.success) {
             toast({ title: 'Success', description: `Compensatory leave request created for ${editorToApplyFor.username}.` });
