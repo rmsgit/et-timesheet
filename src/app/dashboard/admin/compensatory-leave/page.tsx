@@ -14,6 +14,7 @@ import { Loader2, User as UserIcon, Gift, AlertTriangle, Send, CheckCircle } fro
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { parseISO } from 'date-fns';
 
 const parseDurationToSeconds = (duration: string): number => {
     if (!duration || typeof duration !== 'string' || duration === '-') return 0;
@@ -48,9 +49,9 @@ interface DueLeaveSummary {
 }
 
 export default function CompensatoryLeavePage() {
-    const { users, isUsersLoading, addUserProfileToRTDB } = useMockUsers();
+    const { users, isUsersLoading } = useMockUsers();
     const { getAttendanceForYear } = useAttendance();
-    const { applyForLeave } = useLeave();
+    const { leaveRequests, applyForLeave, isLoading: isLeaveLoading } = useLeave();
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
     const [summaryData, setSummaryData] = useState<DueLeaveSummary[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(false);
@@ -67,7 +68,7 @@ export default function CompensatoryLeavePage() {
 
     useEffect(() => {
         const calculateSummaries = async () => {
-            if (isUsersLoading || editorUsers.length === 0) return;
+            if (isUsersLoading || isLeaveLoading || editorUsers.length === 0) return;
 
             setIsLoadingData(true);
             const summaries: DueLeaveSummary[] = [];
@@ -86,7 +87,13 @@ export default function CompensatoryLeavePage() {
                 }
                 
                 const dueCompensatoryLeaves = Math.floor((totalEarlyLeaveSecondsOnShortLeaveDays / 3600) / 8);
-                const claimedLeaves = editor.claimedCompensatoryYears?.[selectedYear] ?? 0;
+                
+                const claimedLeaves = leaveRequests.filter(
+                    req => req.userId === editor.id &&
+                    req.leaveType === 'compensatory' &&
+                    new Date(req.requestedAt).getFullYear().toString() === selectedYear &&
+                    req.status !== 'cancelled'
+                ).length;
 
                 summaries.push({
                     user: editor,
@@ -100,7 +107,7 @@ export default function CompensatoryLeavePage() {
         };
 
         calculateSummaries();
-    }, [selectedYear, editorUsers, getAttendanceForYear, isUsersLoading]);
+    }, [selectedYear, editorUsers, getAttendanceForYear, isUsersLoading, leaveRequests, isLeaveLoading]);
     
     const availableYears = useMemo(() => {
       const currentYear = new Date().getFullYear();
@@ -123,42 +130,20 @@ export default function CompensatoryLeavePage() {
         }
 
         setIsSubmittingLeave(true);
-        // Step 1: Apply for the leave request with a null date
         const leaveResult = await applyForLeave(null, 'compensatory', 'Compensatory Leave (Applied by Admin)');
 
         if (leaveResult.success) {
-            // Step 2: Update the user's claimed leaves count
-            const currentClaimed = editorToApplyFor.claimedCompensatoryYears?.[selectedYear] ?? 0;
-            const newClaimedData = {
-                ...editorToApplyFor.claimedCompensatoryYears,
-                [selectedYear]: currentClaimed + 1,
-            };
-            
-            const profileUpdateResult = await addUserProfileToRTDB(
-                editorToApplyFor.id,
-                editorToApplyFor.email || '',
-                editorToApplyFor.username,
-                editorToApplyFor.role || 'editor',
-                editorToApplyFor.editorLevelId,
-                editorToApplyFor.isEligibleForMorningOT,
-                editorToApplyFor.availableLeaves,
-                editorToApplyFor.compensatoryLeaves,
-                newClaimedData
-            );
-
-            if (profileUpdateResult.success) {
-                toast({ title: 'Success', description: `Compensatory leave request created for ${editorToApplyFor.username}.` });
-                setIsApplyDialogOpen(false);
-                setEditorToApplyFor(null);
-            } else {
-                toast({ title: 'Profile Update Failed', description: 'The leave was requested, but updating the claimed count failed. Please check user profile.', variant: 'destructive'});
-            }
+            toast({ title: 'Success', description: `Compensatory leave request created for ${editorToApplyFor.username}.` });
+            setIsApplyDialogOpen(false);
+            setEditorToApplyFor(null);
         } else {
             toast({ title: 'Leave Request Failed', description: 'Could not create the leave request.', variant: 'destructive'});
         }
 
         setIsSubmittingLeave(false);
     };
+
+    const mainLoadingState = isLoadingData || isUsersLoading || isLeaveLoading;
 
 
     return (
@@ -176,7 +161,7 @@ export default function CompensatoryLeavePage() {
                 <CardContent>
                     <div className="max-w-xs space-y-2">
                         <Label htmlFor="year-select">Select Year</Label>
-                        <Select value={selectedYear} onValueChange={setSelectedYear} disabled={isLoadingData}>
+                        <Select value={selectedYear} onValueChange={setSelectedYear} disabled={mainLoadingState}>
                             <SelectTrigger id="year-select">
                                 <SelectValue />
                             </SelectTrigger>
@@ -195,7 +180,7 @@ export default function CompensatoryLeavePage() {
                     <CardTitle>Yearly Summary - {selectedYear}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    {isLoadingData || isUsersLoading ? (
+                    {mainLoadingState ? (
                         <div className="flex items-center justify-center h-64">
                             <Loader2 className="h-10 w-10 animate-spin text-primary" />
                         </div>
