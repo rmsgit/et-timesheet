@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -28,18 +27,24 @@ export function SidebarNav() {
     { href: '/dashboard/my-leave', label: 'My Leave', icon: Plane },
   ];
 
-  const adminOnlyRoutes = [
-    { href: '/dashboard/admin/users', label: 'User Profiles & Roles', icon: UsersRound },
-    { href: '/dashboard/admin/report', label: 'Admin Report', icon: BarChart3 },
-    { href: '/dashboard/admin/editor-report', label: 'Editor Specific Report', icon: UserCheck },
-    { href: '/dashboard/admin/project-overview', label: 'Project Overview', icon: Layers },
-    { href: '/dashboard/admin/performance-reviews', label: 'Performance Reviews', icon: ClipboardCheck },
-    { href: '/dashboard/admin/attendance', label: 'Attendance', icon: CalendarCheck },
-    { href: '/dashboard/admin/leave-management', label: 'Leave Management', icon: Plane },
-    { href: '/dashboard/admin/project-types', label: 'Project Types', icon: FolderKanban },
-    { href: '/dashboard/admin/editor-levels', label: 'Editor Levels', icon: Award },
-    { href: '/dashboard/admin/rating-categories', label: 'Rating Categories', icon: Star },
-  ];
+  const adminRoutesByCategory = {
+    "Reports": [
+      { href: '/dashboard/admin/report', label: 'Overall Report', icon: BarChart3 },
+      { href: '/dashboard/admin/editor-report', label: 'Editor Report', icon: UserCheck },
+      { href: '/dashboard/admin/project-overview', label: 'Project Overview', icon: Layers },
+    ],
+    "Management": [
+      { href: '/dashboard/admin/users', label: 'User Profiles', icon: UsersRound },
+      { href: '/dashboard/admin/leave-management', label: 'Leave Requests', icon: Plane },
+      { href: '/dashboard/admin/attendance', label: 'Attendance Sheets', icon: CalendarCheck },
+      { href: '/dashboard/admin/performance-reviews', label: 'Performance Reviews', icon: ClipboardCheck },
+    ],
+    "Configuration": [
+      { href: '/dashboard/admin/project-types', label: 'Project Types', icon: FolderKanban },
+      { href: '/dashboard/admin/editor-levels', label: 'Editor Levels', icon: Award },
+      { href: '/dashboard/admin/rating-categories', label: 'Rating Categories', icon: Star },
+    ]
+  };
   
   const commonRoutes = [
      // { href: '/dashboard/settings', label: 'Settings', icon: Settings },
@@ -74,28 +79,32 @@ export function SidebarNav() {
         </SidebarGroup>
       )}
 
-      {isAdmin && adminOnlyRoutes.length > 0 && (
-         <SidebarGroup>
-          <SidebarGroupLabel>Admin Tools</SidebarGroupLabel>
-          {adminOnlyRoutes.map((route) => (
-            <SidebarMenuItem key={route.href}>
-              <Link href={route.href} passHref legacyBehavior>
-                <SidebarMenuButton
-                  asChild
-                  variant="default"
-                  size="default"
-                  isActive={isActive(route.href)}
-                  tooltip={{ children: route.label, side: "right", align: "center" }}
-                >
-                  <a>
-                    <route.icon />
-                    <span>{route.label}</span>
-                  </a>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
+      {isAdmin && (
+        <>
+          {Object.entries(adminRoutesByCategory).map(([category, routes]) => (
+            <SidebarGroup key={category}>
+              <SidebarGroupLabel>{category}</SidebarGroupLabel>
+              {routes.map((route) => (
+                <SidebarMenuItem key={route.href}>
+                  <Link href={route.href} passHref legacyBehavior>
+                    <SidebarMenuButton
+                      asChild
+                      variant="default"
+                      size="default"
+                      isActive={isActive(route.href)}
+                      tooltip={{ children: route.label, side: "right", align: "center" }}
+                    >
+                      <a>
+                        <route.icon />
+                        <span>{route.label}</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              ))}
+            </SidebarGroup>
           ))}
-        </SidebarGroup>
+        </>
       )}
       
       {commonRoutes.length > 0 && (
