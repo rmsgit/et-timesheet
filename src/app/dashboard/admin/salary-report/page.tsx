@@ -150,24 +150,16 @@ export default function SalaryReportPage() {
                 const isSunday = currentDate.getDay() === 0;
                 const holidayInfo = holidaysInMonth.find(h => isSameDay(parseISO(h.date), currentDate));
 
-                let isWorkingDay = false;
-                if (holidayInfo) {
-                    // It's a holiday, check if it's a special working day
-                    if (holidayInfo.isWorkingDay) {
-                        isWorkingDay = true;
-                    } else {
-                        // It's a non-working holiday
-                        isWorkingDay = false;
-                    }
-                } else if (isSunday) {
-                    // It's a Sunday and not a designated working holiday
-                    isWorkingDay = false;
-                } else {
-                    // It's a weekday (Mon-Sat) and not a holiday
-                    isWorkingDay = true;
-                }
+                let isWorkingDayForCalc = true;
 
-                if (isWorkingDay) {
+                if (isSunday) {
+                    isWorkingDayForCalc = false;
+                } else if (holidayInfo && !holidayInfo.isWorkingDay) {
+                    // It's a non-working holiday
+                    isWorkingDayForCalc = false;
+                }
+                
+                if (isWorkingDayForCalc) {
                     totalWorkingDays++;
 
                     const attendanceForDay = attendance.find(a => isSameDay(new Date(a.date), currentDate));
@@ -366,7 +358,7 @@ export default function SalaryReportPage() {
                                  <TableRow>
                                    <TableHead>Total Working Days</TableHead>
                                    <TableHead>Present</TableHead>
-                                   <TableHead>Approved Leave</TableHead>
+                                   <TableHead>Leave Taken</TableHead>
                                    <TableHead>Absent</TableHead>
                                    <TableHead>Total OT</TableHead>
                                  </TableRow>
