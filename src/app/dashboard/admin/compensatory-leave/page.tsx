@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, User as UserIcon, Gift, Hourglass } from 'lucide-react';
+import { Loader2, User as UserIcon, Gift, Hourglass, Leaf } from 'lucide-react';
 
 const parseDurationToSeconds = (duration: string): number => {
     if (!duration || typeof duration !== 'string' || duration === '-') return 0;
@@ -39,7 +39,8 @@ interface CompensatoryLeaveSummary {
     userId: string;
     username: string;
     totalOvertimeSeconds: number;
-    compensatoryLeaves: number;
+    compensatoryLeavesEarned: number;
+    availableLeaves: number;
 }
 
 export default function CompensatoryLeavePage() {
@@ -71,13 +72,14 @@ export default function CompensatoryLeavePage() {
                     });
                 }
                 
-                const compensatoryLeaves = Math.floor((totalOvertimeSeconds / 3600) / 8);
+                const compensatoryLeavesEarned = Math.floor((totalOvertimeSeconds / 3600) / 8);
 
                 summaries.push({
                     userId: editor.id,
                     username: editor.username,
                     totalOvertimeSeconds,
-                    compensatoryLeaves,
+                    compensatoryLeavesEarned,
+                    availableLeaves: editor.availableLeaves ?? 0,
                 });
             }
             setSummaryData(summaries);
@@ -140,7 +142,8 @@ export default function CompensatoryLeavePage() {
                                 <TableRow>
                                     <TableHead><UserIcon className="inline-block mr-2 h-4 w-4" />Editor</TableHead>
                                     <TableHead><Hourglass className="inline-block mr-2 h-4 w-4" />Total Overtime</TableHead>
-                                    <TableHead><Gift className="inline-block mr-2 h-4 w-4" />Compensatory Leaves Earned</TableHead>
+                                    <TableHead><Gift className="inline-block mr-2 h-4 w-4" />Comp Leaves Earned</TableHead>
+                                    <TableHead><Leaf className="inline-block mr-2 h-4 w-4" />Available Leaves</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -148,7 +151,8 @@ export default function CompensatoryLeavePage() {
                                     <TableRow key={summary.userId}>
                                         <TableCell className="font-medium">{summary.username}</TableCell>
                                         <TableCell>{formatSecondsToHoursString(summary.totalOvertimeSeconds)}</TableCell>
-                                        <TableCell className="font-bold text-lg text-primary">{summary.compensatoryLeaves}</TableCell>
+                                        <TableCell className="font-bold text-lg text-primary">{summary.compensatoryLeavesEarned}</TableCell>
+                                        <TableCell className="font-bold text-lg text-accent">{summary.availableLeaves}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
