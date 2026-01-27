@@ -10,6 +10,7 @@ export interface User {
   isEligibleForMorningOT?: boolean;
   availableLeaves?: number;
   compensatoryLeaves?: number;
+  claimedCompensatoryYears?: { [year: string]: number };
 }
 
 export interface CategoryRating {

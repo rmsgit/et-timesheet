@@ -116,9 +116,27 @@ export default function CompensatoryLeavePage() {
 
         setIsApplyingLeaves(true);
         const userToUpdate = summaryToApply.user;
+        
+        const year = selectedYear;
+        const claimedYears = userToUpdate.claimedCompensatoryYears || {};
+        const alreadyClaimed = claimedYears[year] || 0;
+
+        if (summaryToApply.compensatoryLeavesEarned <= alreadyClaimed) {
+             toast({ title: 'Cannot Apply Leave', description: 'All earned leaves for this year have already been applied.', variant: 'destructive' });
+             setIsApplyingLeaves(false);
+             setSummaryToApply(null);
+             return;
+        }
+
         const leavesToAdd = 1;
         const currentCompensatoryLeaves = userToUpdate.compensatoryLeaves ?? 0;
         const newTotalCompensatoryLeaves = currentCompensatoryLeaves + leavesToAdd;
+
+        const newClaimedForYear = alreadyClaimed + 1;
+        const newClaimedCompensatoryYears = {
+            ...claimedYears,
+            [year]: newClaimedForYear
+        };
 
         const result = await addUserProfileToRTDB(
             userToUpdate.id,
@@ -129,7 +147,7 @@ export default function CompensatoryLeavePage() {
             userToUpdate.isEligibleForMorningOT,
             userToUpdate.availableLeaves,
             newTotalCompensatoryLeaves,
-            userToUpdate.claimedCompensatoryYears
+            newClaimedCompensatoryYears
         );
 
         if (result.success) {
@@ -187,21 +205,26 @@ export default function CompensatoryLeavePage() {
                                     <TableHead><UserIcon className="inline-block mr-2 h-4 w-4" />Editor</TableHead>
                                     <TableHead><Hourglass className="inline-block mr-2 h-4 w-4" />Total Overtime</TableHead>
                                     <TableHead><Gift className="inline-block mr-2 h-4 w-4" />Comp Leaves Earned</TableHead>
+                                    <TableHead><Gift className="inline-block mr-2 h-4 w-4 text-green-600" />Leaves Claimed</TableHead>
                                     <TableHead><Leaf className="inline-block mr-2 h-4 w-4" />Compensatory Balance</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {summaryData.map(summary => (
+                                {summaryData.map(summary => {
+                                    const leavesAlreadyClaimed = summary.user.claimedCompensatoryYears?.[selectedYear] ?? 0;
+                                    const unclaimedLeaves = summary.compensatoryLeavesEarned - leavesAlreadyClaimed;
+                                    return (
                                     <TableRow key={summary.user.id}>
                                         <TableCell className="font-medium">{summary.user.username}</TableCell>
                                         <TableCell>{formatSecondsToHoursString(summary.totalOvertimeSeconds)}</TableCell>
                                         <TableCell className="font-bold text-lg text-primary">{summary.compensatoryLeavesEarned}</TableCell>
+                                        <TableCell className="font-bold text-lg text-green-600">{leavesAlreadyClaimed}</TableCell>
                                         <TableCell className="font-bold text-lg text-accent">{summary.user.compensatoryLeaves ?? 0}</TableCell>
                                         <TableCell className="text-right">
                                             <Button
                                                 onClick={() => setSummaryToApply(summary)}
-                                                disabled={isLoadingData || summary.compensatoryLeavesEarned <= 0 || isApplyingLeaves}
+                                                disabled={isLoadingData || unclaimedLeaves <= 0 || isApplyingLeaves}
                                                 size="sm"
                                                 variant="outline"
                                             >
@@ -209,7 +232,8 @@ export default function CompensatoryLeavePage() {
                                             </Button>
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                );
+                                })}
                             </TableBody>
                         </Table>
                     )}
