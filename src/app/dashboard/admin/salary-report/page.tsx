@@ -114,20 +114,31 @@ export default function SalaryReportPage() {
 
             const yearNum = parseInt(selectedYear, 10);
             const monthNum = parseInt(selectedMonth, 10) - 1;
-            const monthStart = startOfMonth(new Date(yearNum, monthNum));
-            const monthEnd = endOfMonth(new Date(yearNum, monthNum));
+            const monthStartForCalc = startOfMonth(new Date(yearNum, monthNum));
+            const monthEndForCalc = endOfMonth(new Date(yearNum, monthNum));
             const daysInMonth = getDaysInMonth(new Date(yearNum, monthNum));
 
             const attendance = await getAttendanceForMonth(selectedUserId, selectedYear, selectedMonth) || [];
+            
+            // Determine pay period start/end for display
+            let payPeriodStart: Date, payPeriodEnd: Date;
+            if (attendance.length > 0) {
+                const dates = attendance.map(rec => parseISO(rec.date));
+                payPeriodStart = dates.reduce((min, d) => d < min ? d : min, dates[0]);
+                payPeriodEnd = dates.reduce((max, d) => d > max ? d : max, dates[0]);
+            } else {
+                payPeriodStart = monthStartForCalc;
+                payPeriodEnd = monthEndForCalc;
+            }
 
             const userLeavesForMonth = leaveRequests.filter(req => 
                 req.userId === selectedUserId &&
                 req.status === 'approved' &&
                 req.date &&
-                isWithinInterval(parseISO(req.date), { start: monthStart, end: monthEnd })
+                isWithinInterval(parseISO(req.date), { start: monthStartForCalc, end: monthEndForCalc })
             );
 
-            const holidaysInMonth = holidays.filter(h => isWithinInterval(parseISO(h.date), { start: monthStart, end: monthEnd }));
+            const holidaysInMonth = holidays.filter(h => isWithinInterval(parseISO(h.date), { start: monthStartForCalc, end: monthEndForCalc }));
 
             let totalWorkingDays = 0;
             let absentDays = 0;
@@ -137,19 +148,21 @@ export default function SalaryReportPage() {
             for (let i = 1; i <= daysInMonth; i++) {
                 const currentDate = new Date(yearNum, monthNum, i);
                 const isSunday = currentDate.getDay() === 0;
-                const isHoliday = holidaysInMonth.some(h => isSameDay(parseISO(h.date), currentDate));
+                
+                if (!isSunday) { // Saturdays are working days
+                    const isHoliday = holidaysInMonth.some(h => isSameDay(parseISO(h.date), currentDate));
+                    if (!isHoliday) {
+                        totalWorkingDays++;
 
-                if (!isSunday && !isHoliday) {
-                    totalWorkingDays++;
+                        const attendanceForDay = attendance.find(a => isSameDay(parseISO(a.date), currentDate));
+                        const leaveForDay = userLeavesForMonth.find(l => isSameDay(parseISO(l.date), currentDate));
 
-                    const attendanceForDay = attendance.find(a => isSameDay(parseISO(a.date), currentDate));
-                    const leaveForDay = userLeavesForMonth.find(l => isSameDay(parseISO(l.date), currentDate));
-
-                    if (attendanceForDay && (attendanceForDay.checkIn || attendanceForDay.checkOut)) {
-                        presentDays++;
-                        totalOTSeconds += parseDurationToSeconds(attendanceForDay.overtime);
-                    } else if (!leaveForDay) {
-                        absentDays++;
+                        if (attendanceForDay && (attendanceForDay.checkIn || attendanceForDay.checkOut)) {
+                            presentDays++;
+                            totalOTSeconds += parseDurationToSeconds(attendanceForDay.overtime);
+                        } else if (!leaveForDay) {
+                            absentDays++;
+                        }
                     }
                 }
             }
@@ -159,9 +172,9 @@ export default function SalaryReportPage() {
             
             const generatedReport: SalaryReport = {
                 user,
-                payPeriod: format(monthStart, 'MMMM yyyy'),
-                payPeriodStart: format(monthStart, 'PPP'),
-                payPeriodEnd: format(monthEnd, 'PPP'),
+                payPeriod: format(monthStartForCalc, 'MMMM yyyy'),
+                payPeriodStart: format(payPeriodStart, 'PPP'),
+                payPeriodEnd: format(payPeriodEnd, 'PPP'),
                 baseSalary,
                 conveyanceAllowance,
                 totalEarnings: baseSalary + conveyanceAllowance,
@@ -390,4 +403,3 @@ export default function SalaryReportPage() {
         </div>
     );
 }
-
