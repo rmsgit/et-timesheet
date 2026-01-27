@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -48,6 +47,9 @@ import { Checkbox } from '../ui/checkbox';
 
 
 type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role'> | 'editorLevelName';
+
+const departments = ["HR", "Admin", "Editors"];
+const jobDesignations = ["Team Leader", "Team Assist", "Editors"];
 
 export const UserManagementTable: React.FC = () => {
   const { users: allUsers, addUserProfileToRTDB, deleteUserProfileFromRTDB, isUsersLoading } = useMockUsers();
@@ -750,12 +752,30 @@ export const UserManagementTable: React.FC = () => {
                     <Input id="new-user-base-salary" type="number" value={newUserBaseSalary} onChange={(e) => setNewUserBaseSalary(e.target.value)} placeholder="e.g., 50000" disabled={isSubmittingForm} />
                 </div>
                 <div className="space-y-1.5">
-                    <Label htmlFor="new-user-department">Department</Label>
-                    <Input id="new-user-department" value={newUserDepartment} onChange={(e) => setNewUserDepartment(e.target.value)} placeholder="e.g., Video Production" disabled={isSubmittingForm} />
+                  <Label htmlFor="new-user-department">Department</Label>
+                  <Select value={newUserDepartment} onValueChange={setNewUserDepartment} disabled={isSubmittingForm}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map(dep => (
+                        <SelectItem key={dep} value={dep}>{dep}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                     <Label htmlFor="new-user-job-designation">Job Designation</Label>
-                    <Input id="new-user-job-designation" value={newUserJobDesignation} onChange={(e) => setNewUserJobDesignation(e.target.value)} placeholder="e.g., Video Editor" disabled={isSubmittingForm} />
+                    <Select value={newUserJobDesignation} onValueChange={setNewUserJobDesignation} disabled={isSubmittingForm}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select designation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {jobDesignations.map(des => (
+                          <SelectItem key={des} value={des}>{des}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                 </div>
                 <div className="space-y-1.5">
                     <Label htmlFor="new-user-conveyance-allowance">Conveyance Allowance</Label>
@@ -897,11 +917,37 @@ export const UserManagementTable: React.FC = () => {
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="edit-department">Department</Label>
-                                <Input id="edit-department" value={editUserFormState.department ?? ''} onChange={(e) => setEditUserFormState(prev => ({ ...prev, department: e.target.value }))} placeholder="e.g., Video Production" disabled={isSubmittingForm} />
+                                <Select
+                                    value={editUserFormState.department ?? ''}
+                                    onValueChange={(value) => setEditUserFormState(prev => ({ ...prev, department: value }))}
+                                    disabled={isSubmittingForm}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select department" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {departments.map(dep => (
+                                            <SelectItem key={dep} value={dep}>{dep}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="edit-job-designation">Job Designation</Label>
-                                <Input id="edit-job-designation" value={editUserFormState.jobDesignation ?? ''} onChange={(e) => setEditUserFormState(prev => ({ ...prev, jobDesignation: e.target.value }))} placeholder="e.g., Video Editor" disabled={isSubmittingForm} />
+                                <Select
+                                    value={editUserFormState.jobDesignation ?? ''}
+                                    onValueChange={(value) => setEditUserFormState(prev => ({ ...prev, jobDesignation: value }))}
+                                    disabled={isSubmittingForm}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select designation" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {jobDesignations.map(des => (
+                                            <SelectItem key={des} value={des}>{des}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="edit-conveyance-allowance">Conveyance Allowance</Label>

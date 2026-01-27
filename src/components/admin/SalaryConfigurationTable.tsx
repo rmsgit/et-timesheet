@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -22,8 +21,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type SortableKeys = keyof Pick<User, 'username' | 'baseSalary' | 'department' | 'jobDesignation' | 'conveyanceAllowance'>;
+
+const departments = ["HR", "Admin", "Editors"];
+const jobDesignations = ["Team Leader", "Team Assist", "Editors"];
 
 export const SalaryConfigurationTable: React.FC = () => {
   const { users, addUserProfileToRTDB, isUsersLoading } = useMockUsers();
@@ -222,11 +225,35 @@ export const SalaryConfigurationTable: React.FC = () => {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="department" className="text-right">Department</Label>
-              <Input id="department" name="department" value={formState.department} onChange={handleFormChange} className="col-span-3" />
+              <Select
+                value={formState.department}
+                onValueChange={(value) => setFormState(prev => ({ ...prev, department: value }))}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map(dep => (
+                    <SelectItem key={dep} value={dep}>{dep}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="jobDesignation" className="text-right">Job Designation</Label>
-              <Input id="jobDesignation" name="jobDesignation" value={formState.jobDesignation} onChange={handleFormChange} className="col-span-3" />
+               <Select
+                  value={formState.jobDesignation}
+                  onValueChange={(value) => setFormState(prev => ({ ...prev, jobDesignation: value }))}
+                >
+                <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select designation" />
+                </SelectTrigger>
+                <SelectContent>
+                    {jobDesignations.map(des => (
+                        <SelectItem key={des} value={des}>{des}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="conveyanceAllowance" className="text-right">Conveyance</Label>
