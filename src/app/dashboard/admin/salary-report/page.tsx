@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval } from 'date-fns';
 import { usePaysheet } from '@/hooks/usePaysheet';
+import { useTimesheet } from '@/hooks/useTimesheet';
 
 const parseDurationToSeconds = (duration: string): number => {
     if (!duration || typeof duration !== 'string' || duration === '-') return 0;
@@ -53,7 +54,7 @@ interface SalaryReport {
   totalDeductions: number;
   netSalary: number;
   totalWorkingDays: number;
-  presentDays: number;
+  allowedLeaves: number;
   leaveDays: number;
   absentDays: number;
   totalOTHours: string;
@@ -68,6 +69,7 @@ export default function SalaryReportPage() {
     
     const { users, isUsersLoading } = useMockUsers();
     const { getAttendanceForMonth } = useAttendance();
+    const { getRecordsForUser: getTimesheetForMonth } = useTimesheet();
     const { leaveRequests, isLoading: isLeaveLoading } = useLeave();
     const { holidays, isLoading: isHolidaysLoading } = useHolidays();
     const { savePaysheet } = usePaysheet();
@@ -118,6 +120,10 @@ export default function SalaryReportPage() {
             const monthEndForCalc = endOfMonth(new Date(yearNum, monthNum));
             
             const attendance = await getAttendanceForMonth(selectedUserId, selectedYear, selectedMonth) || [];
+            const timesheetRecordsForMonth = getTimesheetForMonth(selectedUserId).filter(rec => {
+                const recDate = parseISO(rec.date);
+                return isWithinInterval(recDate, {start: monthStartForCalc, end: monthEndForCalc});
+            });
             
             let payPeriodStart: Date, payPeriodEnd: Date;
             if (attendance.length > 0) {
@@ -140,7 +146,6 @@ export default function SalaryReportPage() {
 
             let totalWorkingDays = 0;
             let absentDays = 0;
-            let presentDays = 0;
             let totalOTSeconds = 0;
 
             const daysInPeriod = eachDayOfInterval({ start: monthStartForCalc, end: monthEndForCalc });
@@ -154,7 +159,7 @@ export default function SalaryReportPage() {
                     if(!holidayInfo.isWorkingDay) {
                         isWorkingDayForCalc = false;
                     } else {
-                        isWorkingDayForCalc = true; // It's a special working day
+                        isWorkingDayForCalc = true;
                     }
                 }
                 
@@ -163,12 +168,14 @@ export default function SalaryReportPage() {
 
                     const attendanceForDay = attendance.find(a => isSameDay(new Date(a.date), currentDate));
                     const leaveForDay = userLeavesForMonth.find(l => l.date && isSameDay(parseISO(l.date), currentDate));
+                    const timesheetEntryForDay = timesheetRecordsForMonth.find(t => isSameDay(parseISO(t.date), currentDate));
 
-                    if (attendanceForDay && (attendanceForDay.checkIn || attendanceForDay.checkOut)) {
-                        presentDays++;
-                        totalOTSeconds += parseDurationToSeconds(attendanceForDay.overtime);
-                    } else if (!leaveForDay) {
+                    if (!timesheetEntryForDay && !leaveForDay) {
                         absentDays++;
+                    }
+                    
+                    if (attendanceForDay) {
+                        totalOTSeconds += parseDurationToSeconds(attendanceForDay.overtime);
                     }
                 }
             });
@@ -182,7 +189,9 @@ export default function SalaryReportPage() {
                 }
                 return total;
             }, 0);
-
+            
+            const allowedLeaves = totalWorkingDays - leaveDays;
+            
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
             const unpaidLeaveDeduction = absentDays * perDaySalary;
             
@@ -198,7 +207,7 @@ export default function SalaryReportPage() {
                 totalDeductions: unpaidLeaveDeduction,
                 netSalary: baseSalary + conveyanceAllowance - unpaidLeaveDeduction,
                 totalWorkingDays,
-                presentDays,
+                allowedLeaves,
                 leaveDays,
                 absentDays,
                 totalOTHours: formatSecondsToHoursString(totalOTSeconds),
@@ -219,7 +228,7 @@ export default function SalaryReportPage() {
                 totalDeductions: generatedReport.totalDeductions,
                 netSalary: generatedReport.netSalary,
                 totalWorkingDays: generatedReport.totalWorkingDays,
-                presentDays: generatedReport.presentDays,
+                allowedLeaves: generatedReport.allowedLeaves,
                 leaveDays: generatedReport.leaveDays,
                 absentDays: generatedReport.absentDays,
                 totalOTHours: generatedReport.totalOTHours,
@@ -229,7 +238,7 @@ export default function SalaryReportPage() {
 
         } catch (error) {
             console.error("Error generating report:", error);
-            toast({ title: 'Report Generation Failed', description: 'Could not generate the salary report.', variant: 'destructive' });
+            toast({ title: 'Report Generation Failed', description: (error instanceof Error) ? error.message : 'Could not generate the salary report.', variant: 'destructive' });
         } finally {
             setIsLoadingReport(false);
         }
@@ -366,8 +375,8 @@ export default function SalaryReportPage() {
                                <TableHeader>
                                  <TableRow>
                                    <TableHead>Total Working Days</TableHead>
-                                   <TableHead>Present</TableHead>
                                    <TableHead>Leave Taken</TableHead>
+                                   <TableHead>Allowed Leaves</TableHead>
                                    <TableHead>Absent</TableHead>
                                    <TableHead>Total OT</TableHead>
                                  </TableRow>
@@ -375,8 +384,8 @@ export default function SalaryReportPage() {
                                 <TableBody>
                                     <TableRow>
                                         <TableCell>{report.totalWorkingDays}</TableCell>
-                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.leaveDays}</TableCell>
+                                        <TableCell>{report.allowedLeaves}</TableCell>
                                         <TableCell>{report.absentDays}</TableCell>
                                         <TableCell>{report.totalOTHours}</TableCell>
                                     </TableRow>
