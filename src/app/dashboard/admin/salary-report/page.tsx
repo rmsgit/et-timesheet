@@ -6,7 +6,7 @@ import { useMockUsers } from '@/hooks/useMockUsers';
 import { useAttendance } from '@/hooks/useAttendance';
 import { useLeave } from '@/hooks/useLeave';
 import { useHolidays } from '@/hooks/useHolidays';
-import type { User, AttendanceRecord, LeaveRequest } from '@/lib/types';
+import type { User, AttendanceRecord, LeaveRequest, Paysheet } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,6 +15,7 @@ import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusC
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWeekend, isWithinInterval } from 'date-fns';
+import { usePaysheet } from '@/hooks/usePaysheet';
 
 const parseDurationToSeconds = (duration: string): number => {
     if (!duration || typeof duration !== 'string' || duration === '-') return 0;
@@ -67,6 +68,7 @@ export default function SalaryReportPage() {
     const { getAttendanceForMonth } = useAttendance();
     const { leaveRequests, isLoading: isLeaveLoading } = useLeave();
     const { holidays, isLoading: isHolidaysLoading } = useHolidays();
+    const { savePaysheet } = usePaysheet();
     const { toast } = useToast();
 
     const mainLoadingState = isUsersLoading || isLeaveLoading || isHolidaysLoading;
@@ -153,7 +155,7 @@ export default function SalaryReportPage() {
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
             const unpaidLeaveDeduction = absentDays * perDaySalary;
             
-            setReport({
+            const generatedReport: SalaryReport = {
                 user,
                 payPeriod: format(monthStart, 'MMMM yyyy'),
                 baseSalary,
@@ -167,7 +169,30 @@ export default function SalaryReportPage() {
                 leaveDays: userLeavesForMonth.length,
                 absentDays,
                 totalOTHours: formatSecondsToHoursString(totalOTSeconds),
-            });
+            };
+            
+            setReport(generatedReport);
+            
+            const paysheetToSave: Omit<Paysheet, 'id' | 'generatedAt'> = {
+                userId: user.id,
+                username: user.username,
+                payPeriod: generatedReport.payPeriod,
+                year: selectedYear,
+                month: selectedMonth,
+                baseSalary: generatedReport.baseSalary,
+                conveyanceAllowance: generatedReport.conveyanceAllowance,
+                totalEarnings: generatedReport.totalEarnings,
+                unpaidLeaveDeduction: generatedReport.unpaidLeaveDeduction,
+                totalDeductions: generatedReport.totalDeductions,
+                netSalary: generatedReport.netSalary,
+                totalWorkingDays: generatedReport.totalWorkingDays,
+                presentDays: generatedReport.presentDays,
+                leaveDays: generatedReport.leaveDays,
+                absentDays: generatedReport.absentDays,
+                totalOTHours: generatedReport.totalOTHours,
+            };
+
+            await savePaysheet(paysheetToSave);
 
         } catch (error) {
             console.error("Error generating report:", error);
@@ -190,7 +215,7 @@ export default function SalaryReportPage() {
                 <CardHeader>
                     <CardTitle>Generate Monthly Salary Slip</CardTitle>
                     <CardDescription>
-                        Select an editor, year, and month to generate their salary slip based on attendance and profile data.
+                        Select an editor, year, and month to generate and save their salary slip.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -231,8 +256,8 @@ export default function SalaryReportPage() {
                     </div>
                     <div className="flex justify-end mt-6">
                         <Button onClick={handleGenerateReport} disabled={mainLoadingState || isLoadingReport || !selectedUserId}>
-                            {isLoadingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                            Generate Report
+                            {isLoadingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+                            Generate & Save Paysheet
                         </Button>
                     </div>
                 </CardContent>
@@ -348,7 +373,7 @@ export default function SalaryReportPage() {
                         <Search className="mx-auto h-12 w-12 text-muted-foreground" />
                         <h3 className="mt-4 text-xl font-medium">Generate a Report</h3>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            Click the "Generate Report" button to view the salary slip for the selected period.
+                            Click the "Generate & Save Paysheet" button to view and save the salary slip for the selected period.
                         </p>
                     </CardContent>
                 </Card>

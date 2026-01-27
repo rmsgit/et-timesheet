@@ -100,3 +100,24 @@ export interface Holiday {
   date: string; // ISO string
   name: string;
 }
+
+export interface Paysheet {
+  id: string; // Composite key: ${userId}_${year}-${month}
+  userId: string;
+  username: string;
+  payPeriod: string; // e.g., "August 2024"
+  year: string;
+  month: string;
+  baseSalary: number;
+  conveyanceAllowance: number;
+  totalEarnings: number;
+  unpaidLeaveDeduction: number;
+  totalDeductions: number;
+  netSalary: number;
+  totalWorkingDays: number;
+  presentDays: number;
+  leaveDays: number;
+  absentDays: number;
+  totalOTHours: string;
+  generatedAt: string; // ISO string
+}
