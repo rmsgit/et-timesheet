@@ -1,8 +1,9 @@
+
 "use client";
 
 import React, { createContext, ReactNode, useCallback } from 'react';
 import { database } from '@/lib/firebase';
-import { ref, set, get, DataSnapshot } from 'firebase/database';
+import { ref, set, get, DataSnapshot, remove } from 'firebase/database';
 import { FIREBASE_ATTENDANCE_PATH } from '@/lib/constants';
 import type { AttendanceRecord } from '@/lib/types';
 import { useLoader } from '@/hooks/useLoader';
@@ -14,6 +15,7 @@ interface AttendanceContextType {
   saveAttendanceForMonth: (userId: string, year: string, month: string, records: AttendanceRecord[]) => Promise<{ success: boolean }>;
   getAttendanceForMonth: (userId: string, year: string, month: string) => Promise<AttendanceRecord[] | null>;
   getAttendanceForYear: (userId: string, year: string) => Promise<AttendanceRecord[] | null>;
+  deleteAttendanceForMonth: (userId: string, year: string, month: string) => Promise<{ success: boolean }>;
 }
 
 export const AttendanceContext = createContext<AttendanceContextType | undefined>(undefined);
@@ -111,10 +113,36 @@ export const AttendanceProvider: React.FC<AttendanceProviderProps> = ({ children
     }
   }, [toast, showLoader, hideLoader]);
 
+  const deleteAttendanceForMonth = useCallback(async (userId: string, year: string, month: string): Promise<{ success: boolean }> => {
+    if (!database) {
+      toast({ title: "Error", description: "Database not connected.", variant: "destructive" });
+      return { success: false };
+    }
+    if (!userId || !year || !month) {
+      toast({ title: "Error", description: "User, year, or month is missing for deletion.", variant: "destructive" });
+      return { success: false };
+    }
+
+    showLoader(ATTENDANCE_LOADER_ID, "Deleting timesheet...");
+    try {
+      const dbRef = ref(database, `${FIREBASE_ATTENDANCE_PATH}/${userId}/${year}-${month}`);
+      await remove(dbRef);
+      toast({ title: "Success", description: "The attendance sheet for the selected period has been deleted." });
+      return { success: true };
+    } catch (error) {
+      console.error("Firebase delete attendance error:", error);
+      toast({ title: "Error", description: "Failed to delete the attendance sheet.", variant: "destructive" });
+      return { success: false };
+    } finally {
+      hideLoader(ATTENDANCE_LOADER_ID);
+    }
+  }, [toast, showLoader, hideLoader]);
 
   return (
-    <AttendanceContext.Provider value={{ saveAttendanceForMonth, getAttendanceForMonth, getAttendanceForYear }}>
+    <AttendanceContext.Provider value={{ saveAttendanceForMonth, getAttendanceForMonth, getAttendanceForYear, deleteAttendanceForMonth }}>
       {children}
     </AttendanceContext.Provider>
   );
 };
+
+    

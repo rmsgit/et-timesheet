@@ -3,11 +3,11 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CalendarCheck, Upload, AlertCircle, User, Loader2, Hourglass, Plane, AlertTriangle, Search } from 'lucide-react';
+import { CalendarCheck, Upload, User, Loader2, Hourglass, Plane, AlertTriangle, Search, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { useAttendance } from '@/hooks/useAttendance';
@@ -17,6 +17,17 @@ import { eachDayOfInterval, format, parseISO, isSameDay } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { useLeave } from '@/hooks/useLeave';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { cn } from '@/lib/utils';
 
 const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorningOT?: boolean): string => {
     if ((!checkIn || typeof checkIn !== 'string' || !checkIn.includes(':')) && (!checkOut || typeof checkOut !== 'string' || !checkOut.includes(':'))){
@@ -161,12 +172,14 @@ export default function AttendancePage() {
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const isProcessingFileRef = useRef(false);
   const { toast } = useToast();
   
   const { users: allUsers, isUsersLoading } = useMockUsers();
   const { leaveRequests, isLoading: isLoadingLeave } = useLeave();
-  const { saveAttendanceForMonth, getAttendanceForMonth } = useAttendance();
+  const { saveAttendanceForMonth, getAttendanceForMonth, deleteAttendanceForMonth } = useAttendance();
   
   const isLoading = isUsersLoading || isLoadingLeave;
 
@@ -393,6 +406,21 @@ export default function AttendancePage() {
         setIsSaving(false);
     };
 
+  const handleDeleteSheet = async () => {
+    if (!selectedEditorId || !selectedYear || !selectedMonth) {
+        toast({ title: 'Cannot Delete', description: 'Editor, Year, or Month not selected.', variant: 'destructive'});
+        return;
+    }
+
+    setIsDeleting(true);
+    const result = await deleteAttendanceForMonth(selectedEditorId, selectedYear, selectedMonth);
+    if (result.success) {
+        setAttendanceData([]);
+    }
+    setIsDeleting(false);
+    setIsDeleteDialogOpen(false);
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight flex items-center">
@@ -497,10 +525,18 @@ export default function AttendancePage() {
       {selectedEditorId && attendanceData.length > 0 && (
           <Card>
               <CardHeader>
-                <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5" /> Reviewing Attendance for: <span className="ml-2 font-bold text-primary">{selectedEditor?.username}</span></CardTitle>
-                <CardDescription>
-                    Review and edit the attendance data for {format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}.
-                </CardDescription>
+                  <div className="flex justify-between items-start">
+                      <div>
+                          <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5" /> Reviewing Attendance for: <span className="ml-2 font-bold text-primary">{selectedEditor?.username}</span></CardTitle>
+                          <CardDescription className="mt-1.5">
+                              Review and edit the attendance data for {format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}.
+                          </CardDescription>
+                      </div>
+                      <Button variant="destructive" size="sm" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving || isProcessing || isDeleting}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Sheet
+                      </Button>
+                  </div>
               </CardHeader>
               <CardContent>
                   <Table>
@@ -603,6 +639,24 @@ export default function AttendancePage() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the attendance sheet for <span className="font-semibold">{selectedEditor?.username}</span> for <span className="font-semibold">{format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}</span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteSheet} disabled={isDeleting} className={cn(buttonVariants({ variant: "destructive" }))}>
+              {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
