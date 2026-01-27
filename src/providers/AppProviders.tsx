@@ -14,6 +14,7 @@ import { GlobalLoader } from '@/components/common/GlobalLoader';
 import { useAdminNotifications } from '@/hooks/useAdminNotifications';
 import { HolidayProvider } from '@/contexts/HolidayContext';
 import { PaysheetProvider } from '@/contexts/PaysheetContext';
+import { GlobalSettingsProvider } from '@/contexts/GlobalSettingsContext';
 
 const AdminNotificationInitializer: React.FC = () => {
   useAdminNotifications(); // Initialize and run the hook globally for admins
@@ -28,24 +29,26 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
   return (
     <LoaderProvider>
       <AuthProvider>
-        <TimesheetProvider>
-          <PerformanceReviewProvider>
-            <LeaveProvider>
-              <AttendanceProvider>
-                <HolidayProvider>
-                  <PaysheetProvider>
-                    <TooltipProvider>
-                      <AdminNotificationInitializer />
-                      {children}
-                      <Toaster />
-                      <GlobalLoader />
-                    </TooltipProvider>
-                  </PaysheetProvider>
-                </HolidayProvider>
-              </AttendanceProvider>
-            </LeaveProvider>
-          </PerformanceReviewProvider>
-        </TimesheetProvider>
+        <GlobalSettingsProvider>
+          <TimesheetProvider>
+            <PerformanceReviewProvider>
+              <LeaveProvider>
+                <AttendanceProvider>
+                  <HolidayProvider>
+                    <PaysheetProvider>
+                      <TooltipProvider>
+                        <AdminNotificationInitializer />
+                        {children}
+                        <Toaster />
+                        <GlobalLoader />
+                      </TooltipProvider>
+                    </PaysheetProvider>
+                  </HolidayProvider>
+                </AttendanceProvider>
+              </LeaveProvider>
+            </PerformanceReviewProvider>
+          </TimesheetProvider>
+        </GlobalSettingsProvider>
       </AuthProvider>
     </LoaderProvider>
   );

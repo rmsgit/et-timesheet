@@ -123,3 +123,8 @@ export interface Paysheet {
   totalOTHours: string;
   generatedAt: string; // ISO string
 }
+
+export interface GlobalSettings {
+  otRate: number; // rate per hour
+  epfRate: number; // percentage
+}
