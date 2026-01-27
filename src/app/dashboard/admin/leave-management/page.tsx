@@ -75,7 +75,7 @@ export default function LeaveManagementPage() {
   };
 
   const renderTable = (requests: (LeaveRequest & { username: string })[]) => {
-      if (isLoading) return <TableSkeleton columnCount={6} />;
+      if (isLoading) return <TableSkeleton columnCount={7} />;
       if (requests.length === 0) return <p className="text-center text-muted-foreground py-8">No requests in this category.</p>;
 
       const currentStatus = requests[0]?.status;
@@ -85,7 +85,8 @@ export default function LeaveManagementPage() {
               <TableHeader>
                   <TableRow>
                       <TableHead>Editor</TableHead>
-                      <TableHead>Date</TableHead>
+                      <TableHead>Requested Date</TableHead>
+                      <TableHead>Leave Date</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Reason</TableHead>
                       {currentStatus === 'approved' && <TableHead>Approved By</TableHead>}
@@ -98,6 +99,7 @@ export default function LeaveManagementPage() {
                   {requests.map(req => (
                       <TableRow key={req.id}>
                           <TableCell className="font-medium flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground" />{req.username}</TableCell>
+                          <TableCell>{req.requestedAt ? format(parseISO(req.requestedAt), 'PPP') : 'N/A'}</TableCell>
                           <TableCell>{req.date ? format(parseISO(req.date), 'PPP') : 'Unassigned'}</TableCell>
                           <TableCell className="capitalize">{req.leaveType.replace('-', ' ')}</TableCell>
                           <TableCell className="max-w-xs truncate">{req.reason}</TableCell>
