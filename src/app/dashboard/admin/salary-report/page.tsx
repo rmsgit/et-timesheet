@@ -123,7 +123,7 @@ export default function SalaryReportPage() {
             // Determine pay period start/end for display
             let payPeriodStart: Date, payPeriodEnd: Date;
             if (attendance.length > 0) {
-                const dates = attendance.map(rec => parseISO(rec.date));
+                const dates = attendance.map(rec => new Date(rec.date));
                 payPeriodStart = dates.reduce((min, d) => d < min ? d : min, dates[0]);
                 payPeriodEnd = dates.reduce((max, d) => d > max ? d : max, dates[0]);
             } else {
@@ -154,8 +154,8 @@ export default function SalaryReportPage() {
                     if (!isHoliday) {
                         totalWorkingDays++;
 
-                        const attendanceForDay = attendance.find(a => isSameDay(parseISO(a.date), currentDate));
-                        const leaveForDay = userLeavesForMonth.find(l => isSameDay(parseISO(l.date), currentDate));
+                        const attendanceForDay = attendance.find(a => isSameDay(new Date(a.date), currentDate));
+                        const leaveForDay = userLeavesForMonth.find(l => l.date && isSameDay(parseISO(l.date), currentDate));
 
                         if (attendanceForDay && (attendanceForDay.checkIn || attendanceForDay.checkOut)) {
                             presentDays++;
