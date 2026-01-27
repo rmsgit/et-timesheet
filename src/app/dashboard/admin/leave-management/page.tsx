@@ -98,7 +98,7 @@ export default function LeaveManagementPage() {
                   {requests.map(req => (
                       <TableRow key={req.id}>
                           <TableCell className="font-medium flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground" />{req.username}</TableCell>
-                          <TableCell>{format(parseISO(req.date), 'PPP')}</TableCell>
+                          <TableCell>{req.date ? format(parseISO(req.date), 'PPP') : 'Unassigned'}</TableCell>
                           <TableCell className="capitalize">{req.leaveType.replace('-', ' ')}</TableCell>
                           <TableCell className="max-w-xs truncate">{req.reason}</TableCell>
                           
@@ -195,7 +195,7 @@ export default function LeaveManagementPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the leave request for <span className="font-semibold">{leaveRequestToDelete?.username}</span> on <span className="font-semibold">{leaveRequestToDelete && format(parseISO(leaveRequestToDelete.date), 'PPP')}</span>.
+              This action cannot be undone. This will permanently delete the leave request for <span className="font-semibold">{leaveRequestToDelete?.username}</span> on <span className="font-semibold">{leaveRequestToDelete && leaveRequestToDelete.date ? format(parseISO(leaveRequestToDelete.date), 'PPP') : 'Unassigned'}</span>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

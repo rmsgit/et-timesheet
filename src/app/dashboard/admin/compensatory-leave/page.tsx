@@ -13,7 +13,6 @@ import { Label } from '@/components/ui/label';
 import { Loader2, User as UserIcon, Gift, AlertTriangle, Send, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 
 const parseDurationToSeconds = (duration: string): number => {
@@ -58,7 +57,6 @@ export default function CompensatoryLeavePage() {
 
     const [isApplyDialogOpen, setIsApplyDialogOpen] = useState(false);
     const [editorToApplyFor, setEditorToApplyFor] = useState<User | null>(null);
-    const [leaveDate, setLeaveDate] = useState<Date | undefined>(new Date());
     const [isSubmittingLeave, setIsSubmittingLeave] = useState(false);
     const { toast } = useToast();
 
@@ -115,19 +113,18 @@ export default function CompensatoryLeavePage() {
 
     const handleOpenApplyDialog = (user: User) => {
         setEditorToApplyFor(user);
-        setLeaveDate(new Date()); // Reset to today
         setIsApplyDialogOpen(true);
     };
 
     const handleConfirmApplyLeave = async () => {
-        if (!editorToApplyFor || !leaveDate) {
-            toast({ title: 'Error', description: 'Editor or leave date is not selected.', variant: 'destructive'});
+        if (!editorToApplyFor) {
+            toast({ title: 'Error', description: 'Editor is not selected.', variant: 'destructive'});
             return;
         }
 
         setIsSubmittingLeave(true);
-        // Step 1: Apply for the leave request
-        const leaveResult = await applyForLeave(leaveDate, 'compensatory', 'Compensatory Leave (Applied by Admin)');
+        // Step 1: Apply for the leave request with a null date
+        const leaveResult = await applyForLeave(null, 'compensatory', 'Compensatory Leave (Applied by Admin)');
 
         if (leaveResult.success) {
             // Step 2: Update the user's claimed leaves count
@@ -243,21 +240,12 @@ export default function CompensatoryLeavePage() {
                     <DialogHeader>
                         <DialogTitle>Apply Compensatory Leave for {editorToApplyFor?.username}</DialogTitle>
                         <DialogDescription>
-                            Select a date to create a 'compensatory' leave request. This will be added to the Leave Management list as 'pending'.
+                           This will create a 'compensatory' leave request without a specific date. The editor can assign a date later. The request will be added to the Leave Management list as 'pending'.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="py-4">
-                        <Label>Select Date for Leave</Label>
-                        <Calendar
-                            mode="single"
-                            selected={leaveDate}
-                            onSelect={setLeaveDate}
-                            className="rounded-md border mt-2"
-                        />
-                    </div>
-                    <DialogFooter>
+                    <DialogFooter className="pt-4">
                         <Button variant="outline" onClick={() => setIsApplyDialogOpen(false)} disabled={isSubmittingLeave}>Cancel</Button>
-                        <Button onClick={handleConfirmApplyLeave} disabled={!leaveDate || isSubmittingLeave}>
+                        <Button onClick={handleConfirmApplyLeave} disabled={isSubmittingLeave}>
                             {isSubmittingLeave ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                             Confirm & Apply
                         </Button>
