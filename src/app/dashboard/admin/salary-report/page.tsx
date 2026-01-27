@@ -54,6 +54,7 @@ interface SalaryReport {
   totalDeductions: number;
   netSalary: number;
   totalWorkingDays: number;
+  presentDays: number;
   allowedLeaves: number;
   leaveDays: number;
   absentDays: number;
@@ -147,6 +148,7 @@ export default function SalaryReportPage() {
             let totalWorkingDays = 0;
             let absentDays = 0;
             let totalOTSeconds = 0;
+            let presentDays = 0;
 
             const daysInPeriod = eachDayOfInterval({ start: monthStartForCalc, end: monthEndForCalc });
             daysInPeriod.forEach(currentDate => {
@@ -170,7 +172,9 @@ export default function SalaryReportPage() {
                     const leaveForDay = userLeavesForMonth.find(l => l.date && isSameDay(parseISO(l.date), currentDate));
                     const timesheetEntryForDay = timesheetRecordsForMonth.find(t => isSameDay(parseISO(t.date), currentDate));
 
-                    if (!timesheetEntryForDay && !leaveForDay) {
+                    if (timesheetEntryForDay) {
+                        presentDays++;
+                    } else if (!leaveForDay) {
                         absentDays++;
                     }
                     
@@ -207,6 +211,7 @@ export default function SalaryReportPage() {
                 totalDeductions: unpaidLeaveDeduction,
                 netSalary: baseSalary + conveyanceAllowance - unpaidLeaveDeduction,
                 totalWorkingDays,
+                presentDays,
                 allowedLeaves,
                 leaveDays,
                 absentDays,
@@ -228,6 +233,7 @@ export default function SalaryReportPage() {
                 totalDeductions: generatedReport.totalDeductions,
                 netSalary: generatedReport.netSalary,
                 totalWorkingDays: generatedReport.totalWorkingDays,
+                presentDays: generatedReport.presentDays,
                 allowedLeaves: generatedReport.allowedLeaves,
                 leaveDays: generatedReport.leaveDays,
                 absentDays: generatedReport.absentDays,
@@ -375,6 +381,7 @@ export default function SalaryReportPage() {
                                <TableHeader>
                                  <TableRow>
                                    <TableHead>Total Working Days</TableHead>
+                                   <TableHead>Present</TableHead>
                                    <TableHead>Leave Taken</TableHead>
                                    <TableHead>Allowed Leaves</TableHead>
                                    <TableHead>Absent</TableHead>
@@ -384,6 +391,7 @@ export default function SalaryReportPage() {
                                 <TableBody>
                                     <TableRow>
                                         <TableCell>{report.totalWorkingDays}</TableCell>
+                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.leaveDays}</TableCell>
                                         <TableCell>{report.allowedLeaves}</TableCell>
                                         <TableCell>{report.absentDays}</TableCell>
