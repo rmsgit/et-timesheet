@@ -116,9 +116,9 @@ export default function CompensatoryLeavePage() {
 
         setIsApplyingLeaves(true);
         const userToUpdate = summaryToApply.user;
-        const currentLeaves = userToUpdate.availableLeaves ?? 0;
+        const currentCompensatoryLeaves = userToUpdate.compensatoryLeaves ?? 0;
         const earnedLeaves = summaryToApply.compensatoryLeavesEarned;
-        const newTotalLeaves = currentLeaves + earnedLeaves;
+        const newTotalCompensatoryLeaves = currentCompensatoryLeaves + earnedLeaves;
 
         const result = await addUserProfileToRTDB(
             userToUpdate.id,
@@ -127,11 +127,12 @@ export default function CompensatoryLeavePage() {
             userToUpdate.role!,
             userToUpdate.editorLevelId,
             userToUpdate.isEligibleForMorningOT,
-            newTotalLeaves
+            userToUpdate.availableLeaves,
+            newTotalCompensatoryLeaves
         );
 
         if (result.success) {
-            toast({ title: 'Leaves Applied', description: `${earnedLeaves} leave(s) added to ${userToUpdate.username}'s balance.` });
+            toast({ title: 'Leaves Applied', description: `${earnedLeaves} compensatory leave(s) added to ${userToUpdate.username}'s balance.` });
         } else {
             toast({ title: 'Error', description: result.message || 'Failed to apply leaves.', variant: 'destructive' });
         }
@@ -185,7 +186,7 @@ export default function CompensatoryLeavePage() {
                                     <TableHead><UserIcon className="inline-block mr-2 h-4 w-4" />Editor</TableHead>
                                     <TableHead><Hourglass className="inline-block mr-2 h-4 w-4" />Total Overtime</TableHead>
                                     <TableHead><Gift className="inline-block mr-2 h-4 w-4" />Comp Leaves Earned</TableHead>
-                                    <TableHead><Leaf className="inline-block mr-2 h-4 w-4" />Available Leaves</TableHead>
+                                    <TableHead><Leaf className="inline-block mr-2 h-4 w-4" />Compensatory Balance</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -195,7 +196,7 @@ export default function CompensatoryLeavePage() {
                                         <TableCell className="font-medium">{summary.user.username}</TableCell>
                                         <TableCell>{formatSecondsToHoursString(summary.totalOvertimeSeconds)}</TableCell>
                                         <TableCell className="font-bold text-lg text-primary">{summary.compensatoryLeavesEarned}</TableCell>
-                                        <TableCell className="font-bold text-lg text-accent">{summary.user.availableLeaves ?? 0}</TableCell>
+                                        <TableCell className="font-bold text-lg text-accent">{summary.user.compensatoryLeaves ?? 0}</TableCell>
                                         <TableCell className="text-right">
                                             <Button
                                                 onClick={() => setSummaryToApply(summary)}
@@ -219,9 +220,9 @@ export default function CompensatoryLeavePage() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Apply Compensatory Leaves?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Are you sure you want to add <span className="font-bold">{summaryToApply?.compensatoryLeavesEarned}</span> earned leave(s) to <span className="font-bold">{summaryToApply?.user.username}</span>'s balance?
+                          Are you sure you want to add <span className="font-bold">{summaryToApply?.compensatoryLeavesEarned}</span> earned leave(s) to <span className="font-bold">{summaryToApply?.user.username}</span>'s compensatory balance?
                           <br />
-                          Their current balance is <span className="font-semibold">{summaryToApply?.user.availableLeaves ?? 0}</span>. The new balance will be <span className="font-semibold">{(summaryToApply?.user.availableLeaves ?? 0) + (summaryToApply?.compensatoryLeavesEarned ?? 0)}</span>.
+                          Their current compensatory balance is <span className="font-semibold">{summaryToApply?.user.compensatoryLeaves ?? 0}</span>. The new balance will be <span className="font-semibold">{(summaryToApply?.user.compensatoryLeaves ?? 0) + (summaryToApply?.compensatoryLeavesEarned ?? 0)}</span>.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

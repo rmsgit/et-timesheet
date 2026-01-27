@@ -50,10 +50,10 @@ export const RATING_SCALE = [
 // Realtime Database, the key for each user object under the `users` path will be their
 // actual Firebase Authentication User ID (UID).
 export const MOCK_USERS_DATA: User[] = [
-  { id: 'example_admin_uid', email: 'admin@example.com', username: 'admin', role: 'admin' as const, availableLeaves: 20 },
-  { id: 'example_editor_uid_1', email: 'editor1@example.com', username: 'editorOne', role: 'editor' as const, editorLevelId: 'level_1_junior', availableLeaves: 15 },
-  { id: 'example_editor_uid_2', email: 'alice@example.com', username: 'alice', role: 'editor' as const, editorLevelId: 'level_2_mid', availableLeaves: 15 },
-  { id: 'example_editor_uid_3', email: 'bob@example.com', username: 'bob', role: 'editor' as const, editorLevelId: 'level_3_senior', availableLeaves: 18 },
+  { id: 'example_admin_uid', email: 'admin@example.com', username: 'admin', role: 'admin' as const, availableLeaves: 20, compensatoryLeaves: 5 },
+  { id: 'example_editor_uid_1', email: 'editor1@example.com', username: 'editorOne', role: 'editor' as const, editorLevelId: 'level_1_junior', availableLeaves: 15, compensatoryLeaves: 2 },
+  { id: 'example_editor_uid_2', email: 'alice@example.com', username: 'alice', role: 'editor' as const, editorLevelId: 'level_2_mid', availableLeaves: 15, compensatoryLeaves: 0 },
+  { id: 'example_editor_uid_3', email: 'bob@example.com', username: 'bob', role: 'editor' as const, editorLevelId: 'level_3_senior', availableLeaves: 18, compensatoryLeaves: 0 },
 ];
 
 export const INITIAL_EDITOR_LEVELS: EditorLevel[] = [

@@ -35,7 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Award, ChevronsUpDown, Leaf, Edit } from 'lucide-react';
+import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Award, ChevronsUpDown, Leaf, Edit, Gift } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -62,6 +62,7 @@ export const UserManagementTable: React.FC = () => {
   const [newUserEditorLevelId, setNewUserEditorLevelId] = useState<string | undefined>(undefined);
   const [newUserIsEligibleForMorningOT, setNewUserIsEligibleForMorningOT] = useState(false);
   const [newUserAvailableLeaves, setNewUserAvailableLeaves] = useState<number | string>(0);
+  const [newUserCompensatoryLeaves, setNewUserCompensatoryLeaves] = useState<number | string>(0);
   
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -73,13 +74,14 @@ export const UserManagementTable: React.FC = () => {
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
-  const [editUserFormState, setEditUserFormState] = useState<{ username: string; email: string; role: 'editor' | 'admin'; editorLevelId?: string; isEligibleForMorningOT?: boolean; availableLeaves?: number; }>({
+  const [editUserFormState, setEditUserFormState] = useState<{ username: string; email: string; role: 'editor' | 'admin'; editorLevelId?: string; isEligibleForMorningOT?: boolean; availableLeaves?: number; compensatoryLeaves?: number; }>({
     username: '',
     email: '',
     role: 'editor',
     editorLevelId: undefined,
     isEligibleForMorningOT: false,
     availableLeaves: 0,
+    compensatoryLeaves: 0,
   });
 
   const [selectedUserIds, setSelectedUserIds] = useState(new Set<string>());
@@ -184,6 +186,7 @@ export const UserManagementTable: React.FC = () => {
     setNewUserEditorLevelId(sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined);
     setNewUserIsEligibleForMorningOT(false);
     setNewUserAvailableLeaves(0);
+    setNewUserCompensatoryLeaves(0);
     setIsAddUserDialogOpen(true);
   };
 
@@ -216,7 +219,8 @@ export const UserManagementTable: React.FC = () => {
         newUserRole, 
         newUserRole === 'editor' ? newUserEditorLevelId : undefined,
         newUserRole === 'editor' ? newUserIsEligibleForMorningOT : false,
-        Number(newUserAvailableLeaves)
+        Number(newUserAvailableLeaves),
+        Number(newUserCompensatoryLeaves)
       );
 
       if (profileResult.success) {
@@ -357,6 +361,7 @@ export const UserManagementTable: React.FC = () => {
         editorLevelId: user.editorLevelId || (user.role === 'editor' && sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined),
         isEligibleForMorningOT: user.isEligibleForMorningOT ?? false,
         availableLeaves: user.availableLeaves ?? 0,
+        compensatoryLeaves: user.compensatoryLeaves ?? 0,
     });
     setIsEditUserDialogOpen(true);
   };
@@ -390,7 +395,8 @@ export const UserManagementTable: React.FC = () => {
         editUserFormState.role,
         editUserFormState.role === 'editor' ? editUserFormState.editorLevelId : undefined,
         editUserFormState.role === 'editor' ? editUserFormState.isEligibleForMorningOT : false,
-        editUserFormState.availableLeaves
+        editUserFormState.availableLeaves,
+        editUserFormState.compensatoryLeaves
     );
 
     if (result.success) {
@@ -426,7 +432,8 @@ export const UserManagementTable: React.FC = () => {
             userToUpdate.role,
             userToUpdate.editorLevelId,
             userToUpdate.isEligibleForMorningOT,
-            leaves
+            leaves,
+            userToUpdate.compensatoryLeaves
         );
     });
 
@@ -688,6 +695,17 @@ export const UserManagementTable: React.FC = () => {
                         disabled={isSubmittingForm}
                     />
                 </div>
+                <div className="space-y-1.5">
+                    <Label htmlFor="new-user-compensatory-leaves">Compensatory Leaves</Label>
+                    <Input
+                        id="new-user-compensatory-leaves"
+                        type="number"
+                        value={newUserCompensatoryLeaves}
+                        onChange={(e) => setNewUserCompensatoryLeaves(e.target.value)}
+                        placeholder="e.g., 0"
+                        disabled={isSubmittingForm}
+                    />
+                </div>
                 <div className="flex items-center space-x-2 pt-2">
                     <Checkbox
                         id="new-user-morning-ot"
@@ -804,6 +822,17 @@ export const UserManagementTable: React.FC = () => {
                                     value={editUserFormState.availableLeaves ?? ''}
                                     onChange={(e) => setEditUserFormState(prev => ({ ...prev, availableLeaves: e.target.value === '' ? undefined : Number(e.target.value) }))}
                                     placeholder="e.g., 15"
+                                    disabled={isSubmittingForm}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="edit-user-compensatory-leaves">Compensatory Leaves</Label>
+                                <Input
+                                    id="edit-user-compensatory-leaves"
+                                    type="number"
+                                    value={editUserFormState.compensatoryLeaves ?? ''}
+                                    onChange={(e) => setEditUserFormState(prev => ({ ...prev, compensatoryLeaves: e.target.value === '' ? undefined : Number(e.target.value) }))}
+                                    placeholder="e.g., 0"
                                     disabled={isSubmittingForm}
                                 />
                             </div>

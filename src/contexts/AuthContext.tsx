@@ -79,6 +79,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 editorLevelId: dbUser.role === 'editor' ? dbUser.editorLevelId : undefined,
                 isEligibleForMorningOT: dbUser.isEligibleForMorningOT ?? false,
                 availableLeaves: dbUser.availableLeaves ?? 0,
+                compensatoryLeaves: dbUser.compensatoryLeaves ?? 0,
               };
               console.log('AuthContext: RTDB profile fetched. Calling setUser with:', appUser);
               setUser(appUser);
@@ -91,6 +92,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 editorLevelId: undefined,
                 isEligibleForMorningOT: false,
                 availableLeaves: 0,
+                compensatoryLeaves: 0,
               };
               console.warn(`AuthContext: User ${firebaseUser.uid} has no profile in RTDB. Calling setUser with basic details:`, appUser);
               setUser(appUser);
@@ -105,6 +107,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               editorLevelId: undefined,
               isEligibleForMorningOT: false,
               availableLeaves: 0,
+              compensatoryLeaves: 0,
             };
             console.log('AuthContext: RTDB fetch error. Calling setUser with basic details and null role:', appUser);
             setUser(appUser);
@@ -119,6 +122,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             editorLevelId: undefined,
             isEligibleForMorningOT: false,
             availableLeaves: 0,
+            compensatoryLeaves: 0,
           };
           console.warn("AuthContext: Firebase Database not available. Cannot fetch user role. Calling setUser with basic details:", appUser);
           setUser(appUser);
@@ -246,5 +250,3 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-
-    

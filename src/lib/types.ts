@@ -9,6 +9,7 @@ export interface User {
   editorLevelId?: string; // ID of the assigned EditorLevel
   isEligibleForMorningOT?: boolean;
   availableLeaves?: number;
+  compensatoryLeaves?: number;
 }
 
 export interface CategoryRating {
