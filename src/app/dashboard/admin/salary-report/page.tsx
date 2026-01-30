@@ -6,6 +6,7 @@ import { useMockUsers } from '@/hooks/useMockUsers';
 import { useAttendance } from '@/hooks/useAttendance';
 import { useLeave } from '@/hooks/useLeave';
 import { useHolidays } from '@/hooks/useHolidays';
+import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import type { User, AttendanceRecord, LeaveRequest, Paysheet } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
@@ -49,6 +50,7 @@ interface SalaryReport {
   payPeriodEnd: string;
   baseSalary: number;
   conveyanceAllowance: number;
+  otAmount: number;
   totalEarnings: number;
   unpaidLeaveDeduction: number;
   totalDeductions: number;
@@ -57,7 +59,6 @@ interface SalaryReport {
   presentDays: number;
   allowedLeaves: number;
   leaveDays: number;
-  absentDays: number;
   totalOTHours: string;
 }
 
@@ -73,10 +74,11 @@ export default function SalaryReportPage() {
     const { getRecordsForUser: getTimesheetForMonth } = useTimesheet();
     const { leaveRequests, isLoading: isLeaveLoading } = useLeave();
     const { holidays, isLoading: isHolidaysLoading } = useHolidays();
+    const { settings, isLoading: isSettingsLoading } = useGlobalSettings();
     const { savePaysheet } = usePaysheet();
     const { toast } = useToast();
 
-    const mainLoadingState = isUsersLoading || isLeaveLoading || isHolidaysLoading;
+    const mainLoadingState = isUsersLoading || isLeaveLoading || isHolidaysLoading || isSettingsLoading;
 
     const editorUsers = useMemo(() => {
         if (isUsersLoading || !users) return [];
@@ -114,6 +116,7 @@ export default function SalaryReportPage() {
 
             const baseSalary = user.baseSalary || 0;
             const conveyanceAllowance = user.conveyanceAllowance || 0;
+            const otRate = settings?.otRate || 0;
 
             const yearNum = parseInt(selectedYear, 10);
             const monthNum = parseInt(selectedMonth, 10) - 1;
@@ -148,6 +151,9 @@ export default function SalaryReportPage() {
             const totalOTSeconds = attendance.reduce((total, record) => {
                 return total + parseDurationToSeconds(record.overtime);
             }, 0);
+            const totalOTDecimalHours = totalOTSeconds / 3600;
+            const otAmount = totalOTDecimalHours * otRate;
+
 
             let totalWorkingDays = 0;
             let absentDays = 0;
@@ -197,6 +203,8 @@ export default function SalaryReportPage() {
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
             const unpaidLeaveDeduction = absentDays * perDaySalary;
             
+            const totalEarnings = baseSalary + conveyanceAllowance + otAmount;
+
             const generatedReport: SalaryReport = {
                 user,
                 payPeriod: format(monthStartForCalc, 'MMMM yyyy'),
@@ -204,15 +212,15 @@ export default function SalaryReportPage() {
                 payPeriodEnd: format(payPeriodEnd, 'PPP'),
                 baseSalary,
                 conveyanceAllowance,
-                totalEarnings: baseSalary + conveyanceAllowance,
+                otAmount,
+                totalEarnings,
                 unpaidLeaveDeduction,
                 totalDeductions: unpaidLeaveDeduction,
-                netSalary: baseSalary + conveyanceAllowance - unpaidLeaveDeduction,
+                netSalary: totalEarnings - unpaidLeaveDeduction,
                 totalWorkingDays,
                 presentDays,
                 allowedLeaves,
                 leaveDays,
-                absentDays,
                 totalOTHours: formatSecondsToHoursString(totalOTSeconds),
             };
             
@@ -226,6 +234,7 @@ export default function SalaryReportPage() {
                 month: selectedMonth,
                 baseSalary: generatedReport.baseSalary,
                 conveyanceAllowance: generatedReport.conveyanceAllowance,
+                otAmount: generatedReport.otAmount,
                 totalEarnings: generatedReport.totalEarnings,
                 unpaidLeaveDeduction: generatedReport.unpaidLeaveDeduction,
                 totalDeductions: generatedReport.totalDeductions,
@@ -234,7 +243,7 @@ export default function SalaryReportPage() {
                 presentDays: generatedReport.presentDays,
                 allowedLeaves: generatedReport.allowedLeaves,
                 leaveDays: generatedReport.leaveDays,
-                absentDays: generatedReport.absentDays,
+                absentDays: presentDays - (totalWorkingDays - leaveDays),
                 totalOTHours: generatedReport.totalOTHours,
             };
 
@@ -345,6 +354,10 @@ export default function SalaryReportPage() {
                                         <TableCell>Conveyance Allowance</TableCell>
                                         <TableCell className="text-right font-medium">{formatCurrency(report.conveyanceAllowance)}</TableCell>
                                     </TableRow>
+                                    <TableRow>
+                                        <TableCell>OT Amount ({report.totalOTHours})</TableCell>
+                                        <TableCell className="text-right font-medium">{formatCurrency(report.otAmount)}</TableCell>
+                                    </TableRow>
                                 </TableBody>
                                 <TableFooter>
                                     <TableRow className="bg-muted/50">
@@ -359,7 +372,7 @@ export default function SalaryReportPage() {
                              <Table>
                                 <TableBody>
                                     <TableRow>
-                                        <TableCell>Unpaid Leave ({report.absentDays} days)</TableCell>
+                                        <TableCell>Unpaid Leave ({report.totalWorkingDays - report.presentDays - report.leaveDays} days)</TableCell>
                                         <TableCell className="text-right font-medium">{formatCurrency(report.unpaidLeaveDeduction)}</TableCell>
                                     </TableRow>
                                 </TableBody>

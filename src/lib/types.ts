@@ -111,6 +111,7 @@ export interface Paysheet {
   month: string;
   baseSalary: number;
   conveyanceAllowance: number;
+  otAmount?: number;
   totalEarnings: number;
   unpaidLeaveDeduction: number;
   totalDeductions: number;
