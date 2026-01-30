@@ -254,7 +254,7 @@ export default function SalaryReportPage() {
             }, 0);
             
             let noLeaveBonusAmount = 0;
-            if (leaveDays === 0 && user.joiningDate && (settings?.noLeaveBonusOneYearOrMore || settings?.noLeaveBonusLessThanOneYear)) {
+            if (leaveDays <= 2 && user.joiningDate && (settings?.noLeaveBonusOneYearOrMore || settings?.noLeaveBonusLessThanOneYear)) {
                 const yearsOfService = differenceInYears(monthEndForCalc, parseISO(user.joiningDate));
                 if (yearsOfService >= 1) {
                     noLeaveBonusAmount = settings.noLeaveBonusOneYearOrMore || 0;
