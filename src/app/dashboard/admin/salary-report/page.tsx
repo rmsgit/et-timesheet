@@ -87,6 +87,7 @@ export default function SalaryReportPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
     
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [isPayslipPreviewOpen, setIsPayslipPreviewOpen] = useState(false);
     const [payslipPdfUrl, setPayslipPdfUrl] = useState<string>('');
     const [generatedPdf, setGeneratedPdf] = useState<jsPDF | null>(null);
@@ -455,7 +456,7 @@ export default function SalaryReportPage() {
             return;
         }
     
-        showLoader('pdf-generation', 'Generating PDF Preview...');
+        setIsGeneratingPdf(true);
         
         try {
             const canvas = await html2canvas(payslipElement, {
@@ -489,7 +490,7 @@ export default function SalaryReportPage() {
             console.error("Error generating PDF:", error);
             toast({ title: 'PDF Generation Failed', description: 'Could not generate the payslip PDF.', variant: 'destructive' });
         } finally {
-            hideLoader('pdf-generation');
+            setIsGeneratingPdf(false);
         }
     };
 
@@ -585,9 +586,9 @@ export default function SalaryReportPage() {
                                 <CardTitle className="text-2xl">Salary Slip for {report.payPeriod}</CardTitle>
                                 <CardDescription>
                                     <div className="flex items-center gap-4 mt-2">
-                                        <span className="flex items-center"><UserIcon className="mr-2 h-4 w-4 text-muted-foreground" />{report.user.username}</span>
-                                        <span className="flex items-center"><Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />{report.user.jobDesignation || 'N/A'}</span>
-                                        <span className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />Pay Period: {report.payPeriodStart} to {report.payPeriodEnd}</span>
+                                        <span className="flex items-center"><UserIcon className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />{report.user.username}</span>
+                                        <span className="flex items-center"><Briefcase className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />{report.user.jobDesignation || 'N/A'}</span>
+                                        <span className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />Pay Period: {report.payPeriodStart} to {report.payPeriodEnd}</span>
                                     </div>
                                 </CardDescription>
                             </div>
@@ -602,14 +603,14 @@ export default function SalaryReportPage() {
                                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                     Save Paysheet
                                 </Button>
-                                <Button onClick={handleGeneratePdfForPreview} variant="secondary" disabled={isSaving || mainLoadingState || !report?.user?.personalEmail} title={!report?.user?.personalEmail ? "User has no personal email set" : "Preview & Download Payslip"}>
-                                    <Mail className="mr-2 h-4 w-4" />
-                                    Send Payslip
+                                <Button onClick={handleGeneratePdfForPreview} variant="secondary" disabled={isGeneratingPdf || isSaving || mainLoadingState || !report?.user?.personalEmail} title={!report?.user?.personalEmail ? "User has no personal email set" : "Preview & Download Payslip"}>
+                                    {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                                    {isGeneratingPdf ? 'Generating...' : 'Send Payslip'}
                                 </Button>
                             </div>
                         </div>
                         <div className="space-y-4 pt-4">
-                            <h3 className="font-semibold text-lg flex items-center"><NotebookText className="mr-2 h-5 w-5 text-primary"/>Attendance Summary</h3>
+                            <h3 className="font-semibold text-lg flex items-center"><NotebookText className="mr-2 h-5 w-5 text-primary inline-block align-middle"/>Attendance Summary</h3>
                              <Table>
                                <TableHeader>
                                  <TableRow>
@@ -635,7 +636,7 @@ export default function SalaryReportPage() {
                     <CardContent className="space-y-8 p-6">
                         <div className="grid md:grid-cols-2 gap-8">
                             <div className="space-y-4">
-                                <h3 className="font-semibold text-lg flex items-center"><PlusCircle className="mr-2 h-5 w-5 text-green-600"/>Earnings</h3>
+                                <h3 className="font-semibold text-lg flex items-center"><PlusCircle className="mr-2 h-5 w-5 text-green-600 inline-block align-middle"/>Earnings</h3>
                                 <Table>
                                     <TableBody>
                                         <TableRow>
@@ -660,12 +661,12 @@ export default function SalaryReportPage() {
                                         </TableRow>
                                         {report.noLeaveBonusAmount > 0 && (
                                             <TableRow>
-                                                <TableCell className="flex items-center"><Award className="mr-2 h-4 w-4 text-yellow-500" />No-Leave Bonus</TableCell>
+                                                <TableCell className="flex items-center"><Award className="mr-2 h-4 w-4 text-yellow-500 inline-block align-middle" />No-Leave Bonus</TableCell>
                                                 <TableCell className="text-right font-medium">{formatCurrency(report.noLeaveBonusAmount)}</TableCell>
                                             </TableRow>
                                         )}
                                         <TableRow>
-                                            <TableCell className="flex items-center"><PlusCircle className="mr-2 h-4 w-4" />Other Payments</TableCell>
+                                            <TableCell className="flex items-center"><PlusCircle className="mr-2 h-4 w-4 inline-block align-middle" />Other Payments</TableCell>
                                             <TableCell className="text-right">
                                                 <Input
                                                     type="number"
@@ -686,7 +687,7 @@ export default function SalaryReportPage() {
                                 </Table>
                             </div>
                             <div className="space-y-4">
-                                <h3 className="font-semibold text-lg flex items-center"><MinusCircle className="mr-2 h-5 w-5 text-red-600"/>Deductions</h3>
+                                <h3 className="font-semibold text-lg flex items-center"><MinusCircle className="mr-2 h-5 w-5 text-red-600 inline-block align-middle"/>Deductions</h3>
                                 <Table>
                                     <TableBody>
                                         <TableRow>
@@ -698,7 +699,7 @@ export default function SalaryReportPage() {
                                             <TableCell className="text-right font-medium">{formatCurrency(report.epfDeduction)}</TableCell>
                                         </TableRow>
                                         <TableRow>
-                                            <TableCell className="flex items-center"><Banknote className="mr-2 h-4 w-4 text-muted-foreground" />Advance</TableCell>
+                                            <TableCell className="flex items-center"><Banknote className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />Advance</TableCell>
                                             <TableCell className="text-right">
                                                 <Input
                                                     type="number"
@@ -710,7 +711,7 @@ export default function SalaryReportPage() {
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
-                                            <TableCell className="flex items-center"><Landmark className="mr-2 h-4 w-4 text-muted-foreground" />Loan Payment</TableCell>
+                                            <TableCell className="flex items-center"><Landmark className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />Loan Payment</TableCell>
                                             <TableCell className="text-right">
                                                 <Input
                                                     type="number"
@@ -722,7 +723,7 @@ export default function SalaryReportPage() {
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
-                                            <TableCell className="flex items-center"><MinusCircle className="mr-2 h-4 w-4" />Other Deductions</TableCell>
+                                            <TableCell className="flex items-center"><MinusCircle className="mr-2 h-4 w-4 inline-block align-middle" />Other Deductions</TableCell>
                                             <TableCell className="text-right">
                                                 <Input
                                                     type="number"
@@ -747,8 +748,12 @@ export default function SalaryReportPage() {
                     </CardContent>
                     
                     <CardFooter className="flex-col items-start gap-6 p-6">
+                        <div className="w-full bg-primary/10 p-6 rounded-lg flex justify-between items-center">
+                            <span className="text-xl font-bold text-primary">Net Salary Payable</span>
+                            <span className="text-2xl font-bold text-primary">{formatCurrency(report.netSalary)}</span>
+                        </div>
                         <div className="w-full space-y-4">
-                            <h3 className="font-semibold text-lg flex items-center"><Landmark className="mr-2 h-5 w-5 text-primary"/>Company Contributions (Informational)</h3>
+                            <h3 className="font-semibold text-lg flex items-center"><Landmark className="mr-2 h-5 w-5 text-primary inline-block align-middle"/>Company Contributions (Informational)</h3>
                              <Table>
                                 <TableBody>
                                     <TableRow>
@@ -761,10 +766,6 @@ export default function SalaryReportPage() {
                                     </TableRow>
                                 </TableBody>
                             </Table>
-                        </div>
-                        <div className="w-full bg-primary/10 p-6 rounded-lg flex justify-between items-center">
-                            <span className="text-xl font-bold text-primary">Net Salary Payable</span>
-                            <span className="text-2xl font-bold text-primary">{formatCurrency(report.netSalary)}</span>
                         </div>
                     </CardFooter>
                 </Card>
@@ -828,3 +829,5 @@ export default function SalaryReportPage() {
     );
 }
 
+
+    
