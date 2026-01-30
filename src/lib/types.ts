@@ -134,6 +134,8 @@ export interface Paysheet {
   totalOTHours: string;
   generatedAt: string; // ISO string
   presentOnSpecialWorkingDays?: number;
+  companyEpfContribution?: number;
+  companyEtfContribution?: number;
 }
 
 export interface GlobalSettings {

@@ -70,6 +70,8 @@ interface SalaryReport {
   leaveDays: number;
   totalOTHours: string;
   presentOnSpecialWorkingDays: number;
+  companyEpfContribution: number;
+  companyEtfContribution: number;
 }
 
 export default function SalaryReportPage() {
@@ -269,6 +271,9 @@ export default function SalaryReportPage() {
             const noPayLeaveDeduction = Math.round(((absentDays > 0 ? absentDays : 0) * perDaySalary) / 10) * 10;
             const epfDeduction = (baseSalary * epfRate) / 100;
             
+            const companyEpfContribution = baseSalary * 0.12;
+            const companyEtfContribution = baseSalary * 0.03;
+
             const totalEarnings = baseSalary + conveyanceAllowance + travelingAllowance + otAmount + specialWorkingDayAmount + noLeaveBonusAmount;
 
             const totalDeductions = noPayLeaveDeduction + epfDeduction;
@@ -300,6 +305,8 @@ export default function SalaryReportPage() {
                 leaveDays,
                 totalOTHours: formatSecondsToHoursString(totalOTSeconds),
                 presentOnSpecialWorkingDays,
+                companyEpfContribution,
+                companyEtfContribution,
             };
             
             setReport(generatedReport);
@@ -348,6 +355,8 @@ export default function SalaryReportPage() {
             absentDays: absentDays > 0 ? absentDays : 0,
             totalOTHours: report.totalOTHours,
             presentOnSpecialWorkingDays: report.presentOnSpecialWorkingDays,
+            companyEpfContribution: report.companyEpfContribution,
+            companyEtfContribution: report.companyEtfContribution,
         };
 
         await savePaysheet(paysheetToSave);
@@ -576,6 +585,23 @@ export default function SalaryReportPage() {
                                         <TableCell>{report.leaveDays}</TableCell>
                                         <TableCell>{report.allowedLeaves}</TableCell>
                                         <TableCell>{report.totalOTHours}</TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                    <CardContent>
+                        <div className="space-y-4">
+                            <h3 className="font-semibold text-lg flex items-center"><Landmark className="mr-2 h-5 w-5 text-primary"/>Company Contributions (Informational)</h3>
+                             <Table>
+                                <TableBody>
+                                    <TableRow>
+                                        <TableCell>Company EPF Contribution (12%)</TableCell>
+                                        <TableCell className="text-right font-medium">{formatCurrency(report.companyEpfContribution)}</TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell>Company ETF Contribution (3%)</TableCell>
+                                        <TableCell className="text-right font-medium">{formatCurrency(report.companyEtfContribution)}</TableCell>
                                     </TableRow>
                                 </TableBody>
                             </Table>
