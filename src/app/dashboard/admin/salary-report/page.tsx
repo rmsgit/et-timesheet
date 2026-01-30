@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -21,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useLoader } from '@/hooks/useLoader';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const parseDurationToSeconds = (duration: string): number => {
     if (!duration || typeof duration !== 'string' || duration === '-') return 0;
@@ -85,6 +87,10 @@ export default function SalaryReportPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
     
+    const [isPayslipPreviewOpen, setIsPayslipPreviewOpen] = useState(false);
+    const [payslipPdfUrl, setPayslipPdfUrl] = useState<string>('');
+    const [generatedPdf, setGeneratedPdf] = useState<jsPDF | null>(null);
+
     const { users, isUsersLoading } = useMockUsers();
     const { getAttendanceForMonth } = useAttendance();
     const { getRecordsForUser: getTimesheetForMonth } = useTimesheet();
@@ -433,14 +439,14 @@ export default function SalaryReportPage() {
         setIsSaved(true); // After saving, the currently viewed report is now a "saved" one
     };
 
-    const handleSendPayslip = async () => {
+    const handleGeneratePdfForPreview = async () => {
         if (!report) {
-          toast({ title: 'No Report', description: 'Please generate a report first.', variant: 'destructive' });
-          return;
+            toast({ title: 'No Report', description: 'Please generate a report first.', variant: 'destructive' });
+            return;
         }
         if (!report.user.personalEmail) {
-          toast({ title: 'Missing Email', description: "This user doesn't have a personal email configured.", variant: 'destructive' });
-          return;
+            toast({ title: 'Missing Email', description: "This user doesn't have a personal email configured.", variant: 'destructive' });
+            return;
         }
     
         const payslipElement = document.getElementById('payslip-card');
@@ -449,15 +455,20 @@ export default function SalaryReportPage() {
             return;
         }
     
-        showLoader('pdf-generation', 'Generating PDF...');
+        showLoader('pdf-generation', 'Generating PDF Preview...');
+        
         try {
-            const canvas = await html2canvas(payslipElement);
+            const canvas = await html2canvas(payslipElement, {
+                scale: 2,
+                ignoreElements: (element) => element.classList.contains('payslip-actions-container')
+            });
+
             const imgData = canvas.toDataURL('image/png');
             
             const pdf = new jsPDF({
                 orientation: 'p',
                 unit: 'px',
-                format: 'a4'
+                format: 'a4',
             });
     
             const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -470,13 +481,9 @@ export default function SalaryReportPage() {
     
             pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
             
-            pdf.save(`payslip_${report.user.username}_${report.year}-${report.month}.pdf`);
-    
-            toast({
-                title: 'Payslip PDF Downloaded',
-                description: `The payslip for ${report.user.username} has been downloaded. Please attach it to an email to send it to ${report.user.personalEmail}.`,
-                duration: 8000,
-            });
+            setGeneratedPdf(pdf);
+            setPayslipPdfUrl(pdf.output('datauristring'));
+            setIsPayslipPreviewOpen(true);
     
         } catch (error) {
             console.error("Error generating PDF:", error);
@@ -485,6 +492,21 @@ export default function SalaryReportPage() {
             hideLoader('pdf-generation');
         }
     };
+
+    const handleDownloadAndClose = () => {
+        if (generatedPdf && report) {
+            generatedPdf.save(`payslip_${report.user.username}_${selectedYear}-${selectedMonth}.pdf`);
+            toast({
+                title: 'Payslip PDF Downloaded',
+                description: `The payslip for ${report.user.username} has been downloaded.`,
+                duration: 8000,
+            });
+        }
+        setIsPayslipPreviewOpen(false);
+        setGeneratedPdf(null);
+        setPayslipPdfUrl('');
+    };
+
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('si-LK', { style: 'currency', currency: 'LKR' }).format(amount);
@@ -569,7 +591,7 @@ export default function SalaryReportPage() {
                                     </div>
                                 </CardDescription>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 payslip-actions-container">
                                 {isSaved && (
                                     <Button onClick={handleGenerateReport} variant="outline" disabled={isLoadingReport || mainLoadingState}>
                                         <RefreshCw className="mr-2 h-4 w-4" />
@@ -580,20 +602,20 @@ export default function SalaryReportPage() {
                                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                     Save Paysheet
                                 </Button>
-                                <Button onClick={handleSendPayslip} variant="secondary" disabled={isSaving || mainLoadingState || !report?.user?.personalEmail} title={!report?.user?.personalEmail ? "User has no personal email set" : "Download payslip as PDF"}>
+                                <Button onClick={handleGeneratePdfForPreview} variant="secondary" disabled={isSaving || mainLoadingState || !report?.user?.personalEmail} title={!report?.user?.personalEmail ? "User has no personal email set" : "Preview & Download Payslip"}>
                                     <Mail className="mr-2 h-4 w-4" />
                                     Send Payslip
                                 </Button>
                             </div>
                         </div>
-                         <div className="space-y-4 pt-4">
+                        <div className="space-y-4 pt-4">
                             <h3 className="font-semibold text-lg flex items-center"><NotebookText className="mr-2 h-5 w-5 text-primary"/>Attendance Summary</h3>
                              <Table>
                                <TableHeader>
                                  <TableRow>
                                    <TableHead>Total Working Days</TableHead>
-                                   <TableHead>Present</TableHead>
                                    <TableHead>Leave Taken</TableHead>
+                                   <TableHead>Present</TableHead>
                                    <TableHead>Balance leave</TableHead>
                                    <TableHead>Total OT</TableHead>
                                  </TableRow>
@@ -601,8 +623,8 @@ export default function SalaryReportPage() {
                                 <TableBody>
                                     <TableRow>
                                         <TableCell>{report.totalWorkingDays}</TableCell>
-                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.leaveDays}</TableCell>
+                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.allowedLeaves}</TableCell>
                                         <TableCell>{report.totalOTHours}</TableCell>
                                     </TableRow>
@@ -771,6 +793,38 @@ export default function SalaryReportPage() {
                 </Card>
             )}
 
+            <Dialog open={isPayslipPreviewOpen} onOpenChange={setIsPayslipPreviewOpen}>
+                <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Payslip Preview</DialogTitle>
+                        <DialogDescription>
+                            Review the generated payslip. Click "Download & Close" to save the PDF, which you can then attach to an email.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex-grow border rounded-md overflow-hidden bg-muted">
+                        {payslipPdfUrl ? (
+                            <iframe
+                                src={payslipPdfUrl}
+                                className="w-full h-full"
+                                title="Payslip Preview"
+                            />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                <p className="ml-2 text-muted-foreground">Loading Preview...</p>
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsPayslipPreviewOpen(false)}>Cancel</Button>
+                        <Button onClick={handleDownloadAndClose} disabled={!generatedPdf}>
+                            <FileSpreadsheet className="mr-2 h-4 w-4" /> Download & Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 }
+
