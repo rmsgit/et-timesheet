@@ -622,8 +622,8 @@ export default function SalaryReportPage() {
                                <TableHeader>
                                  <TableRow>
                                    <TableHead>Total Working Days</TableHead>
-                                   <TableHead>Leave Taken</TableHead>
                                    <TableHead>Present</TableHead>
+                                   <TableHead>Leave Taken</TableHead>
                                    <TableHead>Balance leave</TableHead>
                                    <TableHead>Total OT</TableHead>
                                  </TableRow>
@@ -631,8 +631,8 @@ export default function SalaryReportPage() {
                                 <TableBody>
                                     <TableRow>
                                         <TableCell>{report.totalWorkingDays}</TableCell>
-                                        <TableCell>{report.leaveDays}</TableCell>
                                         <TableCell>{report.presentDays}</TableCell>
+                                        <TableCell>{report.leaveDays}</TableCell>
                                         <TableCell>{report.allowedLeaves}</TableCell>
                                         <TableCell>{report.totalOTHours}</TableCell>
                                     </TableRow>
@@ -675,13 +675,17 @@ export default function SalaryReportPage() {
                                         <TableRow>
                                             <TableCell className="flex items-center"><PlusCircle className="mr-2 h-4 w-4 inline-block align-middle" />Other Payments</TableCell>
                                             <TableCell className="text-right">
-                                                <Input
-                                                    type="number"
-                                                    placeholder="0.00"
-                                                    className="w-32 h-8 text-right ml-auto"
-                                                    value={report.otherPayment}
-                                                    onChange={(e) => handleOtherPaymentChange(Number(e.target.value) || 0)}
-                                                />
+                                                {isGeneratingPdf ? (
+                                                    <span className="font-medium">{formatCurrency(report.otherPayment)}</span>
+                                                ) : (
+                                                    <Input
+                                                        type="number"
+                                                        placeholder="0.00"
+                                                        className="w-32 h-8 text-right ml-auto"
+                                                        value={report.otherPayment}
+                                                        onChange={(e) => handleOtherPaymentChange(Number(e.target.value) || 0)}
+                                                    />
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     </TableBody>
@@ -708,37 +712,49 @@ export default function SalaryReportPage() {
                                         <TableRow>
                                             <TableCell className="flex items-center"><Banknote className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />Advance</TableCell>
                                             <TableCell className="text-right">
-                                                <Input
-                                                    type="number"
-                                                    placeholder="0.00"
-                                                    className="w-32 h-8 text-right ml-auto"
-                                                    value={report.advanceDeduction}
-                                                    onChange={(e) => handleDeductionChange('advanceDeduction', Number(e.target.value) || 0)}
-                                                />
+                                                {isGeneratingPdf ? (
+                                                    <span className="font-medium">{formatCurrency(report.advanceDeduction)}</span>
+                                                ) : (
+                                                    <Input
+                                                        type="number"
+                                                        placeholder="0.00"
+                                                        className="w-32 h-8 text-right ml-auto"
+                                                        value={report.advanceDeduction}
+                                                        onChange={(e) => handleDeductionChange('advanceDeduction', Number(e.target.value) || 0)}
+                                                    />
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell className="flex items-center"><Landmark className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />Loan Payment</TableCell>
                                             <TableCell className="text-right">
-                                                <Input
-                                                    type="number"
-                                                    placeholder="0.00"
-                                                    className="w-32 h-8 text-right ml-auto"
-                                                    value={report.loanDeduction}
-                                                    onChange={(e) => handleDeductionChange('loanDeduction', Number(e.target.value) || 0)}
-                                                />
+                                                {isGeneratingPdf ? (
+                                                    <span className="font-medium">{formatCurrency(report.loanDeduction)}</span>
+                                                ) : (
+                                                    <Input
+                                                        type="number"
+                                                        placeholder="0.00"
+                                                        className="w-32 h-8 text-right ml-auto"
+                                                        value={report.loanDeduction}
+                                                        onChange={(e) => handleDeductionChange('loanDeduction', Number(e.target.value) || 0)}
+                                                    />
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                         <TableRow>
                                             <TableCell className="flex items-center"><MinusCircle className="mr-2 h-4 w-4 inline-block align-middle" />Other Deductions</TableCell>
                                             <TableCell className="text-right">
-                                                <Input
-                                                    type="number"
-                                                    placeholder="0.00"
-                                                    className="w-32 h-8 text-right ml-auto"
-                                                    value={report.otherDeduction}
-                                                    onChange={(e) => handleDeductionChange('otherDeduction', Number(e.target.value) || 0)}
-                                                />
+                                                {isGeneratingPdf ? (
+                                                    <span className="font-medium">{formatCurrency(report.otherDeduction)}</span>
+                                                ) : (
+                                                    <Input
+                                                        type="number"
+                                                        placeholder="0.00"
+                                                        className="w-32 h-8 text-right ml-auto"
+                                                        value={report.otherDeduction}
+                                                        onChange={(e) => handleDeductionChange('otherDeduction', Number(e.target.value) || 0)}
+                                                    />
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     </TableBody>
@@ -845,8 +861,6 @@ export default function SalaryReportPage() {
     );
 }
 
-
-    
 
     
 
