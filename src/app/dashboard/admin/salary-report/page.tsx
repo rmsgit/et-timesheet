@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { useAttendance } from '@/hooks/useAttendance';
 import { useLeave } from '@/hooks/useLeave';
@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save, Banknote, Landmark } from 'lucide-react';
+import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save, Banknote, Landmark, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, differenceInYears } from 'date-fns';
@@ -80,6 +80,7 @@ export default function SalaryReportPage() {
     const [report, setReport] = useState<SalaryReport | null>(null);
     const [isLoadingReport, setIsLoadingReport] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
     
     const { users, isUsersLoading } = useMockUsers();
     const { getAttendanceForMonth } = useAttendance();
@@ -87,10 +88,10 @@ export default function SalaryReportPage() {
     const { leaveRequests, isLoading: isLeaveLoading } = useLeave();
     const { holidays, isLoading: isHolidaysLoading } = useHolidays();
     const { settings, isLoading: isSettingsLoading } = useGlobalSettings();
-    const { savePaysheet } = usePaysheet();
+    const { savePaysheet, paysheets, isLoading: isPaysheetsLoading } = usePaysheet();
     const { toast } = useToast();
 
-    const mainLoadingState = isUsersLoading || isLeaveLoading || isHolidaysLoading || isSettingsLoading;
+    const mainLoadingState = isUsersLoading || isLeaveLoading || isHolidaysLoading || isSettingsLoading || isPaysheetsLoading;
 
     const editorUsers = useMemo(() => {
         if (isUsersLoading || !users) return [];
@@ -112,6 +113,69 @@ export default function SalaryReportPage() {
           label: format(new Date(2000, i), 'MMMM'),
       }));
     }, []);
+
+    useEffect(() => {
+        if (!selectedUserId || !selectedYear || !selectedMonth || !paysheets || !users) {
+            setReport(null);
+            setIsSaved(false);
+            return;
+        }
+
+        if (mainLoadingState) return;
+
+        const paysheetId = `${selectedUserId}_${selectedYear}-${selectedMonth}`;
+        const savedPaysheet = paysheets.find(p => p.id === paysheetId);
+        
+        if (savedPaysheet) {
+            const user = users.find(u => u.id === savedPaysheet.userId);
+            if (!user) {
+                setReport(null);
+                setIsSaved(false);
+                return;
+            }
+            
+            const yearNum = parseInt(savedPaysheet.year, 10);
+            const monthNum = parseInt(savedPaysheet.month, 10) - 1;
+            const payPeriodStartDt = startOfMonth(new Date(yearNum, monthNum));
+            const payPeriodEndDt = endOfMonth(new Date(yearNum, monthNum));
+
+            const reportFromSaved: SalaryReport = {
+                user: user,
+                payPeriod: savedPaysheet.payPeriod,
+                payPeriodStart: format(payPeriodStartDt, 'PPP'),
+                payPeriodEnd: format(payPeriodEndDt, 'PPP'),
+                baseSalary: savedPaysheet.baseSalary,
+                conveyanceAllowance: savedPaysheet.conveyanceAllowance,
+                travelingAllowance: savedPaysheet.travelingAllowance,
+                otAmount: savedPaysheet.otAmount || 0,
+                specialWorkingDayAmount: savedPaysheet.specialWorkingDayAmount || 0,
+                noLeaveBonusAmount: savedPaysheet.noLeaveBonusAmount || 0,
+                otherPayment: savedPaysheet.otherPayment,
+                totalEarnings: savedPaysheet.totalEarnings,
+                noPayLeaveDeduction: savedPaysheet.noPayLeaveDeduction,
+                advanceDeduction: savedPaysheet.advanceDeduction,
+                loanDeduction: savedPaysheet.loanDeduction,
+                epfDeduction: savedPaysheet.epfDeduction,
+                otherDeduction: savedPaysheet.otherDeduction,
+                totalDeductions: savedPaysheet.totalDeductions,
+                netSalary: savedPaysheet.netSalary,
+                totalWorkingDays: savedPaysheet.totalWorkingDays,
+                presentDays: savedPaysheet.presentDays,
+                allowedLeaves: savedPaysheet.allowedLeaves,
+                leaveDays: savedPaysheet.leaveDays,
+                totalOTHours: savedPaysheet.totalOTHours,
+                presentOnSpecialWorkingDays: savedPaysheet.presentOnSpecialWorkingDays || 0,
+                companyEpfContribution: savedPaysheet.companyEpfContribution || 0,
+                companyEtfContribution: savedPaysheet.companyEtfContribution || 0,
+            };
+            setReport(reportFromSaved);
+            setIsSaved(true);
+            toast({ title: "Loaded Saved Paysheet", description: `Displaying a previously saved paysheet for ${user.username}.`})
+        } else {
+            setReport(null);
+            setIsSaved(false);
+        }
+    }, [selectedUserId, selectedYear, selectedMonth, paysheets, users, mainLoadingState, toast]);
 
     const handleOtherPaymentChange = (amount: number) => {
         if (!report) return;
@@ -159,6 +223,7 @@ export default function SalaryReportPage() {
         }
 
         setIsLoadingReport(true);
+        setIsSaved(false);
         setReport(null);
 
         try {
@@ -360,6 +425,7 @@ export default function SalaryReportPage() {
 
         await savePaysheet(paysheetToSave);
         setIsSaving(false);
+        setIsSaved(true); // After saving, the currently viewed report is now a "saved" one
     };
 
     const formatCurrency = (amount: number) => {
@@ -375,7 +441,7 @@ export default function SalaryReportPage() {
                 <CardHeader>
                     <CardTitle>Generate Monthly Salary Slip</CardTitle>
                     <CardDescription>
-                        Select an editor, year, and month to generate their salary slip.
+                        Select an editor, year, and month to view a saved paysheet or generate a new one.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -445,10 +511,18 @@ export default function SalaryReportPage() {
                                     </div>
                                 </CardDescription>
                             </div>
-                             <Button onClick={handleSavePaysheet} disabled={isSaving}>
-                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                Save Paysheet
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                {isSaved && (
+                                    <Button onClick={handleGenerateReport} variant="outline" disabled={isLoadingReport || mainLoadingState}>
+                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                        Recalculate
+                                    </Button>
+                                )}
+                                <Button onClick={handleSavePaysheet} disabled={isSaving || mainLoadingState}>
+                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                    Save Paysheet
+                                </Button>
+                            </div>
                         </div>
                          <div className="space-y-4 pt-4">
                             <h3 className="font-semibold text-lg flex items-center"><NotebookText className="mr-2 h-5 w-5 text-primary"/>Attendance Summary</h3>
@@ -586,7 +660,10 @@ export default function SalaryReportPage() {
                             </div>
                         </div>
                         
-                        <div className="space-y-4">
+                    </CardContent>
+                    
+                    <CardFooter className="flex-col items-start gap-6 p-6">
+                        <div className="w-full space-y-4">
                             <h3 className="font-semibold text-lg flex items-center"><Landmark className="mr-2 h-5 w-5 text-primary"/>Company Contributions (Informational)</h3>
                              <Table>
                                 <TableBody>
@@ -601,10 +678,7 @@ export default function SalaryReportPage() {
                                 </TableBody>
                             </Table>
                         </div>
-                    </CardContent>
-                    
-                    <CardFooter className="bg-primary/10 p-6 rounded-b-lg">
-                        <div className="w-full flex justify-between items-center">
+                        <div className="w-full bg-primary/10 p-6 rounded-lg flex justify-between items-center">
                             <span className="text-xl font-bold text-primary">Net Salary Payable</span>
                             <span className="text-2xl font-bold text-primary">{formatCurrency(report.netSalary)}</span>
                         </div>
