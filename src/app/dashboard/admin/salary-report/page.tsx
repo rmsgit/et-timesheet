@@ -51,6 +51,7 @@ interface SalaryReport {
   baseSalary: number;
   conveyanceAllowance: number;
   otAmount: number;
+  specialWorkingDayAmount: number;
   totalEarnings: number;
   unpaidLeaveDeduction: number;
   totalDeductions: number;
@@ -60,6 +61,7 @@ interface SalaryReport {
   allowedLeaves: number;
   leaveDays: number;
   totalOTHours: string;
+  presentOnSpecialWorkingDays: number;
 }
 
 export default function SalaryReportPage() {
@@ -146,7 +148,7 @@ export default function SalaryReportPage() {
                 isWithinInterval(parseISO(req.date), { start: monthStartForCalc, end: monthEndForCalc })
             );
 
-            const holidaysInMonth = holidays.filter(h => isWithinInterval(parseISO(h.date), { start: monthStartForCalc, end: monthEndForCalc }));
+            const holidaysInMonth = holidays.filter(h => isWithinInterval(new Date(h.date), { start: monthStartForCalc, end: monthEndForCalc }));
 
             const totalOTSeconds = attendance.reduce((total, record) => {
                 return total + parseDurationToSeconds(record.overtime);
@@ -154,6 +156,12 @@ export default function SalaryReportPage() {
             const totalOTDecimalHours = totalOTSeconds / 3600;
             const otAmount = totalOTDecimalHours * otRate;
 
+            const specialWorkingDaysInMonth = holidaysInMonth.filter(h => h.isWorkingDay);
+            const presentOnSpecialWorkingDays = specialWorkingDaysInMonth.filter(swd => 
+                timesheetRecordsForMonth.some(t => isSameDay(parseISO(t.date), new Date(swd.date)))
+            ).length;
+
+            const specialWorkingDayAmount = (baseSalary / 25) * presentOnSpecialWorkingDays;
 
             let totalWorkingDays = 0;
             let absentDays = 0;
@@ -162,7 +170,7 @@ export default function SalaryReportPage() {
             const daysInPeriod = eachDayOfInterval({ start: monthStartForCalc, end: monthEndForCalc });
             daysInPeriod.forEach(currentDate => {
                 const isSunday = currentDate.getDay() === 0;
-                const holidayInfo = holidaysInMonth.find(h => isSameDay(parseISO(h.date), currentDate));
+                const holidayInfo = holidaysInMonth.find(h => isSameDay(new Date(h.date), currentDate));
 
                 let isWorkingDayForCalc = !isSunday;
 
@@ -203,7 +211,7 @@ export default function SalaryReportPage() {
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
             const unpaidLeaveDeduction = absentDays * perDaySalary;
             
-            const totalEarnings = baseSalary + conveyanceAllowance + otAmount;
+            const totalEarnings = baseSalary + conveyanceAllowance + otAmount + specialWorkingDayAmount;
 
             const generatedReport: SalaryReport = {
                 user,
@@ -213,6 +221,7 @@ export default function SalaryReportPage() {
                 baseSalary,
                 conveyanceAllowance,
                 otAmount,
+                specialWorkingDayAmount,
                 totalEarnings,
                 unpaidLeaveDeduction,
                 totalDeductions: unpaidLeaveDeduction,
@@ -222,6 +231,7 @@ export default function SalaryReportPage() {
                 allowedLeaves,
                 leaveDays,
                 totalOTHours: formatSecondsToHoursString(totalOTSeconds),
+                presentOnSpecialWorkingDays,
             };
             
             setReport(generatedReport);
@@ -235,6 +245,7 @@ export default function SalaryReportPage() {
                 baseSalary: generatedReport.baseSalary,
                 conveyanceAllowance: generatedReport.conveyanceAllowance,
                 otAmount: generatedReport.otAmount,
+                specialWorkingDayAmount: generatedReport.specialWorkingDayAmount,
                 totalEarnings: generatedReport.totalEarnings,
                 unpaidLeaveDeduction: generatedReport.unpaidLeaveDeduction,
                 totalDeductions: generatedReport.totalDeductions,
@@ -243,8 +254,9 @@ export default function SalaryReportPage() {
                 presentDays: generatedReport.presentDays,
                 allowedLeaves: generatedReport.allowedLeaves,
                 leaveDays: generatedReport.leaveDays,
-                absentDays: presentDays - (totalWorkingDays - leaveDays),
+                absentDays: absentDays,
                 totalOTHours: generatedReport.totalOTHours,
+                presentOnSpecialWorkingDays: generatedReport.presentOnSpecialWorkingDays,
             };
 
             await savePaysheet(paysheetToSave);
@@ -358,6 +370,10 @@ export default function SalaryReportPage() {
                                         <TableCell>OT Amount ({report.totalOTHours})</TableCell>
                                         <TableCell className="text-right font-medium">{formatCurrency(report.otAmount)}</TableCell>
                                     </TableRow>
+                                    <TableRow>
+                                        <TableCell>Special Working Day Amount ({report.presentOnSpecialWorkingDays} days)</TableCell>
+                                        <TableCell className="text-right font-medium">{formatCurrency(report.specialWorkingDayAmount)}</TableCell>
+                                    </TableRow>
                                 </TableBody>
                                 <TableFooter>
                                     <TableRow className="bg-muted/50">
@@ -392,18 +408,18 @@ export default function SalaryReportPage() {
                                <TableHeader>
                                  <TableRow>
                                    <TableHead>Total Working Days</TableHead>
-                                   <TableHead>Present</TableHead>
                                    <TableHead>Leave Taken</TableHead>
                                    <TableHead>Allowed Leaves</TableHead>
+                                   <TableHead>Present</TableHead>
                                    <TableHead>Total OT</TableHead>
                                  </TableRow>
                                </TableHeader>
                                 <TableBody>
                                     <TableRow>
                                         <TableCell>{report.totalWorkingDays}</TableCell>
-                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.leaveDays}</TableCell>
                                         <TableCell>{report.allowedLeaves}</TableCell>
+                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.totalOTHours}</TableCell>
                                     </TableRow>
                                 </TableBody>

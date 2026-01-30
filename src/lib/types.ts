@@ -112,6 +112,7 @@ export interface Paysheet {
   baseSalary: number;
   conveyanceAllowance: number;
   otAmount?: number;
+  specialWorkingDayAmount?: number;
   totalEarnings: number;
   unpaidLeaveDeduction: number;
   totalDeductions: number;
@@ -123,6 +124,7 @@ export interface Paysheet {
   absentDays: number;
   totalOTHours: string;
   generatedAt: string; // ISO string
+  presentOnSpecialWorkingDays?: number;
 }
 
 export interface GlobalSettings {
