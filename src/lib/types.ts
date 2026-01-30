@@ -117,7 +117,11 @@ export interface Paysheet {
   noLeaveBonusAmount?: number;
   otherPayment: number;
   totalEarnings: number;
-  unpaidLeaveDeduction: number;
+  noPayLeaveDeduction: number;
+  advanceDeduction: number;
+  loanDeduction: number;
+  epfDeduction: number;
+  otherDeduction: number;
   totalDeductions: number;
   netSalary: number;
   totalWorkingDays: number;

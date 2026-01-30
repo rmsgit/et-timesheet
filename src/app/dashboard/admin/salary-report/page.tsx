@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save } from 'lucide-react';
+import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save, Banknote, Landmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, differenceInYears } from 'date-fns';
@@ -56,7 +56,11 @@ interface SalaryReport {
   noLeaveBonusAmount: number;
   otherPayment: number;
   totalEarnings: number;
-  unpaidLeaveDeduction: number;
+  noPayLeaveDeduction: number;
+  advanceDeduction: number;
+  loanDeduction: number;
+  epfDeduction: number;
+  otherDeduction: number;
   totalDeductions: number;
   netSalary: number;
   totalWorkingDays: number;
@@ -125,6 +129,27 @@ export default function SalaryReportPage() {
         });
     };
 
+    const handleDeductionChange = (field: 'advanceDeduction' | 'loanDeduction' | 'otherDeduction', amount: number) => {
+        if (!report) return;
+
+        const newReport = { ...report, [field]: amount };
+
+        const newTotalDeductions =
+            newReport.noPayLeaveDeduction +
+            newReport.epfDeduction +
+            newReport.advanceDeduction +
+            newReport.loanDeduction +
+            newReport.otherDeduction;
+
+        const newNetSalary = newReport.totalEarnings - newTotalDeductions;
+
+        setReport({
+            ...newReport,
+            totalDeductions: newTotalDeductions,
+            netSalary: newNetSalary,
+        });
+    };
+
     const handleGenerateReport = async () => {
         if (!selectedUserId) {
             toast({ title: 'Editor Not Selected', description: 'Please select an editor to generate a report.', variant: 'destructive' });
@@ -141,6 +166,7 @@ export default function SalaryReportPage() {
             const baseSalary = user.baseSalary || 0;
             const conveyanceAllowance = user.conveyanceAllowance || 0;
             const otRate = settings?.otRate || 0;
+            const epfRate = settings?.epfRate || 0;
 
             const yearNum = parseInt(selectedYear, 10);
             const monthNum = parseInt(selectedMonth, 10) - 1;
@@ -238,11 +264,12 @@ export default function SalaryReportPage() {
             const absentDays = totalWorkingDays - presentDays - leaveDays;
             
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
-            const unpaidLeaveDeduction = Math.round(((absentDays > 0 ? absentDays : 0) * perDaySalary) / 10) * 10;
+            const noPayLeaveDeduction = Math.round(((absentDays > 0 ? absentDays : 0) * perDaySalary) / 10) * 10;
+            const epfDeduction = (baseSalary * epfRate) / 100;
             
             const totalEarnings = baseSalary + conveyanceAllowance + otAmount + specialWorkingDayAmount + noLeaveBonusAmount;
 
-            const totalDeductions = unpaidLeaveDeduction;
+            const totalDeductions = noPayLeaveDeduction + epfDeduction;
             const netSalary = totalEarnings - totalDeductions;
 
             const generatedReport: SalaryReport = {
@@ -257,7 +284,11 @@ export default function SalaryReportPage() {
                 noLeaveBonusAmount,
                 otherPayment: 0,
                 totalEarnings,
-                unpaidLeaveDeduction,
+                noPayLeaveDeduction,
+                advanceDeduction: 0,
+                loanDeduction: 0,
+                epfDeduction: epfDeduction,
+                otherDeduction: 0,
                 totalDeductions,
                 netSalary: netSalary,
                 totalWorkingDays,
@@ -299,7 +330,11 @@ export default function SalaryReportPage() {
             noLeaveBonusAmount: report.noLeaveBonusAmount,
             otherPayment: report.otherPayment,
             totalEarnings: report.totalEarnings,
-            unpaidLeaveDeduction: report.unpaidLeaveDeduction,
+            noPayLeaveDeduction: report.noPayLeaveDeduction,
+            advanceDeduction: report.advanceDeduction,
+            loanDeduction: report.loanDeduction,
+            epfDeduction: report.epfDeduction,
+            otherDeduction: report.otherDeduction,
             totalDeductions: report.totalDeductions,
             netSalary: report.netSalary,
             totalWorkingDays: report.totalWorkingDays,
@@ -460,8 +495,48 @@ export default function SalaryReportPage() {
                              <Table>
                                 <TableBody>
                                     <TableRow>
-                                        <TableCell>Unpaid Leave Deduction ({Math.max(0, report.totalWorkingDays - report.presentDays - report.leaveDays)} days)</TableCell>
-                                        <TableCell className="text-right font-medium">{formatCurrency(report.unpaidLeaveDeduction)}</TableCell>
+                                        <TableCell>No Pay Leave ({Math.max(0, report.totalWorkingDays - report.presentDays - report.leaveDays)} days)</TableCell>
+                                        <TableCell className="text-right font-medium">{formatCurrency(report.noPayLeaveDeduction)}</TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell>EPF ({settings?.epfRate || 0}%)</TableCell>
+                                        <TableCell className="text-right font-medium">{formatCurrency(report.epfDeduction)}</TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell className="flex items-center"><Banknote className="mr-2 h-4 w-4 text-muted-foreground" />Advance</TableCell>
+                                        <TableCell className="text-right">
+                                            <Input
+                                                type="number"
+                                                placeholder="0.00"
+                                                className="w-32 h-8 text-right ml-auto"
+                                                value={report.advanceDeduction}
+                                                onChange={(e) => handleDeductionChange('advanceDeduction', Number(e.target.value) || 0)}
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell className="flex items-center"><Landmark className="mr-2 h-4 w-4 text-muted-foreground" />Loan Payment</TableCell>
+                                        <TableCell className="text-right">
+                                            <Input
+                                                type="number"
+                                                placeholder="0.00"
+                                                className="w-32 h-8 text-right ml-auto"
+                                                value={report.loanDeduction}
+                                                onChange={(e) => handleDeductionChange('loanDeduction', Number(e.target.value) || 0)}
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell className="flex items-center"><MinusCircle className="mr-2 h-4 w-4" />Other Deductions</TableCell>
+                                        <TableCell className="text-right">
+                                            <Input
+                                                type="number"
+                                                placeholder="0.00"
+                                                className="w-32 h-8 text-right ml-auto"
+                                                value={report.otherDeduction}
+                                                onChange={(e) => handleDeductionChange('otherDeduction', Number(e.target.value) || 0)}
+                                            />
+                                        </TableCell>
                                     </TableRow>
                                 </TableBody>
                                 <TableFooter>
@@ -480,18 +555,18 @@ export default function SalaryReportPage() {
                                <TableHeader>
                                  <TableRow>
                                    <TableHead>Total Working Days</TableHead>
+                                   <TableHead>Present</TableHead>
                                    <TableHead>Leave Taken</TableHead>
                                    <TableHead>Allowed Leaves</TableHead>
-                                   <TableHead>Present</TableHead>
                                    <TableHead>Total OT</TableHead>
                                  </TableRow>
                                </TableHeader>
                                 <TableBody>
                                     <TableRow>
                                         <TableCell>{report.totalWorkingDays}</TableCell>
+                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.leaveDays}</TableCell>
                                         <TableCell>{report.allowedLeaves}</TableCell>
-                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.totalOTHours}</TableCell>
                                     </TableRow>
                                 </TableBody>
