@@ -24,7 +24,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useLoader } from '@/hooks/useLoader';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { sendEmail } from '@/ai/flows/send-email-flow';
+import { sendEmail } from '@/app/actions/send-email';
 
 const parseDurationToSeconds = (duration: string): number => {
     if (!duration || typeof duration !== 'string' || duration === '-') return 0;
@@ -935,6 +935,7 @@ export default function SalaryReportPage() {
     
 
     
+
 
 
 
