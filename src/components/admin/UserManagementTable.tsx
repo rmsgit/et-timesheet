@@ -75,6 +75,7 @@ export const UserManagementTable: React.FC = () => {
   const [newUserConveyanceAllowance, setNewUserConveyanceAllowance] = useState<number | string>('');
   const [newUserTravelingAllowance, setNewUserTravelingAllowance] = useState<number | string>('');
   const [newUserJoiningDate, setNewUserJoiningDate] = useState<Date | undefined>(undefined);
+  const [newUserPersonalEmail, setNewUserPersonalEmail] = useState('');
   
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -100,6 +101,7 @@ export const UserManagementTable: React.FC = () => {
     conveyanceAllowance?: number;
     travelingAllowance?: number;
     joiningDate?: Date;
+    personalEmail?: string;
   }>({
     username: '',
     email: '',
@@ -114,6 +116,7 @@ export const UserManagementTable: React.FC = () => {
     conveyanceAllowance: undefined,
     travelingAllowance: undefined,
     joiningDate: undefined,
+    personalEmail: '',
   });
 
   const [selectedUserIds, setSelectedUserIds] = useState(new Set<string>());
@@ -232,6 +235,7 @@ export const UserManagementTable: React.FC = () => {
     setNewUserConveyanceAllowance('');
     setNewUserTravelingAllowance('');
     setNewUserJoiningDate(undefined);
+    setNewUserPersonalEmail('');
     setIsAddUserDialogOpen(true);
   };
 
@@ -272,7 +276,8 @@ export const UserManagementTable: React.FC = () => {
         newUserJobDesignation,
         newUserConveyanceAllowance !== '' ? Number(newUserConveyanceAllowance) : undefined,
         newUserTravelingAllowance !== '' ? Number(newUserTravelingAllowance) : undefined,
-        newUserJoiningDate ? newUserJoiningDate.toISOString() : undefined
+        newUserJoiningDate ? newUserJoiningDate.toISOString() : undefined,
+        newUserPersonalEmail
       );
 
       if (profileResult.success) {
@@ -420,6 +425,7 @@ export const UserManagementTable: React.FC = () => {
         conveyanceAllowance: user.conveyanceAllowance,
         travelingAllowance: user.travelingAllowance,
         joiningDate: user.joiningDate ? new Date(user.joiningDate) : undefined,
+        personalEmail: user.personalEmail || '',
     });
     setIsEditUserDialogOpen(true);
   };
@@ -461,7 +467,8 @@ export const UserManagementTable: React.FC = () => {
         editUserFormState.jobDesignation,
         editUserFormState.conveyanceAllowance,
         editUserFormState.travelingAllowance,
-        editUserFormState.joiningDate ? editUserFormState.joiningDate.toISOString() : undefined
+        editUserFormState.joiningDate ? editUserFormState.joiningDate.toISOString() : undefined,
+        editUserFormState.personalEmail
     );
 
     if (result.success) {
@@ -720,6 +727,17 @@ export const UserManagementTable: React.FC = () => {
               />
             </div>
             <div className="space-y-1.5">
+              <Label htmlFor="new-user-personal-email">Personal Email</Label>
+              <Input
+                id="new-user-personal-email"
+                type="email"
+                value={newUserPersonalEmail}
+                onChange={(e) => setNewUserPersonalEmail(e.target.value)}
+                placeholder="personal@example.com"
+                disabled={isSubmittingForm}
+              />
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="new-user-joining-date">Joining Date</Label>
                 <Popover>
                     <PopoverTrigger asChild>
@@ -899,6 +917,17 @@ export const UserManagementTable: React.FC = () => {
                          <p className="text-xs text-muted-foreground">
                             This email is for profile display. Changing it here does NOT change the user's login email for Firebase Authentication.
                         </p>
+                    </div>
+                     <div className="space-y-1.5">
+                        <Label htmlFor="edit-personal-email">Personal Email</Label>
+                        <Input
+                            id="edit-personal-email"
+                            type="email"
+                            value={editUserFormState.personalEmail}
+                            onChange={(e) => setEditUserFormState(prev => ({ ...prev, personalEmail: e.target.value }))}
+                            placeholder="personal@example.com"
+                            disabled={isSubmittingForm}
+                        />
                     </div>
                     <div className="space-y-1.5">
                         <Label htmlFor="edit-joining-date">Joining Date</Label>

@@ -19,6 +19,7 @@ export interface User {
   conveyanceAllowance?: number;
   travelingAllowance?: number;
   joiningDate?: string; // ISO string
+  personalEmail?: string;
 }
 
 export interface CategoryRating {
