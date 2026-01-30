@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -340,7 +341,7 @@ export default function SalaryReportPage() {
                 }
             }
 
-            const allowedLeaves = totalWorkingDays - leaveDays;
+            const allowedLeaves = (user.availableLeaves || 0) - leaveDays;
             const absentDays = totalWorkingDays - presentDays - leaveDays;
             
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
@@ -459,13 +460,14 @@ export default function SalaryReportPage() {
         setIsGeneratingPdf(true);
         
         try {
-            // Give browser a tick to render
             await new Promise(resolve => setTimeout(resolve, 100));
 
             const canvas = await html2canvas(payslipElement, {
                 scale: 2,
                 useCORS: true,
-                ignoreElements: (element) => element.classList.contains('payslip-actions-container')
+                ignoreElements: (element) => 
+                    element.classList.contains('payslip-actions-container') ||
+                    element.tagName.toLowerCase() === 'svg'
             });
 
             const imgData = canvas.toDataURL('image/png');
@@ -620,8 +622,8 @@ export default function SalaryReportPage() {
                                <TableHeader>
                                  <TableRow>
                                    <TableHead>Total Working Days</TableHead>
-                                   <TableHead>Present</TableHead>
                                    <TableHead>Leave Taken</TableHead>
+                                   <TableHead>Present</TableHead>
                                    <TableHead>Balance leave</TableHead>
                                    <TableHead>Total OT</TableHead>
                                  </TableRow>
@@ -629,8 +631,8 @@ export default function SalaryReportPage() {
                                 <TableBody>
                                     <TableRow>
                                         <TableCell>{report.totalWorkingDays}</TableCell>
-                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.leaveDays}</TableCell>
+                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.allowedLeaves}</TableCell>
                                         <TableCell>{report.totalOTHours}</TableCell>
                                     </TableRow>
@@ -843,6 +845,8 @@ export default function SalaryReportPage() {
     );
 }
 
+
+    
 
     
 
