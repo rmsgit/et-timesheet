@@ -187,6 +187,13 @@ export default function SalaryReportPage() {
             setIsSaved(false);
         }
     }, [selectedUserId, selectedYear, selectedMonth, paysheets, users, mainLoadingState, toast]);
+    
+    useEffect(() => {
+        if (payslipPdfUrl) {
+            setIsPayslipPreviewOpen(true);
+        }
+    }, [payslipPdfUrl]);
+
 
     const handleOtherPaymentChange = (amount: number) => {
         if (!report) return;
@@ -461,6 +468,7 @@ export default function SalaryReportPage() {
         try {
             const canvas = await html2canvas(payslipElement, {
                 scale: 2,
+                useCORS: true,
                 ignoreElements: (element) => element.classList.contains('payslip-actions-container')
             });
 
@@ -484,7 +492,6 @@ export default function SalaryReportPage() {
             
             setGeneratedPdf(pdf);
             setPayslipPdfUrl(pdf.output('datauristring'));
-            setIsPayslipPreviewOpen(true);
     
         } catch (error) {
             console.error("Error generating PDF:", error);
@@ -504,8 +511,6 @@ export default function SalaryReportPage() {
             });
         }
         setIsPayslipPreviewOpen(false);
-        setGeneratedPdf(null);
-        setPayslipPdfUrl('');
     };
 
 
@@ -794,7 +799,13 @@ export default function SalaryReportPage() {
                 </Card>
             )}
 
-            <Dialog open={isPayslipPreviewOpen} onOpenChange={setIsPayslipPreviewOpen}>
+            <Dialog open={isPayslipPreviewOpen} onOpenChange={(open) => {
+                setIsPayslipPreviewOpen(open);
+                if (!open) {
+                    setPayslipPdfUrl('');
+                    setGeneratedPdf(null);
+                }
+            }}>
                 <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
                     <DialogHeader>
                         <DialogTitle>Payslip Preview</DialogTitle>
@@ -829,5 +840,7 @@ export default function SalaryReportPage() {
     );
 }
 
+
+    
 
     
