@@ -238,33 +238,32 @@ export default function SalaryReportPage() {
 
             const yearNum = parseInt(selectedYear, 10);
             const monthNum = parseInt(selectedMonth, 10) - 1;
-            const monthStartForCalc = startOfMonth(new Date(yearNum, monthNum));
-            const monthEndForCalc = endOfMonth(new Date(yearNum, monthNum));
             
             const attendance = await getAttendanceForMonth(selectedUserId, selectedYear, selectedMonth) || [];
-            const timesheetRecordsForMonth = getTimesheetForMonth(selectedUserId).filter(rec => {
-                const recDate = parseISO(rec.date);
-                return isWithinInterval(recDate, {start: monthStartForCalc, end: monthEndForCalc});
-            });
-            
+
             let payPeriodStart: Date, payPeriodEnd: Date;
             if (attendance.length > 0) {
                 const dates = attendance.map(rec => new Date(rec.date));
                 payPeriodStart = dates.reduce((min, d) => d < min ? d : min, dates[0]);
                 payPeriodEnd = dates.reduce((max, d) => d > max ? d : max, dates[0]);
             } else {
-                payPeriodStart = monthStartForCalc;
-                payPeriodEnd = monthEndForCalc;
+                payPeriodStart = startOfMonth(new Date(yearNum, monthNum));
+                payPeriodEnd = endOfMonth(new Date(yearNum, monthNum));
             }
-
+            
+            const timesheetRecordsForMonth = getTimesheetForMonth(selectedUserId).filter(rec => {
+                const recDate = parseISO(rec.date);
+                return isWithinInterval(recDate, {start: payPeriodStart, end: payPeriodEnd});
+            });
+            
             const userLeavesForMonth = leaveRequests.filter(req => 
                 req.userId === selectedUserId &&
                 req.status === 'approved' &&
                 req.date &&
-                isWithinInterval(parseISO(req.date), { start: monthStartForCalc, end: monthEndForCalc })
+                isWithinInterval(parseISO(req.date), { start: payPeriodStart, end: payPeriodEnd })
             );
 
-            const holidaysInMonth = holidays.filter(h => isWithinInterval(new Date(h.date), { start: monthStartForCalc, end: monthEndForCalc }));
+            const holidaysInMonth = holidays.filter(h => isWithinInterval(new Date(h.date), { start: payPeriodStart, end: payPeriodEnd }));
             
             const totalOTSeconds = attendance.reduce((total, record) => {
                 return total + parseDurationToSeconds(record.overtime);
@@ -282,7 +281,7 @@ export default function SalaryReportPage() {
             let totalWorkingDays = 0;
             let presentDays = 0;
 
-            const daysInPeriod = eachDayOfInterval({ start: monthStartForCalc, end: monthEndForCalc });
+            const daysInPeriod = eachDayOfInterval({ start: payPeriodStart, end: payPeriodEnd });
             daysInPeriod.forEach(currentDate => {
                 const isSunday = currentDate.getDay() === 0;
                 const holidayInfo = holidaysInMonth.find(h => isSameDay(new Date(h.date), currentDate));
@@ -319,8 +318,10 @@ export default function SalaryReportPage() {
             }, 0);
             
             let noLeaveBonusAmount = 0;
-            if (leaveDays <= 2 && user.joiningDate && (settings?.noLeaveBonusOneYearOrMore || settings?.noLeaveBonusLessThanOneYear)) {
-                const yearsOfService = differenceInYears(monthEndForCalc, parseISO(user.joiningDate));
+            const nonShortLeaveDaysCount = userLeavesForMonth.filter(l => l.leaveType !== 'short-leave').length;
+
+            if (nonShortLeaveDaysCount <= 2 && user.joiningDate && (settings?.noLeaveBonusOneYearOrMore || settings?.noLeaveBonusLessThanOneYear)) {
+                const yearsOfService = differenceInYears(payPeriodEnd, parseISO(user.joiningDate));
                 if (yearsOfService >= 1) {
                     noLeaveBonusAmount = settings.noLeaveBonusOneYearOrMore || 0;
                 } else {
@@ -345,7 +346,7 @@ export default function SalaryReportPage() {
 
             const generatedReport: SalaryReport = {
                 user,
-                payPeriod: format(monthStartForCalc, 'MMMM yyyy'),
+                payPeriod: format(payPeriodStart, 'MMMM yyyy'),
                 payPeriodStart: format(payPeriodStart, 'PPP'),
                 payPeriodEnd: format(payPeriodEnd, 'PPP'),
                 baseSalary,
@@ -659,11 +660,7 @@ export default function SalaryReportPage() {
                                 </Table>
                             </div>
                         </div>
-                        
-                    </CardContent>
-                    
-                    <CardFooter className="flex-col items-start gap-6 p-6">
-                        <div className="w-full space-y-4">
+                         <div className="w-full space-y-4 pt-8">
                             <h3 className="font-semibold text-lg flex items-center"><Landmark className="mr-2 h-5 w-5 text-primary"/>Company Contributions (Informational)</h3>
                              <Table>
                                 <TableBody>
@@ -678,6 +675,9 @@ export default function SalaryReportPage() {
                                 </TableBody>
                             </Table>
                         </div>
+                    </CardContent>
+                    
+                    <CardFooter className="flex-col items-start gap-6 p-6">
                         <div className="w-full bg-primary/10 p-6 rounded-lg flex justify-between items-center">
                             <span className="text-xl font-bold text-primary">Net Salary Payable</span>
                             <span className="text-2xl font-bold text-primary">{formatCurrency(report.netSalary)}</span>
