@@ -149,7 +149,7 @@ export default function SalaryReportPage() {
             );
 
             const holidaysInMonth = holidays.filter(h => isWithinInterval(new Date(h.date), { start: monthStartForCalc, end: monthEndForCalc }));
-
+            
             const totalOTSeconds = attendance.reduce((total, record) => {
                 return total + parseDurationToSeconds(record.overtime);
             }, 0);
@@ -209,9 +209,12 @@ export default function SalaryReportPage() {
             const allowedLeaves = totalWorkingDays - leaveDays;
             
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
-            const unpaidLeaveDeduction = absentDays * perDaySalary;
+            const unpaidLeaveDeduction = Math.round((absentDays * perDaySalary) / 10) * 10;
             
             const totalEarnings = baseSalary + conveyanceAllowance + otAmount + specialWorkingDayAmount;
+
+            const totalDeductions = unpaidLeaveDeduction;
+            const netSalary = totalEarnings - totalDeductions;
 
             const generatedReport: SalaryReport = {
                 user,
@@ -224,8 +227,8 @@ export default function SalaryReportPage() {
                 specialWorkingDayAmount,
                 totalEarnings,
                 unpaidLeaveDeduction,
-                totalDeductions: unpaidLeaveDeduction,
-                netSalary: totalEarnings - unpaidLeaveDeduction,
+                totalDeductions,
+                netSalary: netSalary,
                 totalWorkingDays,
                 presentDays,
                 allowedLeaves,
@@ -461,3 +464,4 @@ export default function SalaryReportPage() {
         </div>
     );
 }
+
