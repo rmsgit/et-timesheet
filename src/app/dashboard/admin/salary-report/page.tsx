@@ -385,6 +385,8 @@ export default function SalaryReportPage() {
                         <div className="space-y-4">
                             <h3 className="font-semibold text-lg flex items-center"><MinusCircle className="mr-2 h-5 w-5 text-red-600"/>Deductions</h3>
                              <Table>
+                                <TableBody>
+                                </TableBody>
                                 <TableFooter>
                                     <TableRow className="bg-muted/50">
                                         <TableHead>Total Deductions</TableHead>
