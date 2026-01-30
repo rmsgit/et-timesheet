@@ -11,13 +11,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save, Banknote, Landmark, RefreshCw } from 'lucide-react';
+import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save, Banknote, Landmark, RefreshCw, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, differenceInYears } from 'date-fns';
 import { usePaysheet } from '@/hooks/usePaysheet';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { Input } from '@/components/ui/input';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { useLoader } from '@/hooks/useLoader';
 
 const parseDurationToSeconds = (duration: string): number => {
     if (!duration || typeof duration !== 'string' || duration === '-') return 0;
@@ -90,6 +93,7 @@ export default function SalaryReportPage() {
     const { settings, isLoading: isSettingsLoading } = useGlobalSettings();
     const { savePaysheet, paysheets, isLoading: isPaysheetsLoading } = usePaysheet();
     const { toast } = useToast();
+    const { showLoader, hideLoader } = useLoader();
 
     const mainLoadingState = isUsersLoading || isLeaveLoading || isHolidaysLoading || isSettingsLoading || isPaysheetsLoading;
 
@@ -429,6 +433,59 @@ export default function SalaryReportPage() {
         setIsSaved(true); // After saving, the currently viewed report is now a "saved" one
     };
 
+    const handleSendPayslip = async () => {
+        if (!report) {
+          toast({ title: 'No Report', description: 'Please generate a report first.', variant: 'destructive' });
+          return;
+        }
+        if (!report.user.personalEmail) {
+          toast({ title: 'Missing Email', description: "This user doesn't have a personal email configured.", variant: 'destructive' });
+          return;
+        }
+    
+        const payslipElement = document.getElementById('payslip-card');
+        if (!payslipElement) {
+            toast({ title: 'Error', description: 'Could not find payslip content to export.', variant: 'destructive' });
+            return;
+        }
+    
+        showLoader('pdf-generation', 'Generating PDF...');
+        try {
+            const canvas = await html2canvas(payslipElement);
+            const imgData = canvas.toDataURL('image/png');
+            
+            const pdf = new jsPDF({
+                orientation: 'p',
+                unit: 'px',
+                format: 'a4'
+            });
+    
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+            const imgX = (pdfWidth - imgWidth * ratio) / 2;
+            const imgY = 15;
+    
+            pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+            
+            pdf.save(`payslip_${report.user.username}_${report.year}-${report.month}.pdf`);
+    
+            toast({
+                title: 'Payslip PDF Downloaded',
+                description: `The payslip for ${report.user.username} has been downloaded. Please attach it to an email to send it to ${report.user.personalEmail}.`,
+                duration: 8000,
+            });
+    
+        } catch (error) {
+            console.error("Error generating PDF:", error);
+            toast({ title: 'PDF Generation Failed', description: 'Could not generate the payslip PDF.', variant: 'destructive' });
+        } finally {
+            hideLoader('pdf-generation');
+        }
+    };
+
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('si-LK', { style: 'currency', currency: 'LKR' }).format(amount);
     }
@@ -499,7 +556,7 @@ export default function SalaryReportPage() {
             )}
 
             {report && !isLoadingReport && (
-                <Card className="shadow-lg">
+                <Card id="payslip-card" className="shadow-lg">
                     <CardHeader>
                         <div className="flex justify-between items-start">
                             <div>
@@ -523,6 +580,10 @@ export default function SalaryReportPage() {
                                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                     Save Paysheet
                                 </Button>
+                                <Button onClick={handleSendPayslip} variant="secondary" disabled={isSaving || mainLoadingState || !report?.user?.personalEmail} title={!report?.user?.personalEmail ? "User has no personal email set" : "Download payslip as PDF"}>
+                                    <Mail className="mr-2 h-4 w-4" />
+                                    Send Payslip
+                                </Button>
                             </div>
                         </div>
                          <div className="space-y-4 pt-4">
@@ -531,8 +592,8 @@ export default function SalaryReportPage() {
                                <TableHeader>
                                  <TableRow>
                                    <TableHead>Total Working Days</TableHead>
-                                   <TableHead>Leave Taken</TableHead>
                                    <TableHead>Present</TableHead>
+                                   <TableHead>Leave Taken</TableHead>
                                    <TableHead>Balance leave</TableHead>
                                    <TableHead>Total OT</TableHead>
                                  </TableRow>
@@ -540,8 +601,8 @@ export default function SalaryReportPage() {
                                 <TableBody>
                                     <TableRow>
                                         <TableCell>{report.totalWorkingDays}</TableCell>
-                                        <TableCell>{report.leaveDays}</TableCell>
                                         <TableCell>{report.presentDays}</TableCell>
+                                        <TableCell>{report.leaveDays}</TableCell>
                                         <TableCell>{report.allowedLeaves}</TableCell>
                                         <TableCell>{report.totalOTHours}</TableCell>
                                     </TableRow>
@@ -660,7 +721,11 @@ export default function SalaryReportPage() {
                                 </Table>
                             </div>
                         </div>
-                         <div className="w-full space-y-4 pt-8">
+                         
+                    </CardContent>
+                    
+                    <CardFooter className="flex-col items-start gap-6 p-6">
+                        <div className="w-full space-y-4">
                             <h3 className="font-semibold text-lg flex items-center"><Landmark className="mr-2 h-5 w-5 text-primary"/>Company Contributions (Informational)</h3>
                              <Table>
                                 <TableBody>
@@ -675,9 +740,6 @@ export default function SalaryReportPage() {
                                 </TableBody>
                             </Table>
                         </div>
-                    </CardContent>
-                    
-                    <CardFooter className="flex-col items-start gap-6 p-6">
                         <div className="w-full bg-primary/10 p-6 rounded-lg flex justify-between items-center">
                             <span className="text-xl font-bold text-primary">Net Salary Payable</span>
                             <span className="text-2xl font-bold text-primary">{formatCurrency(report.netSalary)}</span>
