@@ -208,7 +208,7 @@ export default function SalaryReportPage() {
             const allowedLeaves = totalWorkingDays - leaveDays;
             
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
-            const unpaidLeaveDeduction = absentDays * perDaySalary;
+            const unpaidLeaveDeduction = Math.round((absentDays * perDaySalary) / 10) * 10;
             
             const totalEarnings = baseSalary + conveyanceAllowance + otAmount + specialWorkingDayAmount;
 
