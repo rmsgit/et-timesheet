@@ -531,17 +531,17 @@ export default function SalaryReportPage() {
                                <TableHeader>
                                  <TableRow>
                                    <TableHead>Total Working Days</TableHead>
-                                   <TableHead>Present</TableHead>
                                    <TableHead>Leave Taken</TableHead>
-                                   <TableHead>Allowed Leaves</TableHead>
+                                   <TableHead>Present</TableHead>
+                                   <TableHead>Balance leave</TableHead>
                                    <TableHead>Total OT</TableHead>
                                  </TableRow>
                                </TableHeader>
                                 <TableBody>
                                     <TableRow>
                                         <TableCell>{report.totalWorkingDays}</TableCell>
-                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.leaveDays}</TableCell>
+                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.allowedLeaves}</TableCell>
                                         <TableCell>{report.totalOTHours}</TableCell>
                                     </TableRow>
