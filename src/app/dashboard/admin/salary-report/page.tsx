@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -567,6 +566,23 @@ export default function SalaryReportPage() {
                     </CardContent>
                     <CardContent>
                         <div className="space-y-4">
+                            <h3 className="font-semibold text-lg flex items-center"><Landmark className="mr-2 h-5 w-5 text-primary"/>Company Contributions (Informational)</h3>
+                             <Table>
+                                <TableBody>
+                                    <TableRow>
+                                        <TableCell>Company EPF Contribution (12%)</TableCell>
+                                        <TableCell className="text-right font-medium">{formatCurrency(report.companyEpfContribution)}</TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell>Company ETF Contribution (3%)</TableCell>
+                                        <TableCell className="text-right font-medium">{formatCurrency(report.companyEtfContribution)}</TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                    <CardContent>
+                        <div className="space-y-4">
                             <h3 className="font-semibold text-lg flex items-center"><NotebookText className="mr-2 h-5 w-5 text-primary"/>Attendance Summary</h3>
                              <Table>
                                <TableHeader>
@@ -585,23 +601,6 @@ export default function SalaryReportPage() {
                                         <TableCell>{report.leaveDays}</TableCell>
                                         <TableCell>{report.allowedLeaves}</TableCell>
                                         <TableCell>{report.totalOTHours}</TableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </CardContent>
-                    <CardContent>
-                        <div className="space-y-4">
-                            <h3 className="font-semibold text-lg flex items-center"><Landmark className="mr-2 h-5 w-5 text-primary"/>Company Contributions (Informational)</h3>
-                             <Table>
-                                <TableBody>
-                                    <TableRow>
-                                        <TableCell>Company EPF Contribution (12%)</TableCell>
-                                        <TableCell className="text-right font-medium">{formatCurrency(report.companyEpfContribution)}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell>Company ETF Contribution (3%)</TableCell>
-                                        <TableCell className="text-right font-medium">{formatCurrency(report.companyEtfContribution)}</TableCell>
                                     </TableRow>
                                 </TableBody>
                             </Table>
