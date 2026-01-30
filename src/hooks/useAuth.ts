@@ -17,6 +17,7 @@ export const useAuth = () => {
       logout: async () => { console.error("AuthContext not available for logout"); },
       isAuthenticated: false,
       isAdmin: false,
+      isSuperAdmin: false,
       isEditor: false,
       isAuthLoading: true, // Assume loading if context is missing, to prevent premature redirects
     };

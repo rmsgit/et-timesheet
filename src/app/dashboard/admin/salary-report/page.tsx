@@ -3,6 +3,8 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { useAttendance } from '@/hooks/useAttendance';
 import { useLeave } from '@/hooks/useLeave';
@@ -81,6 +83,9 @@ interface SalaryReport {
 }
 
 export default function SalaryReportPage() {
+    const { isSuperAdmin, isAuthLoading } = useAuth();
+    const router = useRouter();
+
     const [selectedUserId, setSelectedUserId] = useState<string | undefined>();
     const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
     const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() + 1).toString().padStart(2, '0'));
@@ -106,6 +111,13 @@ export default function SalaryReportPage() {
     const { showLoader, hideLoader } = useLoader();
 
     const mainLoadingState = isUsersLoading || isLeaveLoading || isHolidaysLoading || isSettingsLoading || isPaysheetsLoading;
+
+    useEffect(() => {
+        if (isAuthLoading) return;
+        if (!isSuperAdmin) {
+            router.replace('/dashboard');
+        }
+    }, [isSuperAdmin, isAuthLoading, router]);
 
     const editorUsers = useMemo(() => {
         if (isUsersLoading || !users) return [];
@@ -465,8 +477,7 @@ export default function SalaryReportPage() {
                 useCORS: true,
                 ignoreElements: (element) => 
                     element.classList.contains('payslip-actions-container') ||
-                    element.tagName.toLowerCase() === 'input' ||
-                    element.tagName.toLowerCase() === 'svg'
+                    element.tagName.toLowerCase() === 'input'
             });
 
             const imgData = canvas.toDataURL('image/png');
@@ -582,6 +593,17 @@ export default function SalaryReportPage() {
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('si-LK', { style: 'currency', currency: 'LKR' }).format(amount);
+    }
+    
+    if (isAuthLoading || !isSuperAdmin) {
+      return (
+          <div className="flex h-full min-h-[calc(100vh-theme(spacing.16))] items-center justify-center p-8">
+              <div className="flex flex-col items-center space-y-4">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                  <p className="text-muted-foreground">Verifying payroll access...</p>
+              </div>
+          </div>
+      );
     }
 
     return (
@@ -935,6 +957,7 @@ export default function SalaryReportPage() {
     
 
     
+
 
 
 

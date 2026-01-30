@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useMockUsers } from '@/hooks/useMockUsers'; 
 import { useEditorLevels } from '@/hooks/useEditorLevels';
+import { useAuth } from '@/hooks/useAuth';
 import type { User, EditorLevel } from '@/lib/types';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,6 +59,7 @@ const jobDesignations = ["Team Leader", "Team Assist", "Editors"];
 export const UserManagementTable: React.FC = () => {
   const { users: allUsers, addUserProfileToRTDB, deleteUserProfileFromRTDB, isUsersLoading } = useMockUsers();
   const { editorLevels, isLoadingEditorLevels } = useEditorLevels();
+  const { user: currentUser } = useAuth();
   const { toast } = useToast();
 
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
@@ -773,8 +775,12 @@ export const UserManagementTable: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="editor">Editor</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="super admin">Super Admin</SelectItem>
+                  {currentUser?.role === 'super admin' && (
+                    <>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="super admin">Super Admin</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -969,15 +975,19 @@ export const UserManagementTable: React.FC = () => {
                                     editorLevelId: value === 'admin' || value === 'super admin' ? undefined : (prev.editorLevelId || (sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined))
                                 }));
                             }} 
-                            disabled={isSubmittingForm}
+                            disabled={isSubmittingForm || currentUser?.role !== 'super admin'}
                         >
                             <SelectTrigger>
                                 <SelectValue placeholder="Select role" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="editor">Editor</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
-                                <SelectItem value="super admin">Super Admin</SelectItem>
+                                {currentUser?.role === 'super admin' && (
+                                  <>
+                                    <SelectItem value="admin">Admin</SelectItem>
+                                    <SelectItem value="super admin">Super Admin</SelectItem>
+                                  </>
+                                )}
                             </SelectContent>
                         </Select>
                     </div>

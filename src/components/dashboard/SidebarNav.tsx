@@ -17,7 +17,7 @@ import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, Fold
 
 export function SidebarNav() {
   const pathname = usePathname();
-  const { isAdmin, isEditor } = useAuth();
+  const { isAdmin, isEditor, isSuperAdmin } = useAuth();
 
   const personalRoutes = [
     { href: '/dashboard', label: 'My Timesheet', icon: ListChecks },
@@ -88,29 +88,34 @@ export function SidebarNav() {
 
       {isAdmin && (
         <>
-          {Object.entries(adminRoutesByCategory).map(([category, routes]) => (
-            <SidebarGroup key={category}>
-              <SidebarGroupLabel>{category}</SidebarGroupLabel>
-              {routes.map((route) => (
-                <SidebarMenuItem key={route.href}>
-                  <Link href={route.href} passHref legacyBehavior>
-                    <SidebarMenuButton
-                      asChild
-                      variant="default"
-                      size="default"
-                      isActive={isActive(route.href)}
-                      tooltip={{ children: route.label, side: "right", align: "center" }}
-                    >
-                      <a>
-                        <route.icon />
-                        <span>{route.label}</span>
-                      </a>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-              ))}
-            </SidebarGroup>
-          ))}
+          {Object.entries(adminRoutesByCategory).map(([category, routes]) => {
+            if (category === "Payroll" && !isSuperAdmin) {
+              return null;
+            }
+            return (
+              <SidebarGroup key={category}>
+                <SidebarGroupLabel>{category}</SidebarGroupLabel>
+                {routes.map((route) => (
+                  <SidebarMenuItem key={route.href}>
+                    <Link href={route.href} passHref legacyBehavior>
+                      <SidebarMenuButton
+                        asChild
+                        variant="default"
+                        size="default"
+                        isActive={isActive(route.href)}
+                        tooltip={{ children: route.label, side: "right", align: "center" }}
+                      >
+                        <a>
+                          <route.icon />
+                          <span>{route.label}</span>
+                        </a>
+                      </SidebarMenuButton>
+                    </Link>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarGroup>
+            );
+          })}
         </>
       )}
       

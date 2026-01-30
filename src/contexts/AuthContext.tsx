@@ -17,6 +17,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   isEditor: boolean;
   isAuthLoading: boolean;
 }
@@ -239,13 +240,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const isAuthenticated = !!userState && !isAuthLoading;
   const isAdmin = isAuthenticated && (userState?.role === 'admin' || userState?.role === 'super admin');
+  const isSuperAdmin = isAuthenticated && userState?.role === 'super admin';
   const isEditor = isAuthenticated && userState?.role === 'editor';
 
   // Log final context values provided
   // console.log("AuthContext: Providing context values:", { user: userState, isAuthenticated, isAdmin, isEditor, isAuthLoading });
 
   return (
-    <AuthContext.Provider value={{ user: userState, login, logout, isAuthenticated, isAdmin, isEditor, isAuthLoading }}>
+    <AuthContext.Provider value={{ user: userState, login, logout, isAuthenticated, isAdmin, isSuperAdmin, isEditor, isAuthLoading }}>
       {children}
     </AuthContext.Provider>
   );
