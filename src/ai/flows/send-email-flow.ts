@@ -10,7 +10,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import * as nodemailer from 'nodemailer';
 
-export const SendEmailInputSchema = z.object({
+const SendEmailInputSchema = z.object({
   to: z.string().email().describe("The recipient's email address."),
   subject: z.string().describe('The subject of the email.'),
   text: z.string().describe('The plain text body of the email.'),
