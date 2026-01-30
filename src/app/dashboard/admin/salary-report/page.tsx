@@ -267,7 +267,7 @@ export default function SalaryReportPage() {
             const absentDays = totalWorkingDays - presentDays - leaveDays;
             
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
-            const noPayLeaveDeduction = Math.round(((absentDays > 0 ? absentDays : 0) * perDaySalary));
+            const noPayLeaveDeduction = Math.round(((absentDays > 0 ? absentDays : 0) * perDaySalary) / 10) * 10;
             const epfDeduction = (baseSalary * epfRate) / 100;
             
             const companyEpfContribution = baseSalary * 0.12;
@@ -363,7 +363,7 @@ export default function SalaryReportPage() {
     };
 
     const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+        return new Intl.NumberFormat('si-LK', { style: 'currency', currency: 'LKR' }).format(amount);
     }
 
     return (
@@ -441,10 +441,7 @@ export default function SalaryReportPage() {
                                     <div className="flex items-center gap-4 mt-2">
                                         <span className="flex items-center"><UserIcon className="mr-2 h-4 w-4 text-muted-foreground" />{report.user.username}</span>
                                         <span className="flex items-center"><Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />{report.user.jobDesignation || 'N/A'}</span>
-                                    </div>
-                                    <div className="flex items-center text-sm text-muted-foreground mt-2 gap-2">
-                                        <CalendarDays className="h-4 w-4" />
-                                        <span>Pay Period: {report.payPeriodStart} to {report.payPeriodEnd}</span>
+                                        <span className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />Pay Period: {report.payPeriodStart} to {report.payPeriodEnd}</span>
                                     </div>
                                 </CardDescription>
                             </div>
@@ -453,9 +450,7 @@ export default function SalaryReportPage() {
                                 Save Paysheet
                             </Button>
                         </div>
-                    </CardHeader>
-                    <CardContent className="space-y-8 p-6">
-                         <div className="space-y-4">
+                         <div className="space-y-4 pt-4">
                             <h3 className="font-semibold text-lg flex items-center"><NotebookText className="mr-2 h-5 w-5 text-primary"/>Attendance Summary</h3>
                              <Table>
                                <TableHeader>
@@ -478,7 +473,8 @@ export default function SalaryReportPage() {
                                 </TableBody>
                             </Table>
                         </div>
-
+                    </CardHeader>
+                    <CardContent className="space-y-8 p-6">
                         <div className="grid md:grid-cols-2 gap-8">
                             <div className="space-y-4">
                                 <h3 className="font-semibold text-lg flex items-center"><PlusCircle className="mr-2 h-5 w-5 text-green-600"/>Earnings</h3>
