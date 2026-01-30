@@ -20,51 +20,61 @@ const SendEmailInputSchema = z.object({
 export type SendEmailInput = z.infer<typeof SendEmailInputSchema>;
 
 export async function sendEmail(input: SendEmailInput): Promise<{ success: boolean; message: string }> {
-    const validationResult = SendEmailInputSchema.safeParse(input);
-    if (!validationResult.success) {
-        console.error('Invalid input for sendEmail:', validationResult.error.flatten());
-        return { success: false, message: 'Invalid input provided for sending email.' };
-    }
-    
-    const { to, subject, text, pdfBase64, pdfFileName } = validationResult.data;
-
-    const smtpUser = process.env.GMAIL_SMTP_USER;
-    const smtpPass = process.env.GMAIL_SMTP_PASS;
-
-    if (!smtpUser || !smtpPass || smtpUser === 'your-gmail-address@gmail.com') {
-      console.error('Email sending failed: GMAIL_SMTP_USER or GMAIL_SMTP_PASS environment variables are not set correctly.');
-      return { success: false, message: 'Server is not configured for sending emails. Please contact an administrator.' };
-    }
-
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-    });
-
-    const mailOptions = {
-      from: `"Editors Table" <${smtpUser}>`,
-      to: to,
-      subject: subject,
-      text: text,
-      attachments: [
-        {
-          filename: pdfFileName,
-          content: pdfBase64,
-          encoding: 'base64',
-          contentType: 'application/pdf',
-        },
-      ],
-    };
-
     try {
-      await transporter.sendMail(mailOptions);
-      console.log(`Email sent successfully to ${to}`);
-      return { success: true, message: `Email sent successfully to ${to}` };
-    } catch (error) {
-      console.error('Error sending email with Nodemailer:', error);
-      return { success: false, message: 'Failed to send email. Check server logs for details.' };
+        const validationResult = SendEmailInputSchema.safeParse(input);
+        if (!validationResult.success) {
+            console.error('Invalid input for sendEmail:', validationResult.error.flatten());
+            return { success: false, message: 'Invalid input provided for sending email.' };
+        }
+        
+        const { to, subject, text, pdfBase64, pdfFileName } = validationResult.data;
+
+        const smtpUser = process.env.GMAIL_SMTP_USER;
+        const smtpPass = process.env.GMAIL_SMTP_PASS;
+
+        if (!smtpUser || !smtpPass || smtpUser === 'your-gmail-address@gmail.com') {
+          console.error('Email sending failed: GMAIL_SMTP_USER or GMAIL_SMTP_PASS environment variables are not set correctly.');
+          return { success: false, message: 'Server is not configured for sending emails. Please contact an administrator.' };
+        }
+
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: smtpUser,
+            pass: smtpPass,
+          },
+        });
+
+        const mailOptions = {
+          from: `"Editors Table" <${smtpUser}>`,
+          to: to,
+          subject: subject,
+          text: text,
+          attachments: [
+            {
+              filename: pdfFileName,
+              content: pdfBase64,
+              encoding: 'base64',
+              contentType: 'application/pdf',
+            },
+          ],
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`Email sent successfully to ${to}`);
+        return { success: true, message: `Email sent successfully to ${to}` };
+
+    } catch (error: any) {
+      console.error('Error in sendEmail server action:', error);
+      let errorMessage = 'Failed to send email. Check server logs for details.';
+      if (error && typeof error.message === 'string') {
+        // More specific nodemailer errors can be caught here if needed
+        if (error.code === 'EAUTH') {
+            errorMessage = 'Authentication failed. Please check your GMAIL_SMTP_USER and GMAIL_SMTP_PASS in the .env file. You may need to use a Google App Password.';
+        } else {
+            errorMessage = error.message;
+        }
+      }
+      return { success: false, message: errorMessage };
     }
 }
