@@ -1,13 +1,12 @@
 'use server';
 /**
- * @fileOverview An email sending agent using Nodemailer.
+ * @fileOverview An email sending utility using Nodemailer.
  *
  * - sendEmail - A function that handles sending an email with a PDF attachment.
  * - SendEmailInput - The input type for the sendEmail function.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import * as nodemailer from 'nodemailer';
 
 const SendEmailInputSchema = z.object({
@@ -17,20 +16,17 @@ const SendEmailInputSchema = z.object({
   pdfBase64: z.string().describe('The PDF content as a Base64 encoded string.'),
   pdfFileName: z.string().describe('The desired file name for the PDF attachment.'),
 });
+
 export type SendEmailInput = z.infer<typeof SendEmailInputSchema>;
 
 export async function sendEmail(input: SendEmailInput): Promise<{ success: boolean; message: string }> {
-  return sendEmailFlow(input);
-}
-
-const sendEmailFlow = ai.defineFlow(
-  {
-    name: 'sendEmailFlow',
-    inputSchema: SendEmailInputSchema,
-    outputSchema: z.object({ success: z.boolean(), message: z.string() }),
-  },
-  async (input) => {
-    const { to, subject, text, pdfBase64, pdfFileName } = input;
+    const validationResult = SendEmailInputSchema.safeParse(input);
+    if (!validationResult.success) {
+        console.error('Invalid input for sendEmail:', validationResult.error.flatten());
+        return { success: false, message: 'Invalid input provided for sending email.' };
+    }
+    
+    const { to, subject, text, pdfBase64, pdfFileName } = validationResult.data;
 
     const smtpUser = process.env.GMAIL_SMTP_USER;
     const smtpPass = process.env.GMAIL_SMTP_PASS;
@@ -71,5 +67,4 @@ const sendEmailFlow = ai.defineFlow(
       console.error('Error sending email with Nodemailer:', error);
       return { success: false, message: 'Failed to send email. Check server logs for details.' };
     }
-  }
-);
+}
