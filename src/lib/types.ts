@@ -114,6 +114,7 @@ export interface Paysheet {
   conveyanceAllowance: number;
   otAmount?: number;
   specialWorkingDayAmount?: number;
+  noLeaveBonusAmount?: number;
   totalEarnings: number;
   unpaidLeaveDeduction: number;
   totalDeductions: number;

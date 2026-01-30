@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -11,10 +12,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays } from 'lucide-react';
+import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval } from 'date-fns';
+import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, differenceInYears } from 'date-fns';
 import { usePaysheet } from '@/hooks/usePaysheet';
 import { useTimesheet } from '@/hooks/useTimesheet';
 
@@ -51,6 +52,7 @@ interface SalaryReport {
   conveyanceAllowance: number;
   otAmount: number;
   specialWorkingDayAmount: number;
+  noLeaveBonusAmount: number;
   totalEarnings: number;
   unpaidLeaveDeduction: number;
   totalDeductions: number;
@@ -201,13 +203,23 @@ export default function SalaryReportPage() {
                 return total;
             }, 0);
             
+            let noLeaveBonusAmount = 0;
+            if (leaveDays === 0 && user.joiningDate && (settings?.noLeaveBonusOneYearOrMore || settings?.noLeaveBonusLessThanOneYear)) {
+                const yearsOfService = differenceInYears(monthEndForCalc, parseISO(user.joiningDate));
+                if (yearsOfService >= 1) {
+                    noLeaveBonusAmount = settings.noLeaveBonusOneYearOrMore || 0;
+                } else {
+                    noLeaveBonusAmount = settings.noLeaveBonusLessThanOneYear || 0;
+                }
+            }
+
             const allowedLeaves = totalWorkingDays - leaveDays;
             const absentDays = totalWorkingDays - presentDays - leaveDays;
             
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
-            const unpaidLeaveDeduction = Math.round((absentDays * perDaySalary) / 10) * 10;
+            const unpaidLeaveDeduction = Math.round(((absentDays > 0 ? absentDays : 0) * perDaySalary) / 10) * 10;
             
-            const totalEarnings = baseSalary + conveyanceAllowance + otAmount + specialWorkingDayAmount;
+            const totalEarnings = baseSalary + conveyanceAllowance + otAmount + specialWorkingDayAmount + noLeaveBonusAmount;
 
             const totalDeductions = unpaidLeaveDeduction;
             const netSalary = totalEarnings - totalDeductions;
@@ -221,6 +233,7 @@ export default function SalaryReportPage() {
                 conveyanceAllowance,
                 otAmount,
                 specialWorkingDayAmount,
+                noLeaveBonusAmount,
                 totalEarnings,
                 unpaidLeaveDeduction,
                 totalDeductions,
@@ -245,6 +258,7 @@ export default function SalaryReportPage() {
                 conveyanceAllowance: generatedReport.conveyanceAllowance,
                 otAmount: generatedReport.otAmount,
                 specialWorkingDayAmount: generatedReport.specialWorkingDayAmount,
+                noLeaveBonusAmount: generatedReport.noLeaveBonusAmount,
                 totalEarnings: generatedReport.totalEarnings,
                 unpaidLeaveDeduction: generatedReport.unpaidLeaveDeduction,
                 totalDeductions: generatedReport.totalDeductions,
@@ -373,6 +387,12 @@ export default function SalaryReportPage() {
                                         <TableCell>Special Working Day Amount ({report.presentOnSpecialWorkingDays} days)</TableCell>
                                         <TableCell className="text-right font-medium">{formatCurrency(report.specialWorkingDayAmount)}</TableCell>
                                     </TableRow>
+                                    {report.noLeaveBonusAmount > 0 && (
+                                        <TableRow>
+                                            <TableCell className="flex items-center"><Award className="mr-2 h-4 w-4 text-yellow-500" />No-Leave Bonus</TableCell>
+                                            <TableCell className="text-right font-medium">{formatCurrency(report.noLeaveBonusAmount)}</TableCell>
+                                        </TableRow>
+                                    )}
                                 </TableBody>
                                 <TableFooter>
                                     <TableRow className="bg-muted/50">
@@ -386,6 +406,10 @@ export default function SalaryReportPage() {
                             <h3 className="font-semibold text-lg flex items-center"><MinusCircle className="mr-2 h-5 w-5 text-red-600"/>Deductions</h3>
                              <Table>
                                 <TableBody>
+                                    <TableRow>
+                                        <TableCell>Unpaid Leave Deduction ({Math.max(0, report.totalWorkingDays - report.presentDays - report.leaveDays)} days)</TableCell>
+                                        <TableCell className="text-right font-medium">{formatCurrency(report.unpaidLeaveDeduction)}</TableCell>
+                                    </TableRow>
                                 </TableBody>
                                 <TableFooter>
                                     <TableRow className="bg-muted/50">
