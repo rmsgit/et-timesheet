@@ -467,7 +467,8 @@ export default function SalaryReportPage() {
                 useCORS: true,
                 ignoreElements: (element) => 
                     element.classList.contains('payslip-actions-container') ||
-                    element.tagName.toLowerCase() === 'svg'
+                    element.tagName.toLowerCase() === 'svg' ||
+                    element.tagName.toLowerCase() === 'input'
             });
 
             const imgData = canvas.toDataURL('image/png');
@@ -487,7 +488,6 @@ export default function SalaryReportPage() {
             const imgY = 15;
     
             pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-            
             setGeneratedPdf(pdf);
             
             const pdfBlob = pdf.output('blob');
@@ -503,16 +503,33 @@ export default function SalaryReportPage() {
         }
     };
 
-    const handleDownloadAndClose = () => {
-        if (generatedPdf && report) {
+    const handlePrepareEmail = () => {
+        if (generatedPdf && report && report.user.personalEmail) {
+            // 1. Download the PDF
             generatedPdf.save(`payslip_${report.user.username}_${selectedYear}-${selectedMonth}.pdf`);
+            
             toast({
                 title: 'Payslip PDF Downloaded',
-                description: `The payslip for ${report.user.username} has been downloaded.`,
+                description: `Your email client will open shortly. Please attach the downloaded file.`,
                 duration: 8000,
             });
+
+            // 2. Open mailto link after a short delay
+            setTimeout(() => {
+                const subject = `Payslip for ${report.payPeriod}`;
+                const body = `Hi ${report.user.username},\n\nPlease find your payslip for ${report.payPeriod} attached.\n\nBest regards,\nAdmin Team`;
+                const mailtoLink = `mailto:${report.user.personalEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                
+                window.location.href = mailtoLink;
+            }, 1500);
+
+        } else {
+             toast({
+                title: 'Cannot Prepare Email',
+                description: 'Could not prepare the email. The PDF might not have been generated or the user is missing a personal email address.',
+                variant: 'destructive',
+            });
         }
-        setIsPayslipPreviewOpen(false);
     };
 
 
@@ -616,14 +633,14 @@ export default function SalaryReportPage() {
                                 </Button>
                             </div>
                         </div>
-                         <div className="space-y-4 pt-4">
+                        <div className="space-y-4 pt-4">
                             <h3 className="font-semibold text-lg flex items-center"><NotebookText className="mr-2 h-5 w-5 text-primary inline-block align-middle"/>Attendance Summary</h3>
                              <Table>
                                <TableHeader>
                                  <TableRow>
                                    <TableHead>Total Working Days</TableHead>
-                                   <TableHead>Present</TableHead>
                                    <TableHead>Leave Taken</TableHead>
+                                   <TableHead>Present</TableHead>
                                    <TableHead>Balance leave</TableHead>
                                    <TableHead>Total OT</TableHead>
                                  </TableRow>
@@ -631,8 +648,8 @@ export default function SalaryReportPage() {
                                 <TableBody>
                                     <TableRow>
                                         <TableCell>{report.totalWorkingDays}</TableCell>
-                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.leaveDays}</TableCell>
+                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.allowedLeaves}</TableCell>
                                         <TableCell>{report.totalOTHours}</TableCell>
                                     </TableRow>
@@ -831,7 +848,7 @@ export default function SalaryReportPage() {
                     <DialogHeader>
                         <DialogTitle>Payslip Preview</DialogTitle>
                         <DialogDescription>
-                            Review the generated payslip. Click "Download & Close" to save the PDF, which you can then attach to an email.
+                           Review the payslip. Clicking "Prepare Email" will download the PDF and open your email client. You must manually attach the downloaded file to the email.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex-grow border rounded-md overflow-hidden bg-muted">
@@ -850,8 +867,8 @@ export default function SalaryReportPage() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsPayslipPreviewOpen(false)}>Cancel</Button>
-                        <Button onClick={handleDownloadAndClose} disabled={!generatedPdf}>
-                            <FileSpreadsheet className="mr-2 h-4 w-4" /> Download & Close
+                        <Button onClick={handlePrepareEmail} disabled={!generatedPdf || !report?.user.personalEmail}>
+                            <Mail className="mr-2 h-4 w-4" /> Prepare Email
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -867,3 +884,4 @@ export default function SalaryReportPage() {
     
 
     
+
