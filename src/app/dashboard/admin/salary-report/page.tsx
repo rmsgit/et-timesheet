@@ -187,13 +187,6 @@ export default function SalaryReportPage() {
             setIsSaved(false);
         }
     }, [selectedUserId, selectedYear, selectedMonth, paysheets, users, mainLoadingState, toast]);
-    
-    useEffect(() => {
-        if (payslipPdfUrl) {
-            setIsPayslipPreviewOpen(true);
-        }
-    }, [payslipPdfUrl]);
-
 
     const handleOtherPaymentChange = (amount: number) => {
         if (!report) return;
@@ -466,6 +459,9 @@ export default function SalaryReportPage() {
         setIsGeneratingPdf(true);
         
         try {
+            // Give browser a tick to render
+            await new Promise(resolve => setTimeout(resolve, 100));
+
             const canvas = await html2canvas(payslipElement, {
                 scale: 2,
                 useCORS: true,
@@ -491,7 +487,11 @@ export default function SalaryReportPage() {
             pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
             
             setGeneratedPdf(pdf);
-            setPayslipPdfUrl(pdf.output('datauristring'));
+            
+            const pdfBlob = pdf.output('blob');
+            const url = URL.createObjectURL(pdfBlob);
+            setPayslipPdfUrl(url);
+            setIsPayslipPreviewOpen(true);
     
         } catch (error) {
             console.error("Error generating PDF:", error);
@@ -614,14 +614,14 @@ export default function SalaryReportPage() {
                                 </Button>
                             </div>
                         </div>
-                        <div className="space-y-4 pt-4">
+                         <div className="space-y-4 pt-4">
                             <h3 className="font-semibold text-lg flex items-center"><NotebookText className="mr-2 h-5 w-5 text-primary inline-block align-middle"/>Attendance Summary</h3>
                              <Table>
                                <TableHeader>
                                  <TableRow>
                                    <TableHead>Total Working Days</TableHead>
-                                   <TableHead>Leave Taken</TableHead>
                                    <TableHead>Present</TableHead>
+                                   <TableHead>Leave Taken</TableHead>
                                    <TableHead>Balance leave</TableHead>
                                    <TableHead>Total OT</TableHead>
                                  </TableRow>
@@ -629,8 +629,8 @@ export default function SalaryReportPage() {
                                 <TableBody>
                                     <TableRow>
                                         <TableCell>{report.totalWorkingDays}</TableCell>
-                                        <TableCell>{report.leaveDays}</TableCell>
                                         <TableCell>{report.presentDays}</TableCell>
+                                        <TableCell>{report.leaveDays}</TableCell>
                                         <TableCell>{report.allowedLeaves}</TableCell>
                                         <TableCell>{report.totalOTHours}</TableCell>
                                     </TableRow>
@@ -802,6 +802,9 @@ export default function SalaryReportPage() {
             <Dialog open={isPayslipPreviewOpen} onOpenChange={(open) => {
                 setIsPayslipPreviewOpen(open);
                 if (!open) {
+                    if (payslipPdfUrl) {
+                        URL.revokeObjectURL(payslipPdfUrl);
+                    }
                     setPayslipPdfUrl('');
                     setGeneratedPdf(null);
                 }
@@ -840,6 +843,8 @@ export default function SalaryReportPage() {
     );
 }
 
+
+    
 
     
 
