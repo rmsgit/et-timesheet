@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -23,7 +24,7 @@ import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-type SortableKeys = keyof Pick<User, 'username' | 'baseSalary' | 'department' | 'jobDesignation' | 'conveyanceAllowance'>;
+type SortableKeys = keyof Pick<User, 'username' | 'baseSalary' | 'department' | 'jobDesignation' | 'conveyanceAllowance' | 'travelingAllowance'>;
 
 const departments = ["HR", "Admin", "Editors"];
 const jobDesignations = ["Team Leader", "Team Assist", "Editors"];
@@ -40,6 +41,7 @@ export const SalaryConfigurationTable: React.FC = () => {
     department: '',
     jobDesignation: '',
     conveyanceAllowance: '',
+    travelingAllowance: '',
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -97,6 +99,7 @@ export const SalaryConfigurationTable: React.FC = () => {
       department: user.department || '',
       jobDesignation: user.jobDesignation || '',
       conveyanceAllowance: user.conveyanceAllowance?.toString() || '',
+      travelingAllowance: user.travelingAllowance?.toString() || '',
     });
     setIsFormOpen(true);
   };
@@ -123,7 +126,8 @@ export const SalaryConfigurationTable: React.FC = () => {
       formState.baseSalary !== '' ? Number(formState.baseSalary) : undefined,
       formState.department,
       formState.jobDesignation,
-      formState.conveyanceAllowance !== '' ? Number(formState.conveyanceAllowance) : undefined
+      formState.conveyanceAllowance !== '' ? Number(formState.conveyanceAllowance) : undefined,
+      formState.travelingAllowance !== '' ? Number(formState.travelingAllowance) : undefined
     );
 
     if (result.success) {
@@ -164,6 +168,7 @@ export const SalaryConfigurationTable: React.FC = () => {
                   {renderSortableHeader('Department', 'department')}
                   {renderSortableHeader('Job Designation', 'jobDesignation')}
                   {renderSortableHeader('Conveyance Allowance', 'conveyanceAllowance')}
+                  {renderSortableHeader('Traveling Allowance', 'travelingAllowance')}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -186,6 +191,7 @@ export const SalaryConfigurationTable: React.FC = () => {
                     <TableCell>{user.department || 'N/A'}</TableCell>
                     <TableCell>{user.jobDesignation || 'N/A'}</TableCell>
                     <TableCell>{user.conveyanceAllowance ?? 'N/A'}</TableCell>
+                    <TableCell>{user.travelingAllowance ?? 'N/A'}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm" onClick={() => handleEdit(user)}>
                         <Edit className="mr-2 h-4 w-4" />
@@ -258,6 +264,10 @@ export const SalaryConfigurationTable: React.FC = () => {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="conveyanceAllowance" className="text-right">Conveyance</Label>
               <Input id="conveyanceAllowance" name="conveyanceAllowance" type="number" value={formState.conveyanceAllowance} onChange={handleFormChange} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="travelingAllowance" className="text-right">Traveling</Label>
+              <Input id="travelingAllowance" name="travelingAllowance" type="number" value={formState.travelingAllowance} onChange={handleFormChange} className="col-span-3" />
             </div>
           </div>
           <DialogFooter>

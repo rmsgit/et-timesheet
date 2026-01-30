@@ -17,6 +17,7 @@ export interface User {
   department?: string;
   jobDesignation?: string;
   conveyanceAllowance?: number;
+  travelingAllowance?: number;
   joiningDate?: string; // ISO string
 }
 
@@ -112,6 +113,7 @@ export interface Paysheet {
   month: string;
   baseSalary: number;
   conveyanceAllowance: number;
+  travelingAllowance: number;
   otAmount?: number;
   specialWorkingDayAmount?: number;
   noLeaveBonusAmount?: number;

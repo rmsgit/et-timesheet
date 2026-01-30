@@ -51,6 +51,7 @@ interface SalaryReport {
   payPeriodEnd: string;
   baseSalary: number;
   conveyanceAllowance: number;
+  travelingAllowance: number;
   otAmount: number;
   specialWorkingDayAmount: number;
   noLeaveBonusAmount: number;
@@ -165,6 +166,7 @@ export default function SalaryReportPage() {
 
             const baseSalary = user.baseSalary || 0;
             const conveyanceAllowance = user.conveyanceAllowance || 0;
+            const travelingAllowance = user.travelingAllowance || 0;
             const otRate = settings?.otRate || 0;
             const epfRate = settings?.epfRate || 0;
 
@@ -267,7 +269,7 @@ export default function SalaryReportPage() {
             const noPayLeaveDeduction = Math.round(((absentDays > 0 ? absentDays : 0) * perDaySalary) / 10) * 10;
             const epfDeduction = (baseSalary * epfRate) / 100;
             
-            const totalEarnings = baseSalary + conveyanceAllowance + otAmount + specialWorkingDayAmount + noLeaveBonusAmount;
+            const totalEarnings = baseSalary + conveyanceAllowance + travelingAllowance + otAmount + specialWorkingDayAmount + noLeaveBonusAmount;
 
             const totalDeductions = noPayLeaveDeduction + epfDeduction;
             const netSalary = totalEarnings - totalDeductions;
@@ -279,6 +281,7 @@ export default function SalaryReportPage() {
                 payPeriodEnd: format(payPeriodEnd, 'PPP'),
                 baseSalary,
                 conveyanceAllowance,
+                travelingAllowance,
                 otAmount,
                 specialWorkingDayAmount,
                 noLeaveBonusAmount,
@@ -325,6 +328,7 @@ export default function SalaryReportPage() {
             month: selectedMonth,
             baseSalary: report.baseSalary,
             conveyanceAllowance: report.conveyanceAllowance,
+            travelingAllowance: report.travelingAllowance,
             otAmount: report.otAmount,
             specialWorkingDayAmount: report.specialWorkingDayAmount,
             noLeaveBonusAmount: report.noLeaveBonusAmount,
@@ -454,6 +458,10 @@ export default function SalaryReportPage() {
                                     <TableRow>
                                         <TableCell>Conveyance Allowance</TableCell>
                                         <TableCell className="text-right font-medium">{formatCurrency(report.conveyanceAllowance)}</TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell>Traveling Allowance</TableCell>
+                                        <TableCell className="text-right font-medium">{formatCurrency(report.travelingAllowance)}</TableCell>
                                     </TableRow>
                                     <TableRow>
                                         <TableCell>OT Amount ({report.totalOTHours})</TableCell>

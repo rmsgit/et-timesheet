@@ -73,6 +73,7 @@ export const UserManagementTable: React.FC = () => {
   const [newUserDepartment, setNewUserDepartment] = useState('');
   const [newUserJobDesignation, setNewUserJobDesignation] = useState('');
   const [newUserConveyanceAllowance, setNewUserConveyanceAllowance] = useState<number | string>('');
+  const [newUserTravelingAllowance, setNewUserTravelingAllowance] = useState<number | string>('');
   const [newUserJoiningDate, setNewUserJoiningDate] = useState<Date | undefined>(undefined);
   
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
@@ -97,6 +98,7 @@ export const UserManagementTable: React.FC = () => {
     department?: string;
     jobDesignation?: string;
     conveyanceAllowance?: number;
+    travelingAllowance?: number;
     joiningDate?: Date;
   }>({
     username: '',
@@ -110,6 +112,7 @@ export const UserManagementTable: React.FC = () => {
     department: '',
     jobDesignation: '',
     conveyanceAllowance: undefined,
+    travelingAllowance: undefined,
     joiningDate: undefined,
   });
 
@@ -227,6 +230,7 @@ export const UserManagementTable: React.FC = () => {
     setNewUserDepartment('');
     setNewUserJobDesignation('');
     setNewUserConveyanceAllowance('');
+    setNewUserTravelingAllowance('');
     setNewUserJoiningDate(undefined);
     setIsAddUserDialogOpen(true);
   };
@@ -267,6 +271,7 @@ export const UserManagementTable: React.FC = () => {
         newUserDepartment,
         newUserJobDesignation,
         newUserConveyanceAllowance !== '' ? Number(newUserConveyanceAllowance) : undefined,
+        newUserTravelingAllowance !== '' ? Number(newUserTravelingAllowance) : undefined,
         newUserJoiningDate ? newUserJoiningDate.toISOString() : undefined
       );
 
@@ -413,6 +418,7 @@ export const UserManagementTable: React.FC = () => {
         department: user.department,
         jobDesignation: user.jobDesignation,
         conveyanceAllowance: user.conveyanceAllowance,
+        travelingAllowance: user.travelingAllowance,
         joiningDate: user.joiningDate ? new Date(user.joiningDate) : undefined,
     });
     setIsEditUserDialogOpen(true);
@@ -454,6 +460,7 @@ export const UserManagementTable: React.FC = () => {
         editUserFormState.department,
         editUserFormState.jobDesignation,
         editUserFormState.conveyanceAllowance,
+        editUserFormState.travelingAllowance,
         editUserFormState.joiningDate ? editUserFormState.joiningDate.toISOString() : undefined
     );
 
@@ -830,6 +837,10 @@ export const UserManagementTable: React.FC = () => {
                     <Label htmlFor="new-user-conveyance-allowance">Conveyance Allowance</Label>
                     <Input id="new-user-conveyance-allowance" type="number" value={newUserConveyanceAllowance} onChange={(e) => setNewUserConveyanceAllowance(e.target.value)} placeholder="e.g., 2000" disabled={isSubmittingForm} />
                 </div>
+                <div className="space-y-1.5">
+                    <Label htmlFor="new-user-traveling-allowance">Traveling Allowance</Label>
+                    <Input id="new-user-traveling-allowance" type="number" value={newUserTravelingAllowance} onChange={(e) => setNewUserTravelingAllowance(e.target.value)} placeholder="e.g., 1000" disabled={isSubmittingForm} />
+                </div>
                 <div className="flex items-center space-x-2 pt-2">
                     <Checkbox
                         id="new-user-morning-ot"
@@ -1028,6 +1039,10 @@ export const UserManagementTable: React.FC = () => {
                             <div className="space-y-1.5">
                                 <Label htmlFor="edit-conveyance-allowance">Conveyance Allowance</Label>
                                 <Input id="edit-conveyance-allowance" type="number" value={editUserFormState.conveyanceAllowance ?? ''} onChange={(e) => setEditUserFormState(prev => ({ ...prev, conveyanceAllowance: e.target.value === '' ? undefined : Number(e.target.value) }))} placeholder="e.g., 2000" disabled={isSubmittingForm} />
+                            </div>
+                             <div className="space-y-1.5">
+                                <Label htmlFor="edit-traveling-allowance">Traveling Allowance</Label>
+                                <Input id="edit-traveling-allowance" type="number" value={editUserFormState.travelingAllowance ?? ''} onChange={(e) => setEditUserFormState(prev => ({ ...prev, travelingAllowance: e.target.value === '' ? undefined : Number(e.target.value) }))} placeholder="e.g., 1000" disabled={isSubmittingForm} />
                             </div>
                             <div className="flex items-center space-x-2 pt-2">
                                 <Checkbox

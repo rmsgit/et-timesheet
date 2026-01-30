@@ -91,6 +91,7 @@ export const useMockUsers = () => {
     department?: string,
     jobDesignation?: string,
     conveyanceAllowance?: number,
+    travelingAllowance?: number,
     joiningDate?: string
   ): Promise<{ success: boolean, message?: string, user?: User }> => {
     if (!database) {
@@ -152,6 +153,7 @@ export const useMockUsers = () => {
       department: department ?? null,
       jobDesignation: jobDesignation ?? null,
       conveyanceAllowance: conveyanceAllowance ?? null,
+      travelingAllowance: travelingAllowance ?? null,
       joiningDate: joiningDate ?? null,
     };
 
