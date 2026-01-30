@@ -131,4 +131,6 @@ export interface Paysheet {
 export interface GlobalSettings {
   otRate: number; // rate per hour
   epfRate: number; // percentage
+  noLeaveBonusOneYearOrMore?: number;
+  noLeaveBonusLessThanOneYear?: number;
 }
