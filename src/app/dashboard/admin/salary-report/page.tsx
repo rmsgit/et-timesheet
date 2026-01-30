@@ -24,6 +24,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useLoader } from '@/hooks/useLoader';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { sendEmail } from '@/ai/flows/send-email-flow';
 
 const parseDurationToSeconds = (duration: string): number => {
     if (!duration || typeof duration !== 'string' || duration === '-') return 0;
@@ -92,6 +93,7 @@ export default function SalaryReportPage() {
     const [isPayslipPreviewOpen, setIsPayslipPreviewOpen] = useState(false);
     const [payslipPdfUrl, setPayslipPdfUrl] = useState<string>('');
     const [generatedPdf, setGeneratedPdf] = useState<jsPDF | null>(null);
+    const [isSendingEmail, setIsSendingEmail] = useState(false);
 
     const { users, isUsersLoading } = useMockUsers();
     const { getAttendanceForMonth } = useAttendance();
@@ -515,25 +517,65 @@ export default function SalaryReportPage() {
         }
     };
     
-    const handleOpenEmailClient = () => {
-        if (report && report.user.personalEmail) {
+    const handleSendEmailViaSmtp = async () => {
+        if (!report || !report.user.personalEmail) {
             toast({
-                title: 'Opening Email Client',
-                description: `Please remember to attach the downloaded payslip PDF.`,
-                duration: 8000,
-            });
-    
-            const subject = `Payslip for ${report.payPeriod}`;
-            const body = `Hi ${report.user.username},\n\nPlease find your payslip for ${report.payPeriod} attached.\n\nBest regards,\nAdmin Team`;
-            const mailtoLink = `mailto:${report.user.personalEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            
-            window.location.href = mailtoLink;
-        } else {
-             toast({
-                title: 'Cannot Open Email',
-                description: 'The user is missing a personal email address.',
+                title: 'Cannot Send Email',
+                description: 'The user is missing a personal email address or the report is not generated.',
                 variant: 'destructive',
             });
+            return;
+        }
+
+        if (!generatedPdf) {
+            toast({
+                title: 'PDF Not Ready',
+                description: 'The PDF has not been generated yet. Please wait a moment and try again.',
+                variant: 'destructive',
+            });
+            return;
+        }
+        
+        setIsSendingEmail(true);
+
+        try {
+            const pdfDataUri = generatedPdf.output('datauristring');
+            const pdfBase64 = pdfDataUri.substring(pdfDataUri.indexOf(',') + 1);
+            
+            const subject = `Payslip for ${report.payPeriod}`;
+            const body = `Hi ${report.user.username},\n\nPlease find your payslip for ${report.payPeriod} attached.\n\nBest regards,\nAdmin Team`;
+            const fileName = `payslip_${report.user.username}_${selectedYear}-${selectedMonth}.pdf`;
+
+            const result = await sendEmail({
+                to: report.user.personalEmail,
+                subject: subject,
+                text: body,
+                pdfBase64: pdfBase64,
+                pdfFileName: fileName,
+            });
+
+            if (result.success) {
+                toast({
+                    title: 'Email Sent',
+                    description: `The payslip has been sent to ${report.user.personalEmail}.`,
+                });
+                setIsPayslipPreviewOpen(false); // Close the modal on success
+            } else {
+                 toast({
+                    title: 'Email Failed to Send',
+                    description: result.message,
+                    variant: 'destructive',
+                });
+            }
+        } catch (error) {
+             toast({
+                title: 'Email Error',
+                description: 'An unexpected error occurred while trying to send the email.',
+                variant: 'destructive',
+            });
+            console.error("Error preparing or sending email:", error);
+        } finally {
+            setIsSendingEmail(false);
         }
     };
 
@@ -632,9 +674,9 @@ export default function SalaryReportPage() {
                                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                     Save Paysheet
                                 </Button>
-                                <Button onClick={handleGeneratePdfForPreview} variant="secondary" disabled={isGeneratingPdf || isSaving || mainLoadingState || !report?.user?.personalEmail} title={!report?.user?.personalEmail ? "User has no personal email set" : "Preview & Download Payslip"}>
+                                <Button onClick={handleGeneratePdfForPreview} variant="secondary" disabled={isGeneratingPdf || isSaving || mainLoadingState} title="Preview & Send Payslip">
                                     {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-                                    {isGeneratingPdf ? 'Generating...' : 'Send Payslip'}
+                                    {isGeneratingPdf ? 'Generating...' : 'Preview & Send'}
                                 </Button>
                             </div>
                         </div>
@@ -853,7 +895,7 @@ export default function SalaryReportPage() {
                     <DialogHeader>
                         <DialogTitle>Payslip Preview</DialogTitle>
                         <DialogDescription>
-                           Review the payslip. You can download it as a PDF or open your default email client to send it. You must manually attach the downloaded file.
+                           Review the payslip. You can download it or send it directly to the user's personal email.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex-grow border rounded-md overflow-hidden bg-muted">
@@ -875,8 +917,9 @@ export default function SalaryReportPage() {
                         <Button onClick={handleDownloadPdf} variant="secondary" disabled={!generatedPdf}>
                             <Download className="mr-2 h-4 w-4" /> Download PDF
                         </Button>
-                        <Button onClick={handleOpenEmailClient} disabled={!generatedPdf || !report?.user.personalEmail}>
-                            <Mail className="mr-2 h-4 w-4" /> Send via Email Client
+                        <Button onClick={handleSendEmailViaSmtp} disabled={!generatedPdf || !report?.user.personalEmail || isSendingEmail}>
+                             {isSendingEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                            Send Email
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -892,5 +935,6 @@ export default function SalaryReportPage() {
     
 
     
+
 
 
