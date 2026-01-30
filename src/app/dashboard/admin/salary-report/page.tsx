@@ -212,7 +212,7 @@ export default function SalaryReportPage() {
                 timesheetRecordsForMonth.some(t => isSameDay(parseISO(t.date), new Date(swd.date)))
             ).length;
 
-            const specialWorkingDayAmount = Math.round(((baseSalary / 25) * presentOnSpecialWorkingDays) / 10) * 10;
+            const specialWorkingDayAmount = Math.round(((baseSalary / 25) * presentOnSpecialWorkingDays));
 
             let totalWorkingDays = 0;
             let presentDays = 0;
@@ -267,7 +267,7 @@ export default function SalaryReportPage() {
             const absentDays = totalWorkingDays - presentDays - leaveDays;
             
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
-            const noPayLeaveDeduction = Math.round(((absentDays > 0 ? absentDays : 0) * perDaySalary) / 10) * 10;
+            const noPayLeaveDeduction = Math.round(((absentDays > 0 ? absentDays : 0) * perDaySalary));
             const epfDeduction = (baseSalary * epfRate) / 100;
             
             const companyEpfContribution = baseSalary * 0.12;
@@ -454,135 +454,8 @@ export default function SalaryReportPage() {
                             </Button>
                         </div>
                     </CardHeader>
-                    <CardContent className="grid md:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                            <h3 className="font-semibold text-lg flex items-center"><PlusCircle className="mr-2 h-5 w-5 text-green-600"/>Earnings</h3>
-                            <Table>
-                                <TableBody>
-                                    <TableRow>
-                                        <TableCell>Base Salary</TableCell>
-                                        <TableCell className="text-right font-medium">{formatCurrency(report.baseSalary)}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell>Conveyance Allowance</TableCell>
-                                        <TableCell className="text-right font-medium">{formatCurrency(report.conveyanceAllowance)}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell>Traveling Allowance</TableCell>
-                                        <TableCell className="text-right font-medium">{formatCurrency(report.travelingAllowance)}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell>OT Amount ({report.totalOTHours})</TableCell>
-                                        <TableCell className="text-right font-medium">{formatCurrency(report.otAmount)}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell>Special Working Day Amount ({report.presentOnSpecialWorkingDays} days)</TableCell>
-                                        <TableCell className="text-right font-medium">{formatCurrency(report.specialWorkingDayAmount)}</TableCell>
-                                    </TableRow>
-                                    {report.noLeaveBonusAmount > 0 && (
-                                        <TableRow>
-                                            <TableCell className="flex items-center"><Award className="mr-2 h-4 w-4 text-yellow-500" />No-Leave Bonus</TableCell>
-                                            <TableCell className="text-right font-medium">{formatCurrency(report.noLeaveBonusAmount)}</TableCell>
-                                        </TableRow>
-                                    )}
-                                    <TableRow>
-                                        <TableCell className="flex items-center"><PlusCircle className="mr-2 h-4 w-4" />Other Payments</TableCell>
-                                        <TableCell className="text-right">
-                                            <Input
-                                                type="number"
-                                                placeholder="0.00"
-                                                className="w-32 h-8 text-right ml-auto"
-                                                value={report.otherPayment}
-                                                onChange={(e) => handleOtherPaymentChange(Number(e.target.value) || 0)}
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                </TableBody>
-                                <TableFooter>
-                                    <TableRow className="bg-muted/50">
-                                        <TableHead>Total Earnings</TableHead>
-                                        <TableHead className="text-right font-bold">{formatCurrency(report.totalEarnings)}</TableHead>
-                                    </TableRow>
-                                </TableFooter>
-                            </Table>
-                        </div>
-                        <div className="space-y-4">
-                            <h3 className="font-semibold text-lg flex items-center"><MinusCircle className="mr-2 h-5 w-5 text-red-600"/>Deductions</h3>
-                             <Table>
-                                <TableBody>
-                                    <TableRow>
-                                        <TableCell>No Pay Leave ({Math.max(0, report.totalWorkingDays - report.presentDays - report.leaveDays)} days)</TableCell>
-                                        <TableCell className="text-right font-medium">{formatCurrency(report.noPayLeaveDeduction)}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell>EPF ({settings?.epfRate || 0}%)</TableCell>
-                                        <TableCell className="text-right font-medium">{formatCurrency(report.epfDeduction)}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell className="flex items-center"><Banknote className="mr-2 h-4 w-4 text-muted-foreground" />Advance</TableCell>
-                                        <TableCell className="text-right">
-                                            <Input
-                                                type="number"
-                                                placeholder="0.00"
-                                                className="w-32 h-8 text-right ml-auto"
-                                                value={report.advanceDeduction}
-                                                onChange={(e) => handleDeductionChange('advanceDeduction', Number(e.target.value) || 0)}
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell className="flex items-center"><Landmark className="mr-2 h-4 w-4 text-muted-foreground" />Loan Payment</TableCell>
-                                        <TableCell className="text-right">
-                                            <Input
-                                                type="number"
-                                                placeholder="0.00"
-                                                className="w-32 h-8 text-right ml-auto"
-                                                value={report.loanDeduction}
-                                                onChange={(e) => handleDeductionChange('loanDeduction', Number(e.target.value) || 0)}
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell className="flex items-center"><MinusCircle className="mr-2 h-4 w-4" />Other Deductions</TableCell>
-                                        <TableCell className="text-right">
-                                            <Input
-                                                type="number"
-                                                placeholder="0.00"
-                                                className="w-32 h-8 text-right ml-auto"
-                                                value={report.otherDeduction}
-                                                onChange={(e) => handleDeductionChange('otherDeduction', Number(e.target.value) || 0)}
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                </TableBody>
-                                <TableFooter>
-                                    <TableRow className="bg-muted/50">
-                                        <TableHead>Total Deductions</TableHead>
-                                        <TableHead className="text-right font-bold">{formatCurrency(report.totalDeductions)}</TableHead>
-                                    </TableRow>
-                                </TableFooter>
-                            </Table>
-                        </div>
-                    </CardContent>
-                    <CardContent>
-                        <div className="space-y-4">
-                            <h3 className="font-semibold text-lg flex items-center"><Landmark className="mr-2 h-5 w-5 text-primary"/>Company Contributions (Informational)</h3>
-                             <Table>
-                                <TableBody>
-                                    <TableRow>
-                                        <TableCell>Company EPF Contribution (12%)</TableCell>
-                                        <TableCell className="text-right font-medium">{formatCurrency(report.companyEpfContribution)}</TableCell>
-                                    </TableRow>
-                                    <TableRow>
-                                        <TableCell>Company ETF Contribution (3%)</TableCell>
-                                        <TableCell className="text-right font-medium">{formatCurrency(report.companyEtfContribution)}</TableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </CardContent>
-                    <CardContent>
-                        <div className="space-y-4">
+                    <CardContent className="space-y-8 p-6">
+                         <div className="space-y-4">
                             <h3 className="font-semibold text-lg flex items-center"><NotebookText className="mr-2 h-5 w-5 text-primary"/>Attendance Summary</h3>
                              <Table>
                                <TableHeader>
@@ -605,8 +478,136 @@ export default function SalaryReportPage() {
                                 </TableBody>
                             </Table>
                         </div>
+
+                        <div className="grid md:grid-cols-2 gap-8">
+                            <div className="space-y-4">
+                                <h3 className="font-semibold text-lg flex items-center"><PlusCircle className="mr-2 h-5 w-5 text-green-600"/>Earnings</h3>
+                                <Table>
+                                    <TableBody>
+                                        <TableRow>
+                                            <TableCell>Base Salary</TableCell>
+                                            <TableCell className="text-right font-medium">{formatCurrency(report.baseSalary)}</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell>Conveyance Allowance</TableCell>
+                                            <TableCell className="text-right font-medium">{formatCurrency(report.conveyanceAllowance)}</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell>Traveling Allowance</TableCell>
+                                            <TableCell className="text-right font-medium">{formatCurrency(report.travelingAllowance)}</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell>OT Amount ({report.totalOTHours})</TableCell>
+                                            <TableCell className="text-right font-medium">{formatCurrency(report.otAmount)}</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell>Special Working Day Amount ({report.presentOnSpecialWorkingDays} days)</TableCell>
+                                            <TableCell className="text-right font-medium">{formatCurrency(report.specialWorkingDayAmount)}</TableCell>
+                                        </TableRow>
+                                        {report.noLeaveBonusAmount > 0 && (
+                                            <TableRow>
+                                                <TableCell className="flex items-center"><Award className="mr-2 h-4 w-4 text-yellow-500" />No-Leave Bonus</TableCell>
+                                                <TableCell className="text-right font-medium">{formatCurrency(report.noLeaveBonusAmount)}</TableCell>
+                                            </TableRow>
+                                        )}
+                                        <TableRow>
+                                            <TableCell className="flex items-center"><PlusCircle className="mr-2 h-4 w-4" />Other Payments</TableCell>
+                                            <TableCell className="text-right">
+                                                <Input
+                                                    type="number"
+                                                    placeholder="0.00"
+                                                    className="w-32 h-8 text-right ml-auto"
+                                                    value={report.otherPayment}
+                                                    onChange={(e) => handleOtherPaymentChange(Number(e.target.value) || 0)}
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                    </TableBody>
+                                    <TableFooter>
+                                        <TableRow className="bg-muted/50">
+                                            <TableHead>Total Earnings</TableHead>
+                                            <TableHead className="text-right font-bold">{formatCurrency(report.totalEarnings)}</TableHead>
+                                        </TableRow>
+                                    </TableFooter>
+                                </Table>
+                            </div>
+                            <div className="space-y-4">
+                                <h3 className="font-semibold text-lg flex items-center"><MinusCircle className="mr-2 h-5 w-5 text-red-600"/>Deductions</h3>
+                                <Table>
+                                    <TableBody>
+                                        <TableRow>
+                                            <TableCell>No Pay Leave ({Math.max(0, report.totalWorkingDays - report.presentDays - report.leaveDays)} days)</TableCell>
+                                            <TableCell className="text-right font-medium">{formatCurrency(report.noPayLeaveDeduction)}</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell>EPF ({settings?.epfRate || 0}%)</TableCell>
+                                            <TableCell className="text-right font-medium">{formatCurrency(report.epfDeduction)}</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="flex items-center"><Banknote className="mr-2 h-4 w-4 text-muted-foreground" />Advance</TableCell>
+                                            <TableCell className="text-right">
+                                                <Input
+                                                    type="number"
+                                                    placeholder="0.00"
+                                                    className="w-32 h-8 text-right ml-auto"
+                                                    value={report.advanceDeduction}
+                                                    onChange={(e) => handleDeductionChange('advanceDeduction', Number(e.target.value) || 0)}
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="flex items-center"><Landmark className="mr-2 h-4 w-4 text-muted-foreground" />Loan Payment</TableCell>
+                                            <TableCell className="text-right">
+                                                <Input
+                                                    type="number"
+                                                    placeholder="0.00"
+                                                    className="w-32 h-8 text-right ml-auto"
+                                                    value={report.loanDeduction}
+                                                    onChange={(e) => handleDeductionChange('loanDeduction', Number(e.target.value) || 0)}
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell className="flex items-center"><MinusCircle className="mr-2 h-4 w-4" />Other Deductions</TableCell>
+                                            <TableCell className="text-right">
+                                                <Input
+                                                    type="number"
+                                                    placeholder="0.00"
+                                                    className="w-32 h-8 text-right ml-auto"
+                                                    value={report.otherDeduction}
+                                                    onChange={(e) => handleDeductionChange('otherDeduction', Number(e.target.value) || 0)}
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                    </TableBody>
+                                    <TableFooter>
+                                        <TableRow className="bg-muted/50">
+                                            <TableHead>Total Deductions</TableHead>
+                                            <TableHead className="text-right font-bold">{formatCurrency(report.totalDeductions)}</TableHead>
+                                        </TableRow>
+                                    </TableFooter>
+                                </Table>
+                            </div>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <h3 className="font-semibold text-lg flex items-center"><Landmark className="mr-2 h-5 w-5 text-primary"/>Company Contributions (Informational)</h3>
+                             <Table>
+                                <TableBody>
+                                    <TableRow>
+                                        <TableCell>Company EPF Contribution (12%)</TableCell>
+                                        <TableCell className="text-right font-medium">{formatCurrency(report.companyEpfContribution)}</TableCell>
+                                    </TableRow>
+                                    <TableRow>
+                                        <TableCell>Company ETF Contribution (3%)</TableCell>
+                                        <TableCell className="text-right font-medium">{formatCurrency(report.companyEtfContribution)}</TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </div>
                     </CardContent>
-                    <CardFooter className="bg-primary/10 p-6 mt-6 rounded-b-lg">
+                    
+                    <CardFooter className="bg-primary/10 p-6 rounded-b-lg">
                         <div className="w-full flex justify-between items-center">
                             <span className="text-xl font-bold text-primary">Net Salary Payable</span>
                             <span className="text-2xl font-bold text-primary">{formatCurrency(report.netSalary)}</span>
