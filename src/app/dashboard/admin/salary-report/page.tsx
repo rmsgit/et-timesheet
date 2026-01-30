@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save, Banknote, Landmark, RefreshCw, Mail } from 'lucide-react';
+import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save, Banknote, Landmark, RefreshCw, Mail, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, differenceInYears } from 'date-fns';
@@ -446,10 +446,6 @@ export default function SalaryReportPage() {
             toast({ title: 'No Report', description: 'Please generate a report first.', variant: 'destructive' });
             return;
         }
-        if (!report.user.personalEmail) {
-            toast({ title: 'Missing Email', description: "This user doesn't have a personal email configured.", variant: 'destructive' });
-            return;
-        }
     
         const payslipElement = document.getElementById('payslip-card');
         if (!payslipElement) {
@@ -467,8 +463,8 @@ export default function SalaryReportPage() {
                 useCORS: true,
                 ignoreElements: (element) => 
                     element.classList.contains('payslip-actions-container') ||
-                    element.tagName.toLowerCase() === 'svg' ||
-                    element.tagName.toLowerCase() === 'input'
+                    element.tagName.toLowerCase() === 'input' ||
+                    element.tagName.toLowerCase() === 'svg'
             });
 
             const imgData = canvas.toDataURL('image/png');
@@ -503,30 +499,39 @@ export default function SalaryReportPage() {
         }
     };
 
-    const handlePrepareEmail = () => {
-        if (generatedPdf && report && report.user.personalEmail) {
-            // 1. Download the PDF
+    const handleDownloadPdf = () => {
+        if (generatedPdf && report) {
             generatedPdf.save(`payslip_${report.user.username}_${selectedYear}-${selectedMonth}.pdf`);
-            
             toast({
                 title: 'Payslip PDF Downloaded',
-                description: `Your email client will open shortly. Please attach the downloaded file.`,
+                description: 'The payslip has been saved to your device.',
+            });
+        } else {
+            toast({
+                title: 'Download Failed',
+                description: 'The PDF has not been generated yet.',
+                variant: 'destructive',
+            });
+        }
+    };
+    
+    const handleOpenEmailClient = () => {
+        if (report && report.user.personalEmail) {
+            toast({
+                title: 'Opening Email Client',
+                description: `Please remember to attach the downloaded payslip PDF.`,
                 duration: 8000,
             });
-
-            // 2. Open mailto link after a short delay
-            setTimeout(() => {
-                const subject = `Payslip for ${report.payPeriod}`;
-                const body = `Hi ${report.user.username},\n\nPlease find your payslip for ${report.payPeriod} attached.\n\nBest regards,\nAdmin Team`;
-                const mailtoLink = `mailto:${report.user.personalEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                
-                window.location.href = mailtoLink;
-            }, 1500);
-
+    
+            const subject = `Payslip for ${report.payPeriod}`;
+            const body = `Hi ${report.user.username},\n\nPlease find your payslip for ${report.payPeriod} attached.\n\nBest regards,\nAdmin Team`;
+            const mailtoLink = `mailto:${report.user.personalEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            
+            window.location.href = mailtoLink;
         } else {
              toast({
-                title: 'Cannot Prepare Email',
-                description: 'Could not prepare the email. The PDF might not have been generated or the user is missing a personal email address.',
+                title: 'Cannot Open Email',
+                description: 'The user is missing a personal email address.',
                 variant: 'destructive',
             });
         }
@@ -848,7 +853,7 @@ export default function SalaryReportPage() {
                     <DialogHeader>
                         <DialogTitle>Payslip Preview</DialogTitle>
                         <DialogDescription>
-                           Review the payslip. Clicking "Prepare Email" will download the PDF and open your email client. You must manually attach the downloaded file to the email.
+                           Review the payslip. You can download it as a PDF or open your default email client to send it. You must manually attach the downloaded file.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex-grow border rounded-md overflow-hidden bg-muted">
@@ -867,8 +872,11 @@ export default function SalaryReportPage() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsPayslipPreviewOpen(false)}>Cancel</Button>
-                        <Button onClick={handlePrepareEmail} disabled={!generatedPdf || !report?.user.personalEmail}>
-                            <Mail className="mr-2 h-4 w-4" /> Prepare Email
+                        <Button onClick={handleDownloadPdf} variant="secondary" disabled={!generatedPdf}>
+                            <Download className="mr-2 h-4 w-4" /> Download PDF
+                        </Button>
+                        <Button onClick={handleOpenEmailClient} disabled={!generatedPdf || !report?.user.personalEmail}>
+                            <Mail className="mr-2 h-4 w-4" /> Send via Email Client
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -884,4 +892,5 @@ export default function SalaryReportPage() {
     
 
     
+
 
