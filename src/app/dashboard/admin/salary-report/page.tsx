@@ -163,7 +163,6 @@ export default function SalaryReportPage() {
             const specialWorkingDayAmount = (baseSalary / 25) * presentOnSpecialWorkingDays;
 
             let totalWorkingDays = 0;
-            let absentDays = 0;
             let presentDays = 0;
 
             const daysInPeriod = eachDayOfInterval({ start: monthStartForCalc, end: monthEndForCalc });
@@ -184,13 +183,10 @@ export default function SalaryReportPage() {
                 if (isWorkingDayForCalc) {
                     totalWorkingDays++;
 
-                    const leaveForDay = userLeavesForMonth.find(l => l.date && isSameDay(parseISO(l.date), currentDate));
                     const timesheetEntryForDay = timesheetRecordsForMonth.find(t => isSameDay(parseISO(t.date), currentDate));
 
                     if (timesheetEntryForDay) {
                         presentDays++;
-                    } else if (!leaveForDay) {
-                        absentDays++;
                     }
                 }
             });
@@ -206,6 +202,7 @@ export default function SalaryReportPage() {
             }, 0);
             
             const allowedLeaves = totalWorkingDays - leaveDays;
+            const absentDays = totalWorkingDays - presentDays - leaveDays;
             
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
             const unpaidLeaveDeduction = Math.round((absentDays * perDaySalary) / 10) * 10;
@@ -388,12 +385,6 @@ export default function SalaryReportPage() {
                         <div className="space-y-4">
                             <h3 className="font-semibold text-lg flex items-center"><MinusCircle className="mr-2 h-5 w-5 text-red-600"/>Deductions</h3>
                              <Table>
-                                <TableBody>
-                                    <TableRow>
-                                        <TableCell>Unpaid Leave ({report.totalWorkingDays - report.presentDays - report.leaveDays} days)</TableCell>
-                                        <TableCell className="text-right font-medium">{formatCurrency(report.unpaidLeaveDeduction)}</TableCell>
-                                    </TableRow>
-                                </TableBody>
                                 <TableFooter>
                                     <TableRow className="bg-muted/50">
                                         <TableHead>Total Deductions</TableHead>
@@ -411,8 +402,8 @@ export default function SalaryReportPage() {
                                  <TableRow>
                                    <TableHead>Total Working Days</TableHead>
                                    <TableHead>Leave Taken</TableHead>
-                                   <TableHead>Allowed Leaves</TableHead>
                                    <TableHead>Present</TableHead>
+                                   <TableHead>Allowed Leaves</TableHead>
                                    <TableHead>Total OT</TableHead>
                                  </TableRow>
                                </TableHeader>
@@ -420,8 +411,8 @@ export default function SalaryReportPage() {
                                     <TableRow>
                                         <TableCell>{report.totalWorkingDays}</TableCell>
                                         <TableCell>{report.leaveDays}</TableCell>
-                                        <TableCell>{report.allowedLeaves}</TableCell>
                                         <TableCell>{report.presentDays}</TableCell>
+                                        <TableCell>{report.allowedLeaves}</TableCell>
                                         <TableCell>{report.totalOTHours}</TableCell>
                                     </TableRow>
                                 </TableBody>
