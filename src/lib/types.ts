@@ -115,6 +115,7 @@ export interface Paysheet {
   otAmount?: number;
   specialWorkingDayAmount?: number;
   noLeaveBonusAmount?: number;
+  otherPayment: number;
   totalEarnings: number;
   unpaidLeaveDeduction: number;
   totalDeductions: number;

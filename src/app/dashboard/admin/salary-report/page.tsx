@@ -12,12 +12,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award } from 'lucide-react';
+import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, differenceInYears } from 'date-fns';
 import { usePaysheet } from '@/hooks/usePaysheet';
 import { useTimesheet } from '@/hooks/useTimesheet';
+import { Input } from '@/components/ui/input';
 
 const parseDurationToSeconds = (duration: string): number => {
     if (!duration || typeof duration !== 'string' || duration === '-') return 0;
@@ -53,6 +54,7 @@ interface SalaryReport {
   otAmount: number;
   specialWorkingDayAmount: number;
   noLeaveBonusAmount: number;
+  otherPayment: number;
   totalEarnings: number;
   unpaidLeaveDeduction: number;
   totalDeductions: number;
@@ -71,6 +73,7 @@ export default function SalaryReportPage() {
     const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() + 1).toString().padStart(2, '0'));
     const [report, setReport] = useState<SalaryReport | null>(null);
     const [isLoadingReport, setIsLoadingReport] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     
     const { users, isUsersLoading } = useMockUsers();
     const { getAttendanceForMonth } = useAttendance();
@@ -103,6 +106,24 @@ export default function SalaryReportPage() {
           label: format(new Date(2000, i), 'MMMM'),
       }));
     }, []);
+
+    const handleOtherPaymentChange = (amount: number) => {
+        if (!report) return;
+
+        const currentOtherPayment = report.otherPayment || 0;
+        const newTotalEarnings = (report.totalEarnings - currentOtherPayment) + amount;
+        const newNetSalary = newTotalEarnings - report.totalDeductions;
+        
+        setReport(prevReport => {
+            if (!prevReport) return null;
+            return {
+                ...prevReport,
+                otherPayment: amount,
+                totalEarnings: newTotalEarnings,
+                netSalary: newNetSalary,
+            };
+        });
+    };
 
     const handleGenerateReport = async () => {
         if (!selectedUserId) {
@@ -234,6 +255,7 @@ export default function SalaryReportPage() {
                 otAmount,
                 specialWorkingDayAmount,
                 noLeaveBonusAmount,
+                otherPayment: 0,
                 totalEarnings,
                 unpaidLeaveDeduction,
                 totalDeductions,
@@ -247,32 +269,6 @@ export default function SalaryReportPage() {
             };
             
             setReport(generatedReport);
-            
-            const paysheetToSave: Omit<Paysheet, 'id' | 'generatedAt'> = {
-                userId: user.id,
-                username: user.username,
-                payPeriod: generatedReport.payPeriod,
-                year: selectedYear,
-                month: selectedMonth,
-                baseSalary: generatedReport.baseSalary,
-                conveyanceAllowance: generatedReport.conveyanceAllowance,
-                otAmount: generatedReport.otAmount,
-                specialWorkingDayAmount: generatedReport.specialWorkingDayAmount,
-                noLeaveBonusAmount: generatedReport.noLeaveBonusAmount,
-                totalEarnings: generatedReport.totalEarnings,
-                unpaidLeaveDeduction: generatedReport.unpaidLeaveDeduction,
-                totalDeductions: generatedReport.totalDeductions,
-                netSalary: generatedReport.netSalary,
-                totalWorkingDays: generatedReport.totalWorkingDays,
-                presentDays: generatedReport.presentDays,
-                allowedLeaves: generatedReport.allowedLeaves,
-                leaveDays: generatedReport.leaveDays,
-                absentDays: absentDays,
-                totalOTHours: generatedReport.totalOTHours,
-                presentOnSpecialWorkingDays: generatedReport.presentOnSpecialWorkingDays,
-            };
-
-            await savePaysheet(paysheetToSave);
 
         } catch (error) {
             console.error("Error generating report:", error);
@@ -282,6 +278,43 @@ export default function SalaryReportPage() {
         }
     };
     
+    const handleSavePaysheet = async () => {
+        if (!report) {
+            toast({ title: 'No Report', description: 'Please generate a report first.', variant: 'destructive' });
+            return;
+        }
+
+        setIsSaving(true);
+        const absentDays = report.totalWorkingDays - report.presentDays - report.leaveDays;
+        const paysheetToSave: Omit<Paysheet, 'id' | 'generatedAt'> = {
+            userId: report.user.id,
+            username: report.user.username,
+            payPeriod: report.payPeriod,
+            year: selectedYear,
+            month: selectedMonth,
+            baseSalary: report.baseSalary,
+            conveyanceAllowance: report.conveyanceAllowance,
+            otAmount: report.otAmount,
+            specialWorkingDayAmount: report.specialWorkingDayAmount,
+            noLeaveBonusAmount: report.noLeaveBonusAmount,
+            otherPayment: report.otherPayment,
+            totalEarnings: report.totalEarnings,
+            unpaidLeaveDeduction: report.unpaidLeaveDeduction,
+            totalDeductions: report.totalDeductions,
+            netSalary: report.netSalary,
+            totalWorkingDays: report.totalWorkingDays,
+            presentDays: report.presentDays,
+            allowedLeaves: report.allowedLeaves,
+            leaveDays: report.leaveDays,
+            absentDays: absentDays > 0 ? absentDays : 0,
+            totalOTHours: report.totalOTHours,
+            presentOnSpecialWorkingDays: report.presentOnSpecialWorkingDays,
+        };
+
+        await savePaysheet(paysheetToSave);
+        setIsSaving(false);
+    };
+
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
     }
@@ -295,7 +328,7 @@ export default function SalaryReportPage() {
                 <CardHeader>
                     <CardTitle>Generate Monthly Salary Slip</CardTitle>
                     <CardDescription>
-                        Select an editor, year, and month to generate and save their salary slip.
+                        Select an editor, year, and month to generate their salary slip.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -337,7 +370,7 @@ export default function SalaryReportPage() {
                     <div className="flex justify-end mt-6">
                         <Button onClick={handleGenerateReport} disabled={mainLoadingState || isLoadingReport || !selectedUserId}>
                             {isLoadingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
-                            Generate & Save Paysheet
+                            Generate Report
                         </Button>
                     </div>
                 </CardContent>
@@ -354,17 +387,25 @@ export default function SalaryReportPage() {
             {report && !isLoadingReport && (
                 <Card className="shadow-lg">
                     <CardHeader>
-                        <CardTitle className="text-2xl">Salary Slip for {report.payPeriod}</CardTitle>
-                        <CardDescription>
-                            <div className="flex items-center gap-4 mt-2">
-                                <span className="flex items-center"><UserIcon className="mr-2 h-4 w-4 text-muted-foreground" />{report.user.username}</span>
-                                <span className="flex items-center"><Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />{report.user.jobDesignation || 'N/A'}</span>
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <CardTitle className="text-2xl">Salary Slip for {report.payPeriod}</CardTitle>
+                                <CardDescription>
+                                    <div className="flex items-center gap-4 mt-2">
+                                        <span className="flex items-center"><UserIcon className="mr-2 h-4 w-4 text-muted-foreground" />{report.user.username}</span>
+                                        <span className="flex items-center"><Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />{report.user.jobDesignation || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex items-center text-sm text-muted-foreground mt-2 gap-2">
+                                        <CalendarDays className="h-4 w-4" />
+                                        <span>Pay Period: {report.payPeriodStart} to {report.payPeriodEnd}</span>
+                                    </div>
+                                </CardDescription>
                             </div>
-                             <div className="flex items-center text-sm text-muted-foreground mt-2 gap-2">
-                                <CalendarDays className="h-4 w-4" />
-                                <span>Pay Period: {report.payPeriodStart} to {report.payPeriodEnd}</span>
-                            </div>
-                        </CardDescription>
+                             <Button onClick={handleSavePaysheet} disabled={isSaving}>
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                Save Paysheet
+                            </Button>
+                        </div>
                     </CardHeader>
                     <CardContent className="grid md:grid-cols-2 gap-8">
                         <div className="space-y-4">
@@ -393,6 +434,18 @@ export default function SalaryReportPage() {
                                             <TableCell className="text-right font-medium">{formatCurrency(report.noLeaveBonusAmount)}</TableCell>
                                         </TableRow>
                                     )}
+                                    <TableRow>
+                                        <TableCell className="flex items-center"><PlusCircle className="mr-2 h-4 w-4" />Other Payments</TableCell>
+                                        <TableCell className="text-right">
+                                            <Input
+                                                type="number"
+                                                placeholder="0.00"
+                                                className="w-32 h-8 text-right ml-auto"
+                                                value={report.otherPayment}
+                                                onChange={(e) => handleOtherPaymentChange(Number(e.target.value) || 0)}
+                                            />
+                                        </TableCell>
+                                    </TableRow>
                                 </TableBody>
                                 <TableFooter>
                                     <TableRow className="bg-muted/50">
@@ -428,8 +481,8 @@ export default function SalaryReportPage() {
                                  <TableRow>
                                    <TableHead>Total Working Days</TableHead>
                                    <TableHead>Leave Taken</TableHead>
-                                   <TableHead>Present</TableHead>
                                    <TableHead>Allowed Leaves</TableHead>
+                                   <TableHead>Present</TableHead>
                                    <TableHead>Total OT</TableHead>
                                  </TableRow>
                                </TableHeader>
@@ -437,8 +490,8 @@ export default function SalaryReportPage() {
                                     <TableRow>
                                         <TableCell>{report.totalWorkingDays}</TableCell>
                                         <TableCell>{report.leaveDays}</TableCell>
-                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.allowedLeaves}</TableCell>
+                                        <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.totalOTHours}</TableCell>
                                     </TableRow>
                                 </TableBody>
@@ -471,7 +524,7 @@ export default function SalaryReportPage() {
                         <Search className="mx-auto h-12 w-12 text-muted-foreground" />
                         <h3 className="mt-4 text-xl font-medium">Generate a Report</h3>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            Click the "Generate & Save Paysheet" button to view and save the salary slip for the selected period.
+                            Click the "Generate Report" button to view the salary slip for the selected period.
                         </p>
                     </CardContent>
                 </Card>
