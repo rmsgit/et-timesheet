@@ -81,7 +81,7 @@ export const useMockUsers = () => {
     id: string, 
     email: string, 
     username: string, 
-    role: 'admin' | 'editor',
+    role: 'admin' | 'editor' | 'super admin',
     editorLevelId?: string,
     isEligibleForMorningOT?: boolean,
     availableLeaves?: number,
@@ -127,13 +127,13 @@ export const useMockUsers = () => {
     if (userBeingEdited) { 
         const currentUserAuth = firebaseAuthInstance?.currentUser; 
         if (currentUserAuth && userBeingEdited.id === currentUserAuth.uid && 
-            userBeingEdited.role === 'admin' && role === 'editor') { 
+            (userBeingEdited.role === 'admin' || userBeingEdited.role === 'super admin') && role === 'editor') { 
 
-            const adminUsersCount = users.filter(u => u.role === 'admin').length;
+            const adminUsersCount = users.filter(u => u.role === 'admin' || u.role === 'super admin').length;
             if (adminUsersCount <= 1) {
                 toast({
                     title: "Action Restricted",
-                    description: "Cannot change your own role from Admin to Editor as you are the only administrator.",
+                    description: "Cannot change your own role from Admin/Super Admin to Editor as you are the only administrator.",
                     variant: "destructive"
                 });
                 return { success: false, message: "Cannot demote the last admin." };

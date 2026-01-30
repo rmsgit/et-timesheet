@@ -35,7 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Award, ChevronsUpDown, Leaf, Edit, Gift, Calendar as CalendarIcon } from 'lucide-react';
+import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Award, ChevronsUpDown, Leaf, Edit, Gift, Calendar as CalendarIcon, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -64,7 +64,7 @@ export const UserManagementTable: React.FC = () => {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserName, setNewUserName] = useState('');
-  const [newUserRole, setNewUserRole] = useState<'editor' | 'admin'>('editor');
+  const [newUserRole, setNewUserRole] = useState<'editor' | 'admin' | 'super admin'>('editor');
   const [newUserEditorLevelId, setNewUserEditorLevelId] = useState<string | undefined>(undefined);
   const [newUserIsEligibleForMorningOT, setNewUserIsEligibleForMorningOT] = useState(false);
   const [newUserAvailableLeaves, setNewUserAvailableLeaves] = useState<number | string>(0);
@@ -90,7 +90,7 @@ export const UserManagementTable: React.FC = () => {
   const [editUserFormState, setEditUserFormState] = useState<{ 
     username: string; 
     email: string; 
-    role: 'editor' | 'admin'; 
+    role: 'editor' | 'admin' | 'super admin'; 
     editorLevelId?: string; 
     isEligibleForMorningOT?: boolean; 
     availableLeaves?: number; 
@@ -325,8 +325,8 @@ export const UserManagementTable: React.FC = () => {
         return;
     }
 
-    if (auth.currentUser && userToDelete.id === auth.currentUser.uid && userToDelete.role === 'admin') {
-      const adminUsersCount = allUsers.filter(u => u.role === 'admin').length;
+    if (auth.currentUser && userToDelete.id === auth.currentUser.uid && (userToDelete.role === 'admin' || userToDelete.role === 'super admin')) {
+      const adminUsersCount = allUsers.filter(u => u.role === 'admin' || u.role === 'super admin').length;
       if (adminUsersCount <= 1) {
         toast({
           title: "Action Restricted",
@@ -617,8 +617,9 @@ export const UserManagementTable: React.FC = () => {
                     </TableCell>
                     <TableCell>{user.email || 'N/A'}</TableCell>
                     <TableCell>
-                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                      <Badge variant={user.role === 'admin' ? 'default' : user.role === 'super admin' ? 'destructive' : 'secondary'}>
                         {user.role === 'admin' && <Shield className="mr-1 h-3 w-3" />}
+                        {user.role === 'super admin' && <ShieldCheck className="mr-1 h-3 w-3" />}
                         {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'No Role'}
                       </Badge>
                     </TableCell>
@@ -656,7 +657,7 @@ export const UserManagementTable: React.FC = () => {
                           <DropdownMenuItem 
                             onClick={() => openDeleteDialog(user)} 
                             className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
-                            disabled={isSubmittingForm || isLoadingEditorLevels || (auth?.currentUser?.email === user.email && user.role === 'admin' && allUsers.filter(u=>u.role === 'admin').length <=1)}
+                            disabled={isSubmittingForm || isLoadingEditorLevels || (auth?.currentUser?.email === user.email && (user.role === 'admin' || user.role === 'super admin') && allUsers.filter(u=>u.role === 'admin' || u.role === 'super admin').length <=1)}
                           >
                             <Trash2 className="mr-2 h-4 w-4" /> Delete User
                           </DropdownMenuItem>
@@ -766,13 +767,14 @@ export const UserManagementTable: React.FC = () => {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="new-user-role">Role</Label>
-              <Select value={newUserRole} onValueChange={(value: 'editor' | 'admin') => setNewUserRole(value)} disabled={isSubmittingForm}>
+              <Select value={newUserRole} onValueChange={(value: 'editor' | 'admin' | 'super admin') => setNewUserRole(value)} disabled={isSubmittingForm}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="editor">Editor</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="super admin">Super Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -960,11 +962,11 @@ export const UserManagementTable: React.FC = () => {
                         <Label htmlFor="edit-user-role">Role</Label>
                         <Select 
                             value={editUserFormState.role} 
-                            onValueChange={(value: 'editor' | 'admin') => {
+                            onValueChange={(value: 'editor' | 'admin' | 'super admin') => {
                                 setEditUserFormState(prev => ({ 
                                     ...prev, 
                                     role: value,
-                                    editorLevelId: value === 'admin' ? undefined : (prev.editorLevelId || (sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined))
+                                    editorLevelId: value === 'admin' || value === 'super admin' ? undefined : (prev.editorLevelId || (sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined))
                                 }));
                             }} 
                             disabled={isSubmittingForm}
@@ -975,6 +977,7 @@ export const UserManagementTable: React.FC = () => {
                             <SelectContent>
                                 <SelectItem value="editor">Editor</SelectItem>
                                 <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="super admin">Super Admin</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>

@@ -39,7 +39,7 @@ export default function AdminLayout({
   
   // If !isAdmin and not loading, useEffect would have redirected.
   // This check ensures child components don't render if user is not an admin.
-  if (!user || user.role !== 'admin') {
+  if (!user || (user.role !== 'admin' && user.role !== 'super admin')) {
      return (
       <div className="flex h-full min-h-[calc(100vh-theme(spacing.16))] items-center justify-center p-8">
          <p className="text-muted-foreground">Redirecting...</p>

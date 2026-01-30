@@ -238,7 +238,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [toast, router, showLoader, hideLoader]);
 
   const isAuthenticated = !!userState && !isAuthLoading;
-  const isAdmin = isAuthenticated && userState?.role === 'admin';
+  const isAdmin = isAuthenticated && (userState?.role === 'admin' || userState?.role === 'super admin');
   const isEditor = isAuthenticated && userState?.role === 'editor';
 
   // Log final context values provided
