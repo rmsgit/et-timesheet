@@ -160,7 +160,7 @@ export default function SalaryReportPage() {
                 timesheetRecordsForMonth.some(t => isSameDay(parseISO(t.date), new Date(swd.date)))
             ).length;
 
-            const specialWorkingDayAmount = (baseSalary / 25) * presentOnSpecialWorkingDays;
+            const specialWorkingDayAmount = Math.round(((baseSalary / 25) * presentOnSpecialWorkingDays) / 10) * 10;
 
             let totalWorkingDays = 0;
             let presentDays = 0;

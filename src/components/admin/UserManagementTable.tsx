@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -34,7 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Award, ChevronsUpDown, Leaf, Edit, Gift } from 'lucide-react';
+import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Award, ChevronsUpDown, Leaf, Edit, Gift, Calendar as CalendarIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -44,9 +45,12 @@ import { auth } from '@/lib/firebase';
 import { createUserWithEmailAndPassword, deleteUser as deleteAuthUser, sendPasswordResetEmail } from 'firebase/auth'; 
 import { cn } from '@/lib/utils';
 import { Checkbox } from '../ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
 
 
-type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role'> | 'editorLevelName';
+type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role' | 'joiningDate'> | 'editorLevelName';
 
 const departments = ["HR", "Admin", "Editors"];
 const jobDesignations = ["Team Leader", "Team Assist", "Editors"];
@@ -69,6 +73,7 @@ export const UserManagementTable: React.FC = () => {
   const [newUserDepartment, setNewUserDepartment] = useState('');
   const [newUserJobDesignation, setNewUserJobDesignation] = useState('');
   const [newUserConveyanceAllowance, setNewUserConveyanceAllowance] = useState<number | string>('');
+  const [newUserJoiningDate, setNewUserJoiningDate] = useState<Date | undefined>(undefined);
   
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -92,6 +97,7 @@ export const UserManagementTable: React.FC = () => {
     department?: string;
     jobDesignation?: string;
     conveyanceAllowance?: number;
+    joiningDate?: Date;
   }>({
     username: '',
     email: '',
@@ -104,6 +110,7 @@ export const UserManagementTable: React.FC = () => {
     department: '',
     jobDesignation: '',
     conveyanceAllowance: undefined,
+    joiningDate: undefined,
   });
 
   const [selectedUserIds, setSelectedUserIds] = useState(new Set<string>());
@@ -141,7 +148,14 @@ export const UserManagementTable: React.FC = () => {
         const valB = b[sortConfig.key!];
         
         let comparison = 0;
-        if (valA === null || valA === undefined || valA === '') comparison = -1;
+        if (sortConfig.key === 'joiningDate') {
+          const dateA = valA ? new Date(valA as string).getTime() : 0;
+          const dateB = valB ? new Date(valB as string).getTime() : 0;
+          if (!dateA) return -1;
+          if (!dateB) return 1;
+          comparison = dateA - dateB;
+        }
+        else if (valA === null || valA === undefined || valA === '') comparison = -1;
         else if (valB === null || valB === undefined || valB === '') comparison = 1;
         else if (typeof valA === 'number' && typeof valB === 'number') {
           comparison = valA - valB;
@@ -213,6 +227,7 @@ export const UserManagementTable: React.FC = () => {
     setNewUserDepartment('');
     setNewUserJobDesignation('');
     setNewUserConveyanceAllowance('');
+    setNewUserJoiningDate(undefined);
     setIsAddUserDialogOpen(true);
   };
 
@@ -251,7 +266,8 @@ export const UserManagementTable: React.FC = () => {
         newUserBaseSalary !== '' ? Number(newUserBaseSalary) : undefined,
         newUserDepartment,
         newUserJobDesignation,
-        newUserConveyanceAllowance !== '' ? Number(newUserConveyanceAllowance) : undefined
+        newUserConveyanceAllowance !== '' ? Number(newUserConveyanceAllowance) : undefined,
+        newUserJoiningDate ? newUserJoiningDate.toISOString() : undefined
       );
 
       if (profileResult.success) {
@@ -397,6 +413,7 @@ export const UserManagementTable: React.FC = () => {
         department: user.department,
         jobDesignation: user.jobDesignation,
         conveyanceAllowance: user.conveyanceAllowance,
+        joiningDate: user.joiningDate ? new Date(user.joiningDate) : undefined,
     });
     setIsEditUserDialogOpen(true);
   };
@@ -436,7 +453,8 @@ export const UserManagementTable: React.FC = () => {
         editUserFormState.baseSalary,
         editUserFormState.department,
         editUserFormState.jobDesignation,
-        editUserFormState.conveyanceAllowance
+        editUserFormState.conveyanceAllowance,
+        editUserFormState.joiningDate ? editUserFormState.joiningDate.toISOString() : undefined
     );
 
     if (result.success) {
@@ -530,11 +548,11 @@ export const UserManagementTable: React.FC = () => {
         <CardContent>
           {isUsersLoading ? (
             <TableSkeleton 
-              columnCount={5} 
+              columnCount={6} 
               rowCount={3} 
               showTableHeader={true} 
-              headerTexts={["", "User", "Email", "Role", "Editor Level", "Actions"]} 
-              cellWidths={["w-12", "w-[25%]", "w-[25%]", "w-[15%]", "w-[15%]", "w-[15%] text-right"]} 
+              headerTexts={["", "User", "Email", "Role", "Editor Level", "Joining Date", "Actions"]} 
+              cellWidths={["w-12", "w-[20%]", "w-[20%]", "w-[15%]", "w-[15%]", "w-[15%]", "w-[15%] text-right"]} 
             />
           ) : sortedUsers.length === 0 ? (
             <div className="text-center py-10 border-2 border-dashed rounded-lg bg-card">
@@ -561,6 +579,7 @@ export const UserManagementTable: React.FC = () => {
                   {renderSortableHeader("Email", "email")}
                   {renderSortableHeader("Role", "role")}
                   {renderSortableHeader("Editor Level", "editorLevelName")}
+                  {renderSortableHeader("Joining Date", "joiningDate")}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -600,6 +619,9 @@ export const UserManagementTable: React.FC = () => {
                         ) : (
                             user.role === 'editor' && sortedEditorLevelsForSelect.length > 0 ? <span className="text-xs text-muted-foreground">Not Set</span> : 'N/A'
                         )}
+                    </TableCell>
+                    <TableCell>
+                      {user.joiningDate ? format(new Date(user.joiningDate), 'PPP') : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -689,6 +711,33 @@ export const UserManagementTable: React.FC = () => {
                 placeholder="Enter username"
                 disabled={isSubmittingForm}
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-user-joining-date">Joining Date</Label>
+                <Popover>
+                    <PopoverTrigger asChild>
+                    <Button
+                        variant={"outline"}
+                        className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !newUserJoiningDate && "text-muted-foreground"
+                        )}
+                        disabled={isSubmittingForm}
+                    >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {newUserJoiningDate ? format(newUserJoiningDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                    <Calendar
+                        mode="single"
+                        selected={newUserJoiningDate}
+                        onSelect={setNewUserJoiningDate}
+                        initialFocus
+                        disabled={isSubmittingForm}
+                    />
+                    </PopoverContent>
+                </Popover>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="new-user-role">Role</Label>
@@ -839,6 +888,33 @@ export const UserManagementTable: React.FC = () => {
                          <p className="text-xs text-muted-foreground">
                             This email is for profile display. Changing it here does NOT change the user's login email for Firebase Authentication.
                         </p>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="edit-joining-date">Joining Date</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !editUserFormState.joiningDate && "text-muted-foreground"
+                                )}
+                                disabled={isSubmittingForm}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {editUserFormState.joiningDate ? format(editUserFormState.joiningDate, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={editUserFormState.joiningDate}
+                                onSelect={(date) => setEditUserFormState(prev => ({ ...prev, joiningDate: date as Date }))}
+                                initialFocus
+                                disabled={isSubmittingForm}
+                            />
+                            </PopoverContent>
+                        </Popover>
                     </div>
                     <div className="space-y-1.5">
                         <Label htmlFor="edit-user-role">Role</Label>

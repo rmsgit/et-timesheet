@@ -43,7 +43,7 @@ export const useMockUsers = () => {
           if (usersData && typeof usersData === 'object' && !Array.isArray(usersData)) {
             const usersArray = Object.entries(usersData).map(([uid, userData]) => ({
               id: uid,
-              ...(userData as Omit<User, 'id'>),
+              ...({...(userData as Omit<User, 'id'>)}),
             }));
             setUsersState(usersArray);
           } else {
@@ -90,7 +90,8 @@ export const useMockUsers = () => {
     baseSalary?: number,
     department?: string,
     jobDesignation?: string,
-    conveyanceAllowance?: number
+    conveyanceAllowance?: number,
+    joiningDate?: string
   ): Promise<{ success: boolean, message?: string, user?: User }> => {
     if (!database) {
       toast({ title: "Configuration Error", description: "Firebase RTDB is not connected. User profile not added/updated.", variant: "destructive" });
@@ -151,6 +152,7 @@ export const useMockUsers = () => {
       department: department ?? null,
       jobDesignation: jobDesignation ?? null,
       conveyanceAllowance: conveyanceAllowance ?? null,
+      joiningDate: joiningDate ?? null,
     };
 
     const userRef = ref(database, `${FIREBASE_USERS_PATH}/${id}`);

@@ -17,6 +17,7 @@ export interface User {
   department?: string;
   jobDesignation?: string;
   conveyanceAllowance?: number;
+  joiningDate?: string; // ISO string
 }
 
 export interface CategoryRating {
