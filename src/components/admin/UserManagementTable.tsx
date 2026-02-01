@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -68,7 +69,6 @@ export const UserManagementTable: React.FC = () => {
   const [newUserRole, setNewUserRole] = useState<'editor' | 'admin' | 'super admin'>('editor');
   const [newUserEditorLevelId, setNewUserEditorLevelId] = useState<string | undefined>(undefined);
   const [newUserAvailableLeaves, setNewUserAvailableLeaves] = useState<number | string>(0);
-  const [newUserCompensatoryLeaves, setNewUserCompensatoryLeaves] = useState<number | string>(0);
   const [newUserJoiningDate, setNewUserJoiningDate] = useState<Date | undefined>(undefined);
   const [newUserPersonalEmail, setNewUserPersonalEmail] = useState('');
   
@@ -210,7 +210,6 @@ export const UserManagementTable: React.FC = () => {
     setNewUserRole('editor');
     setNewUserEditorLevelId(sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined);
     setNewUserAvailableLeaves(0);
-    setNewUserCompensatoryLeaves(0);
     setNewUserJoiningDate(undefined);
     setNewUserPersonalEmail('');
     setIsAddUserDialogOpen(true);
@@ -246,7 +245,7 @@ export const UserManagementTable: React.FC = () => {
         newUserRole === 'editor' ? newUserEditorLevelId : undefined,
         false, // Morning OT eligibility defaults to false
         Number(newUserAvailableLeaves),
-        Number(newUserCompensatoryLeaves),
+        0, // Compensatory leaves default to 0
         {}, // Initialize claimedCompensatoryYears
         undefined,
         undefined,
@@ -429,17 +428,10 @@ export const UserManagementTable: React.FC = () => {
         editUserFormState.username,
         editUserFormState.role,
         editUserFormState.role === 'editor' ? editUserFormState.editorLevelId : undefined,
-        editingUser.isEligibleForMorningOT, // Preserve existing value
+        editingUser.isEligibleForMorningOT,
         editUserFormState.availableLeaves,
-        editUserFormState.compensatoryLeaves,
-        editingUser.claimedCompensatoryYears,
-        editingUser.baseSalary,
-        editingUser.department,
-        editingUser.jobDesignation,
-        editingUser.conveyanceAllowance,
-        editingUser.travelingAllowance,
-        editUserFormState.joiningDate ? editUserFormState.joiningDate.toISOString() : undefined,
-        editUserFormState.personalEmail
+        editingUser.compensatoryLeaves,
+        editingUser.claimedCompensatoryYears
     );
 
     if (result.success) {
@@ -787,17 +779,6 @@ export const UserManagementTable: React.FC = () => {
                         disabled={isSubmittingForm}
                     />
                 </div>
-                <div className="space-y-1.5">
-                    <Label htmlFor="new-user-compensatory-leaves">Compensatory Leaves</Label>
-                    <Input
-                        id="new-user-compensatory-leaves"
-                        type="number"
-                        value={newUserCompensatoryLeaves}
-                        onChange={(e) => setNewUserCompensatoryLeaves(e.target.value)}
-                        placeholder="e.g., 0"
-                        disabled={isSubmittingForm}
-                    />
-                </div>
               </>
             )}
           </div>
@@ -946,17 +927,6 @@ export const UserManagementTable: React.FC = () => {
                                     value={editUserFormState.availableLeaves ?? ''}
                                     onChange={(e) => setEditUserFormState(prev => ({ ...prev, availableLeaves: e.target.value === '' ? undefined : Number(e.target.value) }))}
                                     placeholder="e.g., 15"
-                                    disabled={isSubmittingForm}
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="edit-user-compensatory-leaves">Compensatory Leaves</Label>
-                                <Input
-                                    id="edit-user-compensatory-leaves"
-                                    type="number"
-                                    value={editUserFormState.compensatoryLeaves ?? ''}
-                                    onChange={(e) => setEditUserFormState(prev => ({ ...prev, compensatoryLeaves: e.target.value === '' ? undefined : Number(e.target.value) }))}
-                                    placeholder="e.g., 0"
                                     disabled={isSubmittingForm}
                                 />
                             </div>
