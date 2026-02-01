@@ -1,9 +1,10 @@
-
 "use client";
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useLeave } from '@/hooks/useLeave';
+import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -11,13 +12,20 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarGroup,
-  SidebarGroupLabel
+  SidebarGroupLabel,
+  SidebarMenuBadge,
 } from '@/components/ui/sidebar';
 import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award, Library, Star, ClipboardCheck, TrendingUp, CalendarCheck, Plane, CalendarDays, Gift, PartyPopper, Wallet, FileSpreadsheet, History } from 'lucide-react';
 
 export function SidebarNav() {
   const pathname = usePathname();
   const { isAdmin, isEditor, isSuperAdmin } = useAuth();
+  const { leaveRequests, isLoading: isLoadingLeave } = useLeave();
+
+  const pendingLeaveCount = useMemo(() => {
+    if (isLoadingLeave) return 0;
+    return leaveRequests.filter(req => req.status === 'pending').length;
+  }, [leaveRequests, isLoadingLeave]);
 
   const personalRoutes = [
     { href: '/dashboard', label: 'My Timesheet', icon: ListChecks },
@@ -96,24 +104,29 @@ export function SidebarNav() {
             return (
               <SidebarGroup key={category}>
                 <SidebarGroupLabel>{category}</SidebarGroupLabel>
-                {routes.map((route) => (
-                  <SidebarMenuItem key={route.href}>
-                    <Link href={route.href} passHref legacyBehavior>
-                      <SidebarMenuButton
-                        asChild
-                        variant="default"
-                        size="default"
-                        isActive={isActive(route.href)}
-                        tooltip={{ children: route.label, side: "right", align: "center" }}
-                      >
-                        <a>
-                          <route.icon />
-                          <span>{route.label}</span>
-                        </a>
-                      </SidebarMenuButton>
-                    </Link>
-                  </SidebarMenuItem>
-                ))}
+                {routes.map((route) => {
+                  const isLeaveManagement = route.href === '/dashboard/admin/leave-management';
+                  const showBadge = isLeaveManagement && pendingLeaveCount > 0;
+                  return (
+                    <SidebarMenuItem key={route.href}>
+                      <Link href={route.href} passHref legacyBehavior>
+                        <SidebarMenuButton
+                          asChild
+                          variant="default"
+                          size="default"
+                          isActive={isActive(route.href)}
+                          tooltip={{ children: route.label, side: "right", align: "center" }}
+                        >
+                          <a>
+                            <route.icon />
+                            <span>{route.label}</span>
+                             {showBadge && <SidebarMenuBadge>{pendingLeaveCount}</SidebarMenuBadge>}
+                          </a>
+                        </SidebarMenuButton>
+                      </Link>
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarGroup>
             );
           })}
