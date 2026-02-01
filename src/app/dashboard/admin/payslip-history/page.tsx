@@ -4,308 +4,231 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { usePaysheet } from '@/hooks/usePaysheet';
-import type { Paysheet } from '@/lib/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, History, ChevronLeft, ChevronRight, Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { format, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useToast } from '@/hooks/use-toast';
-import * as XLSX from 'xlsx';
 import { useMockUsers } from '@/hooks/useMockUsers';
-import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
-import type { DateRange } from 'react-day-picker';
-import { Label } from '@/components/ui/label';
+import { useGlobalSettings } from '@/hooks/useGlobalSettings';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
+import { Loader2, TrendingUp, User, Banknote } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { format } from 'date-fns';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const formatCurrency = (amount: number) => {
     if (isNaN(amount)) return 'N/A';
     return new Intl.NumberFormat('si-LK', { style: 'currency', currency: 'LKR' }).format(amount);
+};
+
+interface ForecastItem {
+  userId: string;
+  username: string;
+  fullName: string;
+  projectedBasic: number;
+  projectedAllowances: number;
+  projectedGross: number;
+  projectedEpfEmployee: number;
+  projectedEpfCompany: number;
+  projectedEtfCompany: number;
+  projectedTotalCost: number;
 }
 
-export default function PayslipHistoryPage() {
-    const { isSuperAdmin, isAuthLoading } = useAuth();
-    const router = useRouter();
-    const { paysheets, isLoading: isPaysheetsLoading } = usePaysheet();
-    const { users, isUsersLoading } = useMockUsers();
-    const { toast } = useToast();
-    
-    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
-    const [selectedUserId, setSelectedUserId] = useState<string>('all');
-    const [paysheetListPage, setPaysheetListPage] = useState(1);
-    const paysheetsPerPage = 15;
+export default function SalaryForecastPage() {
+  const { isSuperAdmin, isAuthLoading } = useAuth();
+  const router = useRouter();
+  const { users, isUsersLoading } = useMockUsers();
+  const { settings, isLoading: isSettingsLoading } = useGlobalSettings();
 
-    useEffect(() => {
-        if (isAuthLoading) return;
-        if (!isSuperAdmin) {
-            router.replace('/dashboard');
-        }
-    }, [isSuperAdmin, isAuthLoading, router]);
-    
-    const userList = useMemo(() => {
-        if (isUsersLoading || !users) return [];
-        return users.sort((a, b) => (a.fullName || a.username).localeCompare(b.fullName || b.username));
-    }, [users, isUsersLoading]);
-    
-    const filteredPaysheets = useMemo(() => {
-        let filtered = [...paysheets];
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() + 1).toString().padStart(2, '0'));
 
-        if (selectedUserId !== 'all') {
-            filtered = filtered.filter(p => p.userId === selectedUserId);
-        }
-
-        if (dateRange?.from) {
-            const startDate = startOfDay(dateRange.from);
-            const endDate = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
-            filtered = filtered.filter(p => {
-                if (!p.generatedAt) return false;
-                const paysheetDate = parseISO(p.generatedAt);
-                return isWithinInterval(paysheetDate, { start: startDate, end: endDate });
-            });
-        }
-
-        return filtered;
-    }, [paysheets, selectedUserId, dateRange]);
-
-    const sortedPaysheets = useMemo(() => {
-        return [...filteredPaysheets].sort((a, b) => {
-            const dateA = a.generatedAt ? new Date(a.generatedAt).getTime() : 0;
-            const dateB = b.generatedAt ? new Date(b.generatedAt).getTime() : 0;
-            return dateB - dateA;
-        });
-    }, [filteredPaysheets]);
-
-    const paginatedPaysheets = useMemo(() => {
-        const startIndex = (paysheetListPage - 1) * paysheetsPerPage;
-        return sortedPaysheets.slice(startIndex, startIndex + paysheetsPerPage);
-    }, [sortedPaysheets, paysheetListPage]);
-
-    const totalPaysheetPages = Math.ceil(sortedPaysheets.length / paysheetsPerPage);
-
-    const handleViewPaysheet = (paysheet: Paysheet) => {
-        const url = `/dashboard/admin/salary-report?userId=${paysheet.userId}&year=${paysheet.year}&month=${paysheet.month}`;
-        router.push(url);
-    };
-
-    const handleExportToExcel = () => {
-        if (sortedPaysheets.length === 0) {
-            toast({
-                title: "No Data",
-                description: "There is no data to export based on the current filters.",
-                variant: "destructive"
-            });
-            return;
-        }
-
-        const dataForExport = sortedPaysheets.map(p => {
-            const netPlusAllow = (p.netSalary || 0) + (p.otherPayment || 0);
-            const epfTotal = (p.epfDeduction || 0) + (p.companyEpfContribution || 0);
-            return {
-                'Slry. Date': p.payPeriod,
-                'Co-worker Name': p.username,
-                'Basic Salary': p.baseSalary,
-                'Conv.Allowance': p.conveyanceAllowance,
-                'Travelling Allowance': p.travelingAllowance,
-                'Overtime': p.otAmount || 0,
-                'Poya': p.specialWorkingDayAmount || 0,
-                'No Pay Leaves (-)': p.noPayLeaveDeduction,
-                'Advance (-)': p.advanceDeduction,
-                'Loan Settelments (-)': p.loanDeduction,
-                'EPF 8% (-)': p.epfDeduction,
-                'Gross Salary': p.totalEarnings,
-                'Tot. Deduction': p.totalDeductions,
-                'Net Salary': p.netSalary,
-                'Special allow': p.otherPayment || 0,
-                'Net + Allow': netPlusAllow,
-                'Target Insentive': p.noLeaveBonusAmount || 0,
-                '-': '',
-                'Grand Total': p.netSalary,
-                'EPF 12%': p.companyEpfContribution || 0,
-                'EPF Total': epfTotal,
-                'ETF 3%': p.companyEtfContribution || 0
-            };
-        });
-
-        const worksheet = XLSX.utils.json_to_sheet(dataForExport);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Payslip History");
-
-        XLSX.writeFile(workbook, `payslip_history_${new Date().toISOString().split('T')[0]}.xlsx`);
-
-        toast({
-            title: "Export Successful",
-            description: "The payslip history has been exported to an Excel file."
-        });
-    };
-
-
-    if (isAuthLoading || !isSuperAdmin) {
-        return (
-            <div className="flex h-full min-h-[calc(100vh-theme(spacing.16))] items-center justify-center p-8">
-                <div className="flex flex-col items-center space-y-4">
-                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                    <p className="text-muted-foreground">Verifying payroll access...</p>
-                </div>
-            </div>
-        );
+  const isLoading = isAuthLoading || isUsersLoading || isSettingsLoading;
+  
+  useEffect(() => {
+    if (isAuthLoading) return;
+    if (!isSuperAdmin) {
+        router.replace('/dashboard');
     }
+  }, [isSuperAdmin, isAuthLoading, router]);
+
+  const forecastData = useMemo((): ForecastItem[] => {
+    if (isLoading || !users.length || !settings) return [];
     
+    const epfRate = settings.epfRate || 0;
+    const companyEpfRate = 12; // Standard
+    const companyEtfRate = 3;  // Standard
+
+    return users
+      .filter(user => user.baseSalary && user.baseSalary > 0)
+      .map(user => {
+        const projectedBasic = user.baseSalary || 0;
+        const projectedAllowances = (user.conveyanceAllowance || 0) + (user.travelingAllowance || 0);
+        const projectedGross = projectedBasic + projectedAllowances;
+        
+        const projectedEpfEmployee = (projectedBasic * epfRate) / 100;
+        const projectedEpfCompany = (projectedBasic * companyEpfRate) / 100;
+        const projectedEtfCompany = (projectedBasic * companyEtfRate) / 100;
+
+        // Total cost to company is their gross payout plus their own contributions
+        const projectedTotalCost = projectedGross + projectedEpfCompany + projectedEtfCompany;
+
+        return {
+          userId: user.id,
+          username: user.username,
+          fullName: user.fullName || user.username,
+          projectedBasic,
+          projectedAllowances,
+          projectedGross,
+          projectedEpfEmployee,
+          projectedEpfCompany,
+          projectedEtfCompany,
+          projectedTotalCost,
+        };
+      })
+      .sort((a,b) => a.fullName.localeCompare(b.fullName));
+  }, [isLoading, users, settings]);
+
+  const forecastTotals = useMemo(() => {
+    return forecastData.reduce((acc, item) => {
+        acc.totalBasic += item.projectedBasic;
+        acc.totalAllowances += item.projectedAllowances;
+        acc.totalGross += item.projectedGross;
+        acc.totalEpfEmployee += item.projectedEpfEmployee;
+        acc.totalEpfCompany += item.projectedEpfCompany;
+        acc.totalEtfCompany += item.projectedEtfCompany;
+        acc.grandTotalCost += item.projectedTotalCost;
+        return acc;
+    }, {
+        totalBasic: 0,
+        totalAllowances: 0,
+        totalGross: 0,
+        totalEpfEmployee: 0,
+        totalEpfCompany: 0,
+        totalEtfCompany: 0,
+        grandTotalCost: 0,
+    });
+  }, [forecastData]);
+
+  const availableYears = useMemo(() => {
+      const currentYear = new Date().getFullYear();
+      const years = [];
+      for (let i = currentYear - 2; i <= currentYear + 5; i++) {
+          years.push(i.toString());
+      }
+      return years.sort((a,b) => parseInt(b) - parseInt(a));
+  }, []);
+
+  const availableMonths = useMemo(() => {
+      return Array.from({ length: 12 }, (_, i) => ({
+          value: (i + 1).toString().padStart(2, '0'),
+          label: format(new Date(2000, i), 'MMMM'),
+      }));
+  }, []);
+
+  if (isAuthLoading || !isSuperAdmin) {
     return (
-        <div className="space-y-6">
-             <h1 className="text-3xl font-bold tracking-tight flex items-center">
-                <History className="mr-3 h-8 w-8 text-primary" /> Payslip History
-            </h1>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Filter Paysheets</CardTitle>
-                    <CardDescription>Filter paysheets by user and the date they were generated.</CardDescription>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <Label htmlFor="user-filter">User</Label>
-                        {isUsersLoading ? (
-                            <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
-                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                            </div>
-                        ) : (
-                            <Select
-                                value={selectedUserId}
-                                onValueChange={(value) => { setSelectedUserId(value); setPaysheetListPage(1); }}
-                                disabled={isUsersLoading || isPaysheetsLoading}
-                            >
-                                <SelectTrigger id="user-filter">
-                                    <SelectValue placeholder="Select a user" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Users</SelectItem>
-                                    {userList.map(user => (
-                                        <SelectItem key={user.id} value={user.id}>{user.fullName || user.username}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Generated Date Range</Label>
-                        <DateRangePicker
-                            dateRange={dateRange}
-                            onDateChange={(range) => { setDateRange(range); setPaysheetListPage(1); }}
-                            disabled={isPaysheetsLoading}
-                        />
-                    </div>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <CardTitle>Saved Paysheets History</CardTitle>
-                            <CardDescription>Browse all previously generated and saved paysheets. Click "View" to load the details.</CardDescription>
-                        </div>
-                        <Button onClick={handleExportToExcel} variant="outline" disabled={isPaysheetsLoading || sortedPaysheets.length === 0}>
-                            <Download className="mr-2 h-4 w-4" />
-                            Export to Excel
-                        </Button>
-                    </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                    {isPaysheetsLoading || isUsersLoading ? (
-                        <div className="flex items-center justify-center h-40 p-6">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        </div>
-                    ) : sortedPaysheets.length === 0 ? (
-                        <div className="text-center text-muted-foreground py-10 p-6">No paysheets found for the selected filters.</div>
-                    ) : (
-                        <>
-                            <ScrollArea className="h-[calc(100vh-24rem)]">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="whitespace-nowrap">Slry. Date</TableHead>
-                                            <TableHead className="whitespace-nowrap">Co-worker Name</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">Basic Salary</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">Conv.Allowance</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">Travelling Allowance</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">Overtime</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">Poya</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">No Pay Leaves (-)</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">Advance (-)</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">Loan Settelments (-)</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">EPF 8% (-)</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">Gross Salary</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">Tot. Deduction</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">Net Salary</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">Special allow</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">Net + Allow</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">Target Insentive</TableHead>
-                                            <TableHead className="whitespace-nowrap">-</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">Grand Total</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">EPF 12%</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">EPF Total</TableHead>
-                                            <TableHead className="whitespace-nowrap text-right">ETF 3%</TableHead>
-                                            <TableHead className="text-right sticky right-0 bg-card">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {paginatedPaysheets.map(p => {
-                                            const netPlusAllow = (p.netSalary || 0) + (p.otherPayment || 0);
-                                            const epfTotal = (p.epfDeduction || 0) + (p.companyEpfContribution || 0);
-                                            return (
-                                            <TableRow key={p.id}>
-                                                <TableCell className="font-medium whitespace-nowrap">{p.payPeriod}</TableCell>
-                                                <TableCell className="whitespace-nowrap">{p.username}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.baseSalary)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.conveyanceAllowance)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.travelingAllowance)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.otAmount || 0)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.specialWorkingDayAmount || 0)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.noPayLeaveDeduction)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.advanceDeduction)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.loanDeduction)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.epfDeduction)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.totalEarnings)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.totalDeductions)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap font-bold">{formatCurrency(p.netSalary)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.otherPayment || 0)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(netPlusAllow)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.noLeaveBonusAmount || 0)}</TableCell>
-                                                <TableCell>-</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap font-bold">{formatCurrency(p.netSalary)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.companyEpfContribution || 0)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(epfTotal)}</TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.companyEtfContribution || 0)}</TableCell>
-                                                <TableCell className="text-right sticky right-0 bg-card">
-                                                    <Button variant="outline" size="sm" onClick={() => handleViewPaysheet(p)}>
-                                                        <History className="mr-2 h-4 w-4" />
-                                                        View
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        )})}
-                                    </TableBody>
-                                </Table>
-                            </ScrollArea>
-                            {totalPaysheetPages > 1 && (
-                                <div className="flex items-center justify-between space-x-2 p-4 border-t">
-                                  <span className="text-sm text-muted-foreground">Total: {sortedPaysheets.length} paysheets</span>
-                                  <div className="flex items-center space-x-2">
-                                    <Button variant="outline" size="sm" onClick={() => setPaysheetListPage(p => Math.max(1, p - 1))} disabled={paysheetListPage === 1}>
-                                      <ChevronLeft className="mr-1 h-4 w-4" /> Previous
-                                    </Button>
-                                    <span className="text-sm text-muted-foreground">Page {paysheetListPage} of {totalPaysheetPages}</span>
-                                    <Button variant="outline" size="sm" onClick={() => setPaysheetListPage(p => Math.min(totalPaysheetPages, p + 1))} disabled={paysheetListPage === totalPaysheetPages}>
-                                      Next <ChevronRight className="ml-1 h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                            )}
-                        </>
-                    )}
-                </CardContent>
-            </Card>
+        <div className="flex h-full min-h-[calc(100vh-theme(spacing.16))] items-center justify-center p-8">
+            <div className="flex flex-col items-center space-y-4">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="text-muted-foreground">Verifying payroll access...</p>
+            </div>
         </div>
     );
+  }
 
-    
+  return (
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold tracking-tight flex items-center">
+          <TrendingUp className="mr-3 h-8 w-8 text-primary" /> Salary Forecast
+      </h1>
+      <Card>
+          <CardHeader>
+              <CardTitle>Forecast Period</CardTitle>
+              <CardDescription>Select a month and year to project the salary costs. The forecast is based on current user salary data and does not include variable earnings like OT or deductions like no-pay.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+              <div className="space-y-2">
+                  <Label htmlFor="year-select">Year</Label>
+                  <Select value={selectedYear} onValueChange={setSelectedYear} disabled={isLoading}>
+                      <SelectTrigger id="year-select"><SelectValue /></SelectTrigger>
+                      <SelectContent>{availableYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
+                  </Select>
+              </div>
+              <div className="space-y-2">
+                  <Label htmlFor="month-select">Month</Label>
+                  <Select value={selectedMonth} onValueChange={setSelectedMonth} disabled={isLoading}>
+                      <SelectTrigger id="month-select"><SelectValue /></SelectTrigger>
+                      <SelectContent>{availableMonths.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}</SelectContent>
+                  </Select>
+              </div>
+          </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                  <CardTitle>Forecast for {format(new Date(parseInt(selectedYear), parseInt(selectedMonth) -1), 'MMMM yyyy')}</CardTitle>
+                  <CardDescription>Projected salary costs for all active employees with a base salary.</CardDescription>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Total Forecasted Cost</p>
+                <p className="text-2xl font-bold text-primary">{formatCurrency(forecastTotals.grandTotalCost)}</p>
+              </div>
+            </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64 p-6">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : forecastData.length === 0 ? (
+            <div className="text-center text-muted-foreground py-16 p-6">No users with salary data found to generate a forecast.</div>
+          ) : (
+            <ScrollArea className="h-[calc(100vh-28rem)]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Employee</TableHead>
+                    <TableHead className="text-right">Basic Salary</TableHead>
+                    <TableHead className="text-right">Allowances</TableHead>
+                    <TableHead className="text-right">Gross Salary</TableHead>
+                    <TableHead className="text-right">EPF (8%)</TableHead>
+                    <TableHead className="text-right">EPF (12%)</TableHead>
+                    <TableHead className="text-right">ETF (3%)</TableHead>
+                    <TableHead className="text-right font-semibold">Total Cost</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {forecastData.map(item => (
+                    <TableRow key={item.userId}>
+                      <TableCell className="font-medium">{item.fullName}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.projectedBasic)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.projectedAllowances)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.projectedGross)}</TableCell>
+                      <TableCell className="text-right text-red-600">({formatCurrency(item.projectedEpfEmployee)})</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.projectedEpfCompany)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.projectedEtfCompany)}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatCurrency(item.projectedTotalCost)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+                <TableFooter>
+                  <TableRow className="bg-muted/50">
+                    <TableHead>Totals</TableHead>
+                    <TableHead className="text-right">{formatCurrency(forecastTotals.totalBasic)}</TableHead>
+                    <TableHead className="text-right">{formatCurrency(forecastTotals.totalAllowances)}</TableHead>
+                    <TableHead className="text-right">{formatCurrency(forecastTotals.totalGross)}</TableHead>
+                    <TableHead className="text-right text-red-600">({formatCurrency(forecastTotals.totalEpfEmployee)})</TableHead>
+                    <TableHead className="text-right">{formatCurrency(forecastTotals.totalEpfCompany)}</TableHead>
+                    <TableHead className="text-right">{formatCurrency(forecastTotals.totalEtfCompany)}</TableHead>
+                    <TableHead className="text-right font-bold text-lg">{formatCurrency(forecastTotals.grandTotalCost)}</TableHead>
+                  </TableRow>
+                </TableFooter>
+              </Table>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

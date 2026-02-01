@@ -45,7 +45,7 @@ export function SidebarNav() {
     "Payroll": [
       { href: '/dashboard/admin/salary-configuration', label: 'Salary Config', icon: Wallet },
       { href: '/dashboard/admin/salary-report', label: 'Salary Report', icon: FileSpreadsheet },
-      { href: '/dashboard/admin/payslip-history', label: 'Payslip History', icon: History },
+      { href: '/dashboard/admin/payslip-history', label: 'Salary Forecast', icon: TrendingUp },
     ],
     "Configuration": [
       { href: '/dashboard/admin/project-types', label: 'Project Types', icon: FolderKanban },
