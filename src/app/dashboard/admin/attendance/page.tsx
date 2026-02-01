@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { useAttendance } from '@/hooks/useAttendance';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { AttendanceRecord, User as EditorUser } from '@/lib/types';
+import type { AttendanceRecord, User as AppUser } from '@/lib/types';
 import { eachDayOfInterval, format, parseISO, isSameDay } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { useLeave } from '@/hooks/useLeave';
@@ -163,8 +163,8 @@ export default function AttendancePage() {
   const [file, setFile] = useState<File | null>(null);
   const [dateRange, setDateRange] = useState<string>('');
   
-  const [selectedEditorId, setSelectedEditorId] = useState<string | undefined>(undefined);
-  const [selectedEditor, setSelectedEditor] = useState<EditorUser | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | undefined>(undefined);
+  const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
 
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() + 1).toString().padStart(2, '0'));
@@ -183,9 +183,9 @@ export default function AttendancePage() {
   
   const isLoading = isUsersLoading || isLoadingLeave;
 
-  const editorUsers = useMemo(() => {
+  const selectableUsers = useMemo(() => {
     if (isUsersLoading || !allUsers) return [];
-    return allUsers.filter(u => u.role === 'editor').sort((a, b) => a.username.localeCompare(b.username));
+    return allUsers.filter(u => u.role === 'editor' || u.role === 'admin' || u.role === 'super admin').sort((a, b) => a.username.localeCompare(b.username));
   }, [allUsers, isUsersLoading]);
 
   const availableYears = useMemo(() => {
@@ -205,12 +205,12 @@ export default function AttendancePage() {
   }, []);
   
   useEffect(() => {
-    if (selectedEditorId) {
-      setSelectedEditor(allUsers.find(u => u.id === selectedEditorId) || null);
+    if (selectedUserId) {
+      setSelectedUser(allUsers.find(u => u.id === selectedUserId) || null);
     } else {
-      setSelectedEditor(null);
+      setSelectedUser(null);
     }
-  }, [selectedEditorId, allUsers]);
+  }, [selectedUserId, allUsers]);
 
   useEffect(() => {
     const fetchAttendance = async () => {
@@ -219,9 +219,9 @@ export default function AttendancePage() {
             // We prevent this effect from re-fetching and overwriting it.
             return;
         }
-        if (selectedEditorId && selectedYear && selectedMonth) {
+        if (selectedUserId && selectedYear && selectedMonth) {
             setFile(null); // Clear any selected file
-            const data = await getAttendanceForMonth(selectedEditorId, selectedYear, selectedMonth);
+            const data = await getAttendanceForMonth(selectedUserId, selectedYear, selectedMonth);
             if (data) {
                 setAttendanceData(data);
                 const fromDate = new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1, 1);
@@ -237,7 +237,7 @@ export default function AttendancePage() {
         }
     };
     fetchAttendance();
-  }, [selectedEditorId, selectedYear, selectedMonth, getAttendanceForMonth]);
+  }, [selectedUserId, selectedYear, selectedMonth, getAttendanceForMonth]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -260,8 +260,8 @@ export default function AttendancePage() {
   };
 
   const handleProcessFile = (selectedFile: File) => {
-    if (!selectedEditor) {
-        toast({ title: 'No Editor Selected', description: 'Please select an editor before processing a file.', variant: 'destructive' });
+    if (!selectedUser) {
+        toast({ title: 'No User Selected', description: 'Please select a user before processing a file.', variant: 'destructive' });
         return;
     }
     setIsProcessing(true);
@@ -331,8 +331,8 @@ export default function AttendancePage() {
             
             const daysInRange = eachDayOfInterval({ start: fromDate, end: toDate });
             
-            const editorLeaveRequests = leaveRequests.filter(
-                req => req.userId === selectedEditor.id && (req.status === 'approved')
+            const userLeaveRequests = leaveRequests.filter(
+                req => req.userId === selectedUser.id && (req.status === 'approved')
             );
             
             const newAttendanceData: AttendanceRecord[] = daysInRange.map((day, index) => {
@@ -341,7 +341,7 @@ export default function AttendancePage() {
                 const checkInValue = dataForDay?.checkIn || '';
                 const checkOutValue = dataForDay?.checkOut || '';
 
-                const leaveForDay = editorLeaveRequests.find(req => isSameDay(parseISO(req.date), day));
+                const leaveForDay = userLeaveRequests.find(req => isSameDay(parseISO(req.date), day));
                 let leaveInfo = '';
                 if (leaveForDay) {
                     leaveInfo = leaveForDay.leaveType.replace('-', ' ');
@@ -352,7 +352,7 @@ export default function AttendancePage() {
                     date: format(day, 'MMM d, yyyy'),
                     checkIn: checkInValue,
                     checkOut: checkOutValue,
-                    overtime: calculateOvertime(checkInValue, checkOutValue, selectedEditor.isEligibleForMorningOT),
+                    overtime: calculateOvertime(checkInValue, checkOutValue, selectedUser.isEligibleForMorningOT),
                     leaveInfo,
                     earlyLeave,
                 };
@@ -385,7 +385,7 @@ export default function AttendancePage() {
       record[field] = value;
       
       if (field === 'checkIn' || field === 'checkOut') {
-        record.overtime = calculateOvertime(record.checkIn, record.checkOut, selectedEditor?.isEligibleForMorningOT);
+        record.overtime = calculateOvertime(record.checkIn, record.checkOut, selectedUser?.isEligibleForMorningOT);
         record.earlyLeave = calculateEarlyLeave(record.checkOut, record.leaveInfo);
       }
       
@@ -393,13 +393,13 @@ export default function AttendancePage() {
   }
   
   const handleSaveAttendance = async () => {
-        if (!selectedEditorId || !selectedYear || !selectedMonth) {
-            toast({ title: 'Cannot Save', description: 'Editor, Year, or Month not selected.', variant: 'destructive'});
+        if (!selectedUserId || !selectedYear || !selectedMonth) {
+            toast({ title: 'Cannot Save', description: 'User, Year, or Month not selected.', variant: 'destructive'});
             return;
         }
 
         setIsSaving(true);
-        const result = await saveAttendanceForMonth(selectedEditorId, selectedYear, selectedMonth, attendanceData);
+        const result = await saveAttendanceForMonth(selectedUserId, selectedYear, selectedMonth, attendanceData);
         if (!result.success) {
             // Error toast is already handled in the context
         }
@@ -407,13 +407,13 @@ export default function AttendancePage() {
     };
 
   const handleDeleteSheet = async () => {
-    if (!selectedEditorId || !selectedYear || !selectedMonth) {
-        toast({ title: 'Cannot Delete', description: 'Editor, Year, or Month not selected.', variant: 'destructive'});
+    if (!selectedUserId || !selectedYear || !selectedMonth) {
+        toast({ title: 'Cannot Delete', description: 'User, Year, or Month not selected.', variant: 'destructive'});
         return;
     }
 
     setIsDeleting(true);
-    const result = await deleteAttendanceForMonth(selectedEditorId, selectedYear, selectedMonth);
+    const result = await deleteAttendanceForMonth(selectedUserId, selectedYear, selectedMonth);
     if (result.success) {
         setAttendanceData([]);
     }
@@ -424,37 +424,37 @@ export default function AttendancePage() {
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight flex items-center">
-        <CalendarCheck className="mr-3 h-8 w-8 text-primary" /> Editor Attendance Sheet
+        <CalendarCheck className="mr-3 h-8 w-8 text-primary" /> User Attendance Sheet
       </h1>
 
       <Card>
         <CardHeader>
           <CardTitle>Select Period to View or Upload</CardTitle>
           <CardDescription>
-            Select an editor, year, and month to view saved attendance. If no records exist, you can upload an attendance file.
+            Select a user, year, and month to view saved attendance. If no records exist, you can upload an attendance file.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
             <div className="space-y-2">
-                <Label htmlFor="editor-select">Editor</Label>
+                <Label htmlFor="user-select">User</Label>
                 {isLoading ? (
                     <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     </div>
                 ) : (
                     <Select
-                        value={selectedEditorId}
-                        onValueChange={setSelectedEditorId}
+                        value={selectedUserId}
+                        onValueChange={setSelectedUserId}
                         disabled={isLoading || isProcessing}
                     >
-                        <SelectTrigger id="editor-select">
-                            <SelectValue placeholder="Select an editor" />
+                        <SelectTrigger id="user-select">
+                            <SelectValue placeholder="Select a user" />
                         </SelectTrigger>
                         <SelectContent>
-                            {editorUsers.map(editor => (
-                                <SelectItem key={editor.id} value={editor.id}>
-                                    {editor.username} ({editor.email})
+                            {selectableUsers.map(user => (
+                                <SelectItem key={user.id} value={user.id}>
+                                    {user.username} ({user.email})
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -491,7 +491,7 @@ export default function AttendancePage() {
         </CardContent>
       </Card>
       
-      {selectedEditorId && (
+      {selectedUserId && (
         <Card>
             <CardHeader>
               <CardTitle>Upload New File</CardTitle>
@@ -509,10 +509,10 @@ export default function AttendancePage() {
                             onChange={handleFileChange}
                             accept=".xlsx, .xls, .csv"
                             className="flex-grow"
-                            disabled={isProcessing || !selectedEditorId}
+                            disabled={isProcessing || !selectedUserId}
                         />
                     </div>
-                    <Button onClick={() => file && handleProcessFile(file)} disabled={!file || !selectedEditorId || isProcessing}>
+                    <Button onClick={() => file && handleProcessFile(file)} disabled={!file || !selectedUserId || isProcessing}>
                         {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                         {isProcessing ? 'Processing...' : 'Review File'}
                     </Button>
@@ -522,12 +522,12 @@ export default function AttendancePage() {
         </Card>
       )}
       
-      {selectedEditorId && attendanceData.length > 0 && (
+      {selectedUserId && attendanceData.length > 0 && (
           <Card>
               <CardHeader>
                   <div className="flex justify-between items-start">
                       <div>
-                          <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5" /> Reviewing Attendance for: <span className="ml-2 font-bold text-primary">{selectedEditor?.username}</span></CardTitle>
+                          <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5" /> Reviewing Attendance for: <span className="ml-2 font-bold text-primary">{selectedUser?.username}</span></CardTitle>
                           <CardDescription className="mt-1.5">
                               Review and edit the attendance data for {format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}.
                           </CardDescription>
@@ -613,25 +613,25 @@ export default function AttendancePage() {
           </Card>
       )}
 
-      {!selectedEditorId && !isProcessing && (
+      {!selectedUserId && !isProcessing && (
           <Card className="shadow-md text-center py-10">
           <CardContent>
             <User className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-xl font-medium">Select an Editor</h3>
+            <h3 className="mt-4 text-xl font-medium">Select a User</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Please choose an editor, year, and month to proceed.
+              Please choose a user, year, and month to proceed.
             </p>
           </CardContent>
         </Card>
       )}
 
-      {selectedEditorId && attendanceData.length === 0 && !isProcessing && (
+      {selectedUserId && attendanceData.length === 0 && !isProcessing && (
           <Card className="shadow-md text-center py-10">
           <CardContent>
             <Search className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-4 text-xl font-medium">No Saved Records</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              No attendance records found for {selectedEditor?.username} for {format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}.
+              No attendance records found for {selectedUser?.username} for {format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}.
             </p>
              <p className="mt-1 text-sm text-muted-foreground">
               Upload a file to create a new attendance sheet for this period.
@@ -645,7 +645,7 @@ export default function AttendancePage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the attendance sheet for <span className="font-semibold">{selectedEditor?.username}</span> for <span className="font-semibold">{format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}</span>.
+              This action cannot be undone. This will permanently delete the attendance sheet for <span className="font-semibold">{selectedUser?.username}</span> for <span className="font-semibold">{format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}</span>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -660,5 +660,3 @@ export default function AttendancePage() {
     </div>
   );
 }
-
-    

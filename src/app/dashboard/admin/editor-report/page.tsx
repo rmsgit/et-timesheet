@@ -63,7 +63,7 @@ export default function AdminEditorReportPage() {
   const { users: allUsers, isUsersLoading } = useMockUsers();
 
   const [selectedUserId, setSelectedUserId] = useState<string | undefined>(undefined);
-  const [selectedEditor, setSelectedEditor] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(),
     to: new Date(),
@@ -75,22 +75,22 @@ export default function AdminEditorReportPage() {
 
   const isLoading = isUsersLoading || isTimesheetLoading;
 
-  const editorUsers = useMemo(() => {
+  const selectableUsers = useMemo(() => {
     if (isUsersLoading || !allUsers) return [];
-    return allUsers.filter(u => u.role === 'editor').sort((a,b) => a.username.localeCompare(b.username));
+    return allUsers.filter(u => u.role === 'editor' || u.role === 'admin' || u.role === 'super admin').sort((a,b) => a.username.localeCompare(b.username));
   }, [allUsers, isUsersLoading]);
 
   useEffect(() => {
     if (selectedUserId) {
-      setSelectedEditor(allUsers.find(u => u.id === selectedUserId) || null);
+      setSelectedUser(allUsers.find(u => u.id === selectedUserId) || null);
     } else {
-      setSelectedEditor(null);
+      setSelectedUser(null);
     }
     setCurrentPage(1);
   }, [selectedUserId, allUsers]);
 
 
-  const allRecordsForEditorInRange = useMemo(() => {
+  const allRecordsForUserInRange = useMemo(() => {
     if (isLoading || !selectedUserId || !dateRange?.from) return [];
 
     const effectiveStartDate = new Date(dateRange.from);
@@ -103,7 +103,7 @@ export default function AdminEditorReportPage() {
   }, [selectedUserId, dateRange, getRecordsByDateRange, isLoading]);
 
   const sortedRecords = useMemo(() => {
-    let sortableItems = [...allRecordsForEditorInRange];
+    let sortableItems = [...allRecordsForUserInRange];
     if (sortConfig.key !== null) {
       sortableItems.sort((a, b) => {
         const valA = a[sortConfig.key!];
@@ -133,7 +133,7 @@ export default function AdminEditorReportPage() {
       });
     }
     return sortableItems;
-  }, [allRecordsForEditorInRange, sortConfig]);
+  }, [allRecordsForUserInRange, sortConfig]);
 
   const paginatedRecords = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
@@ -159,19 +159,19 @@ export default function AdminEditorReportPage() {
   };
 
   const totalHours = useMemo(() => {
-    return allRecordsForEditorInRange.reduce((sum, record) => sum + record.durationHours, 0);
-  }, [allRecordsForEditorInRange]);
+    return allRecordsForUserInRange.reduce((sum, record) => sum + record.durationHours, 0);
+  }, [allRecordsForUserInRange]);
 
   const totalProjects = useMemo(() => {
-    return new Set(allRecordsForEditorInRange.map(record => record.projectName)).size;
-  }, [allRecordsForEditorInRange]);
+    return new Set(allRecordsForUserInRange.map(record => record.projectName)).size;
+  }, [allRecordsForUserInRange]);
 
   const totalCompletedTasks = useMemo(() => {
-    return allRecordsForEditorInRange.filter(record => record.completedAt).length;
-  }, [allRecordsForEditorInRange]);
+    return allRecordsForUserInRange.filter(record => record.completedAt).length;
+  }, [allRecordsForUserInRange]);
 
   const dailyHoursChartData = useMemo(() => {
-    if (isLoading || !dateRange?.from || allRecordsForEditorInRange.length === 0) return [];
+    if (isLoading || !dateRange?.from || allRecordsForUserInRange.length === 0) return [];
 
     const chartStartDate = new Date(dateRange.from);
     chartStartDate.setHours(0,0,0,0);
@@ -185,7 +185,7 @@ export default function AdminEditorReportPage() {
       dailyData[format(day, 'yyyy-MM-dd')] = { normalHours: 0, revisionHours: 0 };
     });
 
-    allRecordsForEditorInRange.forEach(record => {
+    allRecordsForUserInRange.forEach(record => {
       const recordDateStr = format(parseISO(record.date), 'yyyy-MM-dd');
       if (dailyData[recordDateStr] !== undefined) {
         if (record.workType === 'Revision') {
@@ -204,7 +204,7 @@ export default function AdminEditorReportPage() {
         revisionHours: parseFloat(hoursData.revisionHours.toFixed(1)),
       }))
       .sort((a,b) => compareAsc(parseISO(a.fullDate), parseISO(b.fullDate)));
-  }, [allRecordsForEditorInRange, dateRange, isLoading]);
+  }, [allRecordsForUserInRange, dateRange, isLoading]);
 
   const getWorkTypeBadge = (workType: TimeRecord['workType']) => {
     switch (workType) {
@@ -233,41 +233,41 @@ export default function AdminEditorReportPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold tracking-tight flex items-center">
-          <UserCheck className="mr-3 h-8 w-8 text-primary" /> Editor Specific Report
+          <UserCheck className="mr-3 h-8 w-8 text-primary" /> User Specific Report
         </h1>
       </div>
 
       <Card className="shadow-md">
         <CardHeader>
-          <CardTitle>Select Editor and Date Range</CardTitle>
-          <CardDescription>Choose an editor and a time period to view their specific timesheet report.</CardDescription>
+          <CardTitle>Select User and Date Range</CardTitle>
+          <CardDescription>Choose a user and a time period to view their specific timesheet report.</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="editor-select">Editor</Label>
+            <Label htmlFor="user-select">User</Label>
             {isUsersLoading ? (
                 <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-            ) : editorUsers.length > 0 ? (
+            ) : selectableUsers.length > 0 ? (
                 <Select
                     value={selectedUserId}
                     onValueChange={(value) => { setSelectedUserId(value); setCurrentPage(1); }}
                     disabled={isLoading}
                 >
-                    <SelectTrigger id="editor-select">
-                    <SelectValue placeholder="Select an editor" />
+                    <SelectTrigger id="user-select">
+                    <SelectValue placeholder="Select a user" />
                     </SelectTrigger>
                     <SelectContent>
-                    {editorUsers.map(editor => (
-                        <SelectItem key={editor.id} value={editor.id}>
-                        {editor.fullName || editor.username} ({editor.email})
+                    {selectableUsers.map(user => (
+                        <SelectItem key={user.id} value={user.id}>
+                        {user.fullName || user.username} ({user.email})
                         </SelectItem>
                     ))}
                     </SelectContent>
                 </Select>
             ) : (
-                <p className="text-sm text-muted-foreground p-2 border rounded-md">No editors found.</p>
+                <p className="text-sm text-muted-foreground p-2 border rounded-md">No users found.</p>
             )}
           </div>
           <div className="space-y-2">
@@ -281,9 +281,9 @@ export default function AdminEditorReportPage() {
         <Card className="shadow-md text-center py-10">
           <CardContent>
             <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-xl font-medium">Please Select an Editor</h3>
+            <h3 className="mt-4 text-xl font-medium">Please Select a User</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Choose an editor from the dropdown above to view their report.
+              Choose a user from the dropdown above to view their report.
             </p>
           </CardContent>
         </Card>
@@ -307,7 +307,7 @@ export default function AdminEditorReportPage() {
                 <CardContent>
                   <div className="text-2xl font-bold">{formatDurationFromDecimalHours(totalHours)}</div>
                   <p className="text-xs text-muted-foreground">
-                    For {selectedEditor?.fullName || selectedEditor?.username || 'selected editor'}
+                    For {selectedUser?.fullName || selectedUser?.username || 'selected user'}
                   </p>
                 </CardContent>
               </Card>
@@ -344,7 +344,7 @@ export default function AdminEditorReportPage() {
             <Card className="shadow-lg mt-6">
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <BarChart2 className="mr-2 h-6 w-6 text-primary" /> Daily Work Hours for {selectedEditor?.fullName || selectedEditor?.username || 'Editor'}
+                  <BarChart2 className="mr-2 h-6 w-6 text-primary" /> Daily Work Hours for {selectedUser?.fullName || selectedUser?.username || 'User'}
                 </CardTitle>
                 <CardDescription>
                   Total hours logged per day (Normal = New Work + Sample Work), from {dateRange?.from ? format(dateRange.from, "PPP") : ''} to {dateRange?.to ? format(dateRange.to, "PPP") : ''}.
@@ -379,7 +379,7 @@ export default function AdminEditorReportPage() {
                   <BarChart2 className="mx-auto h-12 w-12 text-muted-foreground" />
                   <h3 className="mt-4 text-xl font-medium">No Chart Data</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    No daily hours data to display for {selectedEditor?.fullName || selectedEditor?.username || 'the selected editor'} in this period.
+                    No daily hours data to display for {selectedUser?.fullName || selectedUser?.username || 'the selected user'} in this period.
                   </p>
                 </CardContent>
             </Card>
@@ -391,7 +391,7 @@ export default function AdminEditorReportPage() {
           ) : sortedRecords.length > 0 ? (
             <Card className="shadow-lg mt-6">
               <CardHeader>
-                <CardTitle>Detailed Log for {selectedEditor?.fullName || selectedEditor?.username || 'Editor'}</CardTitle>
+                <CardTitle>Detailed Log for {selectedUser?.fullName || selectedUser?.username || 'User'}</CardTitle>
                 <CardDescription>
                   Showing records from {dateRange?.from ? format(dateRange.from, "PPP") : ''} to {dateRange?.to ? format(dateRange.to, "PPP") : ''}.
                 </CardDescription>
@@ -484,7 +484,7 @@ export default function AdminEditorReportPage() {
               )}
                {totalPages <=1 && sortedRecords.length > 0 && (
                  <CardFooter className="justify-end pt-4">
-                    <p className="text-sm text-muted-foreground">Total entries for {selectedEditor?.fullName || selectedEditor?.username || 'editor'} in range: {sortedRecords.length}</p>
+                    <p className="text-sm text-muted-foreground">Total entries for {selectedUser?.fullName || selectedUser?.username || 'user'} in range: {sortedRecords.length}</p>
                  </CardFooter>
                )}
             </Card>
@@ -494,7 +494,7 @@ export default function AdminEditorReportPage() {
                 <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-4 text-xl font-medium">No Records Found</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {selectedEditor?.fullName || selectedEditor?.username || 'The selected editor'} has no time records for the selected date range.
+                  {selectedUser?.fullName || selectedUser?.username || 'The selected user'} has no time records for the selected date range.
                 </p>
               </CardContent>
             </Card>
