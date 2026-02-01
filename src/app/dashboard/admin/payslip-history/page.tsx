@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, History, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const formatCurrency = (amount: number) => {
     if (isNaN(amount)) return 'N/A';
@@ -73,83 +74,85 @@ export default function PayslipHistoryPage() {
                     <CardTitle>Saved Paysheets History</CardTitle>
                     <CardDescription>Browse all previously generated and saved paysheets. Click "View" to load the details.</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-0">
                     {isPaysheetsLoading ? (
-                        <div className="flex items-center justify-center h-40">
+                        <div className="flex items-center justify-center h-40 p-6">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
                         </div>
                     ) : sortedPaysheets.length === 0 ? (
-                        <div className="text-center text-muted-foreground py-10">No paysheets have been saved yet.</div>
+                        <div className="text-center text-muted-foreground py-10 p-6">No paysheets have been saved yet.</div>
                     ) : (
                         <>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="whitespace-nowrap">Slry. Date</TableHead>
-                                        <TableHead className="whitespace-nowrap">Co-worker Name</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">Basic Salary</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">Conv.Allowance</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">Travelling Allowance</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">Overtime</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">Poya</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">No Pay Leaves (-)</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">Advance (-)</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">Loan Settelments (-)</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">EPF 8% (-)</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">Gross Salary</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">Tot. Deduction</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">Net Salary</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">Special allow</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">Net + Allow</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">Target Insentive</TableHead>
-                                        <TableHead className="whitespace-nowrap">-</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">Grand Total</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">EPF 12%</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">EPF Total</TableHead>
-                                        <TableHead className="whitespace-nowrap text-right">ETF 3%</TableHead>
-                                        <TableHead className="text-right sticky right-0 bg-card">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {paginatedPaysheets.map(p => {
-                                        const netPlusAllow = (p.netSalary || 0) + (p.otherPayment || 0);
-                                        const epfTotal = (p.epfDeduction || 0) + (p.companyEpfContribution || 0);
-                                        return (
-                                        <TableRow key={p.id}>
-                                            <TableCell className="font-medium whitespace-nowrap">{p.payPeriod}</TableCell>
-                                            <TableCell className="whitespace-nowrap">{p.username}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.baseSalary)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.conveyanceAllowance)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.travelingAllowance)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.otAmount || 0)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.specialWorkingDayAmount || 0)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.noPayLeaveDeduction)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.advanceDeduction)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.loanDeduction)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.epfDeduction)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.totalEarnings)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.totalDeductions)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap font-bold">{formatCurrency(p.netSalary)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.otherPayment || 0)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(netPlusAllow)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.noLeaveBonusAmount || 0)}</TableCell>
-                                            <TableCell>-</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap font-bold">{formatCurrency(p.netSalary)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.companyEpfContribution || 0)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(epfTotal)}</TableCell>
-                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.companyEtfContribution || 0)}</TableCell>
-                                            <TableCell className="text-right sticky right-0 bg-card">
-                                                <Button variant="outline" size="sm" onClick={() => handleViewPaysheet(p)}>
-                                                    <History className="mr-2 h-4 w-4" />
-                                                    View
-                                                </Button>
-                                            </TableCell>
+                            <ScrollArea className="h-[calc(100vh-24rem)]">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="whitespace-nowrap">Slry. Date</TableHead>
+                                            <TableHead className="whitespace-nowrap">Co-worker Name</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">Basic Salary</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">Conv.Allowance</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">Travelling Allowance</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">Overtime</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">Poya</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">No Pay Leaves (-)</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">Advance (-)</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">Loan Settelments (-)</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">EPF 8% (-)</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">Gross Salary</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">Tot. Deduction</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">Net Salary</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">Special allow</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">Net + Allow</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">Target Insentive</TableHead>
+                                            <TableHead className="whitespace-nowrap">-</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">Grand Total</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">EPF 12%</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">EPF Total</TableHead>
+                                            <TableHead className="whitespace-nowrap text-right">ETF 3%</TableHead>
+                                            <TableHead className="text-right sticky right-0 bg-card">Actions</TableHead>
                                         </TableRow>
-                                    )})}
-                                </TableBody>
-                            </Table>
-                             {totalPaysheetPages > 1 && (
-                                <div className="flex items-center justify-between space-x-2 pt-4">
+                                    </TableHeader>
+                                    <TableBody>
+                                        {paginatedPaysheets.map(p => {
+                                            const netPlusAllow = (p.netSalary || 0) + (p.otherPayment || 0);
+                                            const epfTotal = (p.epfDeduction || 0) + (p.companyEpfContribution || 0);
+                                            return (
+                                            <TableRow key={p.id}>
+                                                <TableCell className="font-medium whitespace-nowrap">{p.payPeriod}</TableCell>
+                                                <TableCell className="whitespace-nowrap">{p.username}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.baseSalary)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.conveyanceAllowance)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.travelingAllowance)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.otAmount || 0)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.specialWorkingDayAmount || 0)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.noPayLeaveDeduction)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.advanceDeduction)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.loanDeduction)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.epfDeduction)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.totalEarnings)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.totalDeductions)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap font-bold">{formatCurrency(p.netSalary)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.otherPayment || 0)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(netPlusAllow)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.noLeaveBonusAmount || 0)}</TableCell>
+                                                <TableCell>-</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap font-bold">{formatCurrency(p.netSalary)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.companyEpfContribution || 0)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(epfTotal)}</TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.companyEtfContribution || 0)}</TableCell>
+                                                <TableCell className="text-right sticky right-0 bg-card">
+                                                    <Button variant="outline" size="sm" onClick={() => handleViewPaysheet(p)}>
+                                                        <History className="mr-2 h-4 w-4" />
+                                                        View
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        )})}
+                                    </TableBody>
+                                </Table>
+                            </ScrollArea>
+                            {totalPaysheetPages > 1 && (
+                                <div className="flex items-center justify-between space-x-2 p-4 border-t">
                                   <Button variant="outline" size="sm" onClick={() => setPaysheetListPage(p => Math.max(1, p - 1))} disabled={paysheetListPage === 1}>
                                     <ChevronLeft className="mr-1 h-4 w-4" /> Previous
                                   </Button>
