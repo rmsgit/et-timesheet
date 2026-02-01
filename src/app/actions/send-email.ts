@@ -60,20 +60,25 @@ export async function sendEmail(input: SendEmailInput): Promise<{ success: boole
           ],
         };
 
-        await transporter.sendMail(mailOptions);
-        console.log(`Email sent successfully to ${to}`);
-        return { success: true, message: `Email sent successfully to ${to}` };
+        // Fire and forget: Don't await the sendMail promise.
+        // Instead, use a callback to log the result in the background.
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                console.error(`Background email sending to ${to} failed:`, error);
+            } else {
+                console.log(`Background email to ${to} sent successfully: ${info.response}`);
+            }
+        });
+
+        // Immediately return success to the client.
+        return { success: true, message: `Email sending to ${to} has been initiated.` };
 
     } catch (error: any) {
-      console.error('Error in sendEmail server action:', error);
-      let errorMessage = 'Failed to send email. Check server logs for details.';
+      // This will now only catch errors from the setup, not from sendMail itself.
+      console.error('Error in sendEmail server action setup:', error);
+      let errorMessage = 'Failed to initiate email sending. Check server logs for details.';
       if (error && typeof error.message === 'string') {
-        // More specific nodemailer errors can be caught here if needed
-        if (error.code === 'EAUTH') {
-            errorMessage = 'Authentication failed. Please check your GMAIL_SMTP_USER and GMAIL_SMTP_PASS in the .env file. You may need to use a Google App Password.';
-        } else {
-            errorMessage = error.message;
-        }
+        errorMessage = error.message;
       }
       return { success: false, message: errorMessage };
     }

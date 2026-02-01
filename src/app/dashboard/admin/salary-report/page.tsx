@@ -15,7 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save, Banknote, Landmark, RefreshCw, Mail, Download } from 'lucide-react';
+import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save, Banknote, Landmark, RefreshCw, Mail, Download, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, differenceInYears } from 'date-fns';
@@ -196,7 +196,7 @@ export default function SalaryReportPage() {
             };
             setReport(reportFromSaved);
             setIsSaved(true);
-            toast({ title: "Loaded Saved Paysheet", description: `Displaying a previously saved paysheet for ${user.username}.`})
+            toast({ title: "Loaded Saved Paysheet", description: `Displaying a previously saved paysheet for ${user.username}.`, Close: <button className="absolute right-2 top-2 rounded-md p-1 text-foreground/50 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600"><X className="h-4 w-4" /></button> });
         } else {
             setReport(null);
             setIsSaved(false);
@@ -567,13 +567,13 @@ export default function SalaryReportPage() {
 
             if (result.success) {
                 toast({
-                    title: 'Email Sent',
-                    description: `The payslip has been sent to ${report.user.personalEmail}.`,
+                    title: 'Email Sending Initiated',
+                    description: result.message,
                 });
                 setIsPayslipPreviewOpen(false); // Close the modal on success
             } else {
                  toast({
-                    title: 'Email Failed to Send',
+                    title: 'Email Initiation Failed',
                     description: result.message,
                     variant: 'destructive',
                 });
@@ -957,6 +957,7 @@ export default function SalaryReportPage() {
     
 
     
+
 
 
 
