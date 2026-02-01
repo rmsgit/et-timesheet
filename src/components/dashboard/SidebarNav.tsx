@@ -13,7 +13,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award, Library, Star, ClipboardCheck, TrendingUp, CalendarCheck, Plane, CalendarDays, Gift, PartyPopper, Wallet, FileSpreadsheet } from 'lucide-react';
+import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award, Library, Star, ClipboardCheck, TrendingUp, CalendarCheck, Plane, CalendarDays, Gift, PartyPopper, Wallet, FileSpreadsheet, History } from 'lucide-react';
 
 export function SidebarNav() {
   const pathname = usePathname();
@@ -45,6 +45,7 @@ export function SidebarNav() {
     "Payroll": [
       { href: '/dashboard/admin/salary-configuration', label: 'Salary Config', icon: Wallet },
       { href: '/dashboard/admin/salary-report', label: 'Salary Report', icon: FileSpreadsheet },
+      { href: '/dashboard/admin/payslip-history', label: 'Payslip History', icon: History },
     ],
     "Configuration": [
       { href: '/dashboard/admin/project-types', label: 'Project Types', icon: FolderKanban },
