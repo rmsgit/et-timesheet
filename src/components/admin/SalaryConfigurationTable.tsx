@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -16,15 +15,16 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Edit, Save, X, Loader2, ChevronsUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Edit, Save, X, Loader2, ChevronsUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Check, X as XIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 
-type SortableKeys = keyof Pick<User, 'username' | 'baseSalary' | 'department' | 'jobDesignation' | 'conveyanceAllowance' | 'travelingAllowance'>;
+type SortableKeys = keyof Pick<User, 'username' | 'baseSalary' | 'department' | 'jobDesignation' | 'conveyanceAllowance' | 'travelingAllowance' | 'isEligibleForMorningOT'>;
 
 const departments = ["HR", "Admin", "Editors"];
 const jobDesignations = ["Team Leader", "Team Assist", "Editors"];
@@ -42,6 +42,7 @@ export const SalaryConfigurationTable: React.FC = () => {
     jobDesignation: '',
     conveyanceAllowance: '',
     travelingAllowance: '',
+    isEligibleForMorningOT: false,
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -56,7 +57,12 @@ export const SalaryConfigurationTable: React.FC = () => {
         const valB = b[sortConfig.key!];
         
         let comparison = 0;
-        if (valA === null || valA === undefined) comparison = -1;
+        if (sortConfig.key === 'isEligibleForMorningOT') {
+            const boolA = valA === true;
+            const boolB = valB === true;
+            comparison = boolA === boolB ? 0 : boolA ? -1 : 1;
+        }
+        else if (valA === null || valA === undefined) comparison = -1;
         else if (valB === null || valB === undefined) comparison = 1;
         else if (typeof valA === 'number' && typeof valB === 'number') {
           comparison = valA - valB;
@@ -100,6 +106,7 @@ export const SalaryConfigurationTable: React.FC = () => {
       jobDesignation: user.jobDesignation || '',
       conveyanceAllowance: user.conveyanceAllowance?.toString() || '',
       travelingAllowance: user.travelingAllowance?.toString() || '',
+      isEligibleForMorningOT: user.isEligibleForMorningOT || false,
     });
     setIsFormOpen(true);
   };
@@ -119,7 +126,7 @@ export const SalaryConfigurationTable: React.FC = () => {
       editingUser.username,
       editingUser.role!,
       editingUser.editorLevelId,
-      editingUser.isEligibleForMorningOT,
+      formState.isEligibleForMorningOT,
       editingUser.availableLeaves,
       editingUser.compensatoryLeaves,
       editingUser.claimedCompensatoryYears,
@@ -127,7 +134,9 @@ export const SalaryConfigurationTable: React.FC = () => {
       formState.department,
       formState.jobDesignation,
       formState.conveyanceAllowance !== '' ? Number(formState.conveyanceAllowance) : undefined,
-      formState.travelingAllowance !== '' ? Number(formState.travelingAllowance) : undefined
+      formState.travelingAllowance !== '' ? Number(formState.travelingAllowance) : undefined,
+      editingUser.joiningDate,
+      editingUser.personalEmail
     );
 
     if (result.success) {
@@ -157,7 +166,7 @@ export const SalaryConfigurationTable: React.FC = () => {
         </CardHeader>
         <CardContent>
           {isUsersLoading ? (
-            <TableSkeleton columnCount={6} />
+            <TableSkeleton columnCount={8} />
           ) : (
             <>
             <Table>
@@ -167,8 +176,9 @@ export const SalaryConfigurationTable: React.FC = () => {
                   {renderSortableHeader('Base Salary', 'baseSalary')}
                   {renderSortableHeader('Department', 'department')}
                   {renderSortableHeader('Job Designation', 'jobDesignation')}
-                  {renderSortableHeader('Conveyance Allowance', 'conveyanceAllowance')}
-                  {renderSortableHeader('Traveling Allowance', 'travelingAllowance')}
+                  {renderSortableHeader('Conveyance', 'conveyanceAllowance')}
+                  {renderSortableHeader('Traveling', 'travelingAllowance')}
+                  {renderSortableHeader('Morning OT', 'isEligibleForMorningOT')}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -192,6 +202,17 @@ export const SalaryConfigurationTable: React.FC = () => {
                     <TableCell>{user.jobDesignation || 'N/A'}</TableCell>
                     <TableCell>{user.conveyanceAllowance ?? 'N/A'}</TableCell>
                     <TableCell>{user.travelingAllowance ?? 'N/A'}</TableCell>
+                     <TableCell>
+                      {user.role === 'editor' ? (
+                        user.isEligibleForMorningOT ? (
+                          <Check className="h-5 w-5 text-green-500" />
+                        ) : (
+                          <XIcon className="h-5 w-5 text-muted-foreground" />
+                        )
+                      ) : (
+                        <span className="text-muted-foreground">N/A</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm" onClick={() => handleEdit(user)}>
                         <Edit className="mr-2 h-4 w-4" />
@@ -269,6 +290,17 @@ export const SalaryConfigurationTable: React.FC = () => {
               <Label htmlFor="travelingAllowance" className="text-right">Traveling</Label>
               <Input id="travelingAllowance" name="travelingAllowance" type="number" value={formState.travelingAllowance} onChange={handleFormChange} className="col-span-3" />
             </div>
+            {editingUser?.role === 'editor' && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="isEligibleForMorningOT" className="text-right col-span-3">Eligible for Morning OT</Label>
+                  <Checkbox
+                      id="isEligibleForMorningOT"
+                      checked={formState.isEligibleForMorningOT}
+                      onCheckedChange={(checked) => setFormState(prev => ({...prev, isEligibleForMorningOT: checked as boolean}))}
+                      className="col-span-1 justify-self-start"
+                  />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <DialogClose asChild>

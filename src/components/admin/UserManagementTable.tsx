@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -68,7 +67,6 @@ export const UserManagementTable: React.FC = () => {
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<'editor' | 'admin' | 'super admin'>('editor');
   const [newUserEditorLevelId, setNewUserEditorLevelId] = useState<string | undefined>(undefined);
-  const [newUserIsEligibleForMorningOT, setNewUserIsEligibleForMorningOT] = useState(false);
   const [newUserAvailableLeaves, setNewUserAvailableLeaves] = useState<number | string>(0);
   const [newUserCompensatoryLeaves, setNewUserCompensatoryLeaves] = useState<number | string>(0);
   const [newUserJoiningDate, setNewUserJoiningDate] = useState<Date | undefined>(undefined);
@@ -89,7 +87,6 @@ export const UserManagementTable: React.FC = () => {
     email: string; 
     role: 'editor' | 'admin' | 'super admin'; 
     editorLevelId?: string; 
-    isEligibleForMorningOT?: boolean; 
     availableLeaves?: number; 
     compensatoryLeaves?: number; 
     joiningDate?: Date;
@@ -99,7 +96,6 @@ export const UserManagementTable: React.FC = () => {
     email: '',
     role: 'editor',
     editorLevelId: undefined,
-    isEligibleForMorningOT: false,
     availableLeaves: 0,
     compensatoryLeaves: 0,
     joiningDate: undefined,
@@ -213,7 +209,6 @@ export const UserManagementTable: React.FC = () => {
     setNewUserName('');
     setNewUserRole('editor');
     setNewUserEditorLevelId(sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined);
-    setNewUserIsEligibleForMorningOT(false);
     setNewUserAvailableLeaves(0);
     setNewUserCompensatoryLeaves(0);
     setNewUserJoiningDate(undefined);
@@ -249,7 +244,7 @@ export const UserManagementTable: React.FC = () => {
         newUserName, 
         newUserRole, 
         newUserRole === 'editor' ? newUserEditorLevelId : undefined,
-        newUserRole === 'editor' ? newUserIsEligibleForMorningOT : false,
+        false, // Morning OT eligibility defaults to false
         Number(newUserAvailableLeaves),
         Number(newUserCompensatoryLeaves),
         {}, // Initialize claimedCompensatoryYears
@@ -398,7 +393,6 @@ export const UserManagementTable: React.FC = () => {
         email: user.email || '',
         role: user.role || 'editor',
         editorLevelId: user.editorLevelId || (user.role === 'editor' && sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined),
-        isEligibleForMorningOT: user.isEligibleForMorningOT ?? false,
         availableLeaves: user.availableLeaves ?? 0,
         compensatoryLeaves: user.compensatoryLeaves ?? 0,
         joiningDate: user.joiningDate ? new Date(user.joiningDate) : undefined,
@@ -435,7 +429,7 @@ export const UserManagementTable: React.FC = () => {
         editUserFormState.username,
         editUserFormState.role,
         editUserFormState.role === 'editor' ? editUserFormState.editorLevelId : undefined,
-        editUserFormState.role === 'editor' ? editUserFormState.isEligibleForMorningOT : false,
+        editingUser.isEligibleForMorningOT, // Preserve existing value
         editUserFormState.availableLeaves,
         editUserFormState.compensatoryLeaves,
         editingUser.claimedCompensatoryYears,
@@ -804,17 +798,6 @@ export const UserManagementTable: React.FC = () => {
                         disabled={isSubmittingForm}
                     />
                 </div>
-                <div className="flex items-center space-x-2 pt-2">
-                    <Checkbox
-                        id="new-user-morning-ot"
-                        checked={newUserIsEligibleForMorningOT}
-                        onCheckedChange={(checked) => setNewUserIsEligibleForMorningOT(checked as boolean)}
-                        disabled={isSubmittingForm}
-                    />
-                    <Label htmlFor="new-user-morning-ot" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                        Eligible for Morning OT
-                    </Label>
-                </div>
               </>
             )}
           </div>
@@ -976,17 +959,6 @@ export const UserManagementTable: React.FC = () => {
                                     placeholder="e.g., 0"
                                     disabled={isSubmittingForm}
                                 />
-                            </div>
-                            <div className="flex items-center space-x-2 pt-2">
-                                <Checkbox
-                                    id="edit-user-morning-ot"
-                                    checked={editUserFormState.isEligibleForMorningOT}
-                                    onCheckedChange={(checked) => setEditUserFormState(prev => ({ ...prev, isEligibleForMorningOT: checked as boolean }))}
-                                    disabled={isSubmittingForm}
-                                />
-                                <Label htmlFor="edit-user-morning-ot" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                    Eligible for Morning OT
-                                </Label>
                             </div>
                         </>
                     )}
