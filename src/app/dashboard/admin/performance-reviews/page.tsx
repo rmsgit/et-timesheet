@@ -49,7 +49,8 @@ export default function PerformanceReviewsPage() {
   }, [reviews, selectedEditorId]);
 
   const getAdminUsername = useCallback((adminId: string) => {
-    return users.find(u => u.id === adminId)?.username || 'Unknown Admin';
+    const admin = users.find(u => u.id === adminId);
+    return admin?.fullName || admin?.username || 'Unknown Admin';
   }, [users]);
   
   const calculateTotalScore = useCallback((review: PerformanceReview): string => {
@@ -82,6 +83,8 @@ export default function PerformanceReviewsPage() {
       // Confirmation dialog would be ideal here
       await deleteReview(reviewId);
   };
+  
+  const selectedEditor = useMemo(() => users.find(u => u.id === selectedEditorId), [users, selectedEditorId]);
 
   return (
     <div className="space-y-6">
@@ -116,7 +119,7 @@ export default function PerformanceReviewsPage() {
                         <SelectContent>
                         {editorUsers.map(editor => (
                             <SelectItem key={editor.id} value={editor.id}>
-                            {editor.username} ({editor.email})
+                            {editor.fullName || editor.username} ({editor.email})
                             </SelectItem>
                         ))}
                         </SelectContent>
@@ -141,7 +144,7 @@ export default function PerformanceReviewsPage() {
       {!isLoading && selectedEditorId && (
         <Card>
             <CardHeader>
-                <CardTitle>Review History for {users.find(u=>u.id === selectedEditorId)?.username}</CardTitle>
+                <CardTitle>Review History for {selectedEditor?.fullName || selectedEditor?.username}</CardTitle>
             </CardHeader>
             <CardContent>
                 {reviewsForSelectedEditor.length > 0 ? (
@@ -193,7 +196,7 @@ export default function PerformanceReviewsPage() {
                 <DialogHeader>
                     <DialogTitle>{editingReview ? 'Edit' : 'Create'} Performance Review</DialogTitle>
                     <DialogDescription>
-                        Provide feedback for {users.find(u=>u.id === selectedEditorId)?.username}
+                        Provide feedback for {selectedEditor?.fullName || selectedEditor?.username}
                     </DialogDescription>
                 </DialogHeader>
                 <PerformanceReviewForm 

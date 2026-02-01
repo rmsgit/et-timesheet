@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -144,7 +145,7 @@ export default function CompensatoryLeavePage() {
         const leaveResult = await adminApplyCompensatoryLeave(editorToApplyFor.id, 'Compensatory Leave (Applied by Admin)', parseInt(selectedYear, 10));
 
         if (leaveResult.success) {
-            toast({ title: 'Success', description: `Compensatory leave request created for ${editorToApplyFor.username}.` });
+            toast({ title: 'Success', description: `Compensatory leave request created for ${editorToApplyFor.fullName || editorToApplyFor.username}.` });
             setIsApplyDialogOpen(false);
             setEditorToApplyFor(null);
         } else {
@@ -211,7 +212,7 @@ export default function CompensatoryLeavePage() {
                             <TableBody>
                                 {summaryData.map(summary => (
                                     <TableRow key={summary.user.id}>
-                                        <TableCell className="font-medium">{summary.user.username}</TableCell>
+                                        <TableCell className="font-medium">{summary.user.fullName || summary.user.username}</TableCell>
                                         <TableCell>{formatSecondsToHoursString(summary.totalEarlyLeaveSeconds)}</TableCell>
                                         <TableCell className="font-bold text-lg text-primary">{summary.dueCompensatoryLeaves}</TableCell>
                                         <TableCell className="font-semibold text-lg">{summary.claimedLeaves}</TableCell>
@@ -238,7 +239,7 @@ export default function CompensatoryLeavePage() {
             <Dialog open={isApplyDialogOpen} onOpenChange={setIsApplyDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Apply Compensatory Leave for {editorToApplyFor?.username}</DialogTitle>
+                        <DialogTitle>Apply Compensatory Leave for {editorToApplyFor?.fullName || editorToApplyFor?.username}</DialogTitle>
                         <DialogDescription>
                            This will create a 'compensatory' leave request without a specific date. The editor can assign a date later. The request will be added to the Leave Management list as 'pending'.
                         </DialogDescription>

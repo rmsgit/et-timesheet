@@ -51,7 +51,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 
 
-type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role' | 'joiningDate'> | 'editorLevelName';
+type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role' | 'joiningDate' | 'fullName'>;
 
 const departments = ["HR", "Admin", "Editors"];
 const jobDesignations = ["Team Leader", "Team Assist", "Editors"];
@@ -66,6 +66,7 @@ export const UserManagementTable: React.FC = () => {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserName, setNewUserName] = useState('');
+  const [newUserFullName, setNewUserFullName] = useState('');
   const [newUserRole, setNewUserRole] = useState<'editor' | 'admin' | 'super admin'>('editor');
   const [newUserEditorLevelId, setNewUserEditorLevelId] = useState<string | undefined>(undefined);
   const [newUserAvailableLeaves, setNewUserAvailableLeaves] = useState<number | string>(0);
@@ -84,20 +85,20 @@ export const UserManagementTable: React.FC = () => {
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [editUserFormState, setEditUserFormState] = useState<{ 
     username: string; 
+    fullName: string;
     email: string; 
     role: 'editor' | 'admin' | 'super admin'; 
     editorLevelId?: string; 
     availableLeaves?: number; 
-    compensatoryLeaves?: number; 
     joiningDate?: Date;
     personalEmail?: string;
   }>({
     username: '',
+    fullName: '',
     email: '',
     role: 'editor',
     editorLevelId: undefined,
     availableLeaves: 0,
-    compensatoryLeaves: 0,
     joiningDate: undefined,
     personalEmail: '',
   });
@@ -207,6 +208,7 @@ export const UserManagementTable: React.FC = () => {
     setNewUserEmail('');
     setNewUserPassword('');
     setNewUserName('');
+    setNewUserFullName('');
     setNewUserRole('editor');
     setNewUserEditorLevelId(sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined);
     setNewUserAvailableLeaves(0);
@@ -216,10 +218,10 @@ export const UserManagementTable: React.FC = () => {
   };
 
   const handleConfirmAddUser = async () => {
-    if (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword.trim()) {
+    if (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword.trim() || !newUserFullName.trim()) {
       toast({
         title: "Validation Error",
-        description: "Email, password, and username cannot be empty.",
+        description: "Email, password, username, and full name cannot be empty.",
         variant: "destructive",
       });
       return;
@@ -240,7 +242,8 @@ export const UserManagementTable: React.FC = () => {
       const profileResult = await addUserProfileToRTDB(
         firebaseUser.uid, 
         newUserEmail, 
-        newUserName, 
+        newUserName,
+        newUserFullName,
         newUserRole, 
         newUserRole === 'editor' ? newUserEditorLevelId : undefined,
         false, // Morning OT eligibility defaults to false
@@ -389,11 +392,11 @@ export const UserManagementTable: React.FC = () => {
     setEditingUser(user);
     setEditUserFormState({
         username: user.username,
+        fullName: user.fullName || '',
         email: user.email || '',
         role: user.role || 'editor',
         editorLevelId: user.editorLevelId || (user.role === 'editor' && sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined),
         availableLeaves: user.availableLeaves ?? 0,
-        compensatoryLeaves: user.compensatoryLeaves ?? 0,
         joiningDate: user.joiningDate ? new Date(user.joiningDate) : undefined,
         personalEmail: user.personalEmail || '',
     });
@@ -403,8 +406,8 @@ export const UserManagementTable: React.FC = () => {
   const handleConfirmEditUser = async () => {
     if (!editingUser) return;
 
-    if (!editUserFormState.username.trim()) {
-        toast({ title: "Validation Error", description: "Username cannot be empty.", variant: "destructive" });
+    if (!editUserFormState.username.trim() || !editUserFormState.fullName.trim()) {
+        toast({ title: "Validation Error", description: "Username and Full Name cannot be empty.", variant: "destructive" });
         return;
     }
      if (!editUserFormState.email.trim()) {
@@ -426,6 +429,7 @@ export const UserManagementTable: React.FC = () => {
         editingUser.id,
         editUserFormState.email,
         editUserFormState.username,
+        editUserFormState.fullName,
         editUserFormState.role,
         editUserFormState.role === 'editor' ? editUserFormState.editorLevelId : undefined,
         editingUser.isEligibleForMorningOT,
@@ -464,6 +468,7 @@ export const UserManagementTable: React.FC = () => {
             userToUpdate.id,
             userToUpdate.email,
             userToUpdate.username,
+            userToUpdate.fullName,
             userToUpdate.role,
             userToUpdate.editorLevelId,
             userToUpdate.isEligibleForMorningOT,
@@ -552,7 +557,7 @@ export const UserManagementTable: React.FC = () => {
                             onCheckedChange={handleSelectAll}
                         />
                     </TableHead>
-                  {renderSortableHeader("User", "username")}
+                  {renderSortableHeader("User", "fullName")}
                   {renderSortableHeader("Email", "email")}
                   {renderSortableHeader("Role", "role")}
                   {renderSortableHeader("Editor Level", "editorLevelName")}
@@ -575,7 +580,10 @@ export const UserManagementTable: React.FC = () => {
                           <AvatarImage src={`https://picsum.photos/seed/${user.username}/40/40`} alt={user.username} data-ai-hint="user avatar"/>
                           <AvatarFallback>{user.username.substring(0,2).toUpperCase()}</AvatarFallback>
                         </Avatar>
-                        <span className="font-medium">{user.username}</span>
+                        <div>
+                            <div className="font-medium">{user.fullName || user.username}</div>
+                            <div className="text-sm text-muted-foreground">{user.username}</div>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>{user.email || 'N/A'}</TableCell>
@@ -655,6 +663,26 @@ export const UserManagementTable: React.FC = () => {
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto px-1">
             <div className="space-y-1.5">
+              <Label htmlFor="new-user-fullname">Full Name</Label>
+              <Input
+                id="new-user-fullname"
+                value={newUserFullName}
+                onChange={(e) => setNewUserFullName(e.target.value)}
+                placeholder="Enter full name"
+                disabled={isSubmittingForm}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-username">Username (display name)</Label>
+              <Input
+                id="new-username"
+                value={newUserName}
+                onChange={(e) => setNewUserName(e.target.value)}
+                placeholder="Enter username"
+                disabled={isSubmittingForm}
+              />
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="new-user-email">Email (for login)</Label>
               <Input
                 id="new-user-email"
@@ -679,16 +707,6 @@ export const UserManagementTable: React.FC = () => {
                     className="pl-10"
                 />
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="new-username">Username (display name)</Label>
-              <Input
-                id="new-username"
-                value={newUserName}
-                onChange={(e) => setNewUserName(e.target.value)}
-                placeholder="Enter username"
-                disabled={isSubmittingForm}
-              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="new-user-personal-email">Personal Email</Label>
@@ -803,6 +821,16 @@ export const UserManagementTable: React.FC = () => {
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto px-1">
+                    <div className="space-y-1.5">
+                        <Label htmlFor="edit-fullname">Full Name</Label>
+                        <Input
+                            id="edit-fullname"
+                            value={editUserFormState.fullName}
+                            onChange={(e) => setEditUserFormState(prev => ({ ...prev, fullName: e.target.value }))}
+                            placeholder="Enter full name"
+                            disabled={isSubmittingForm}
+                        />
+                    </div>
                     <div className="space-y-1.5">
                         <Label htmlFor="edit-username">Username</Label>
                         <Input

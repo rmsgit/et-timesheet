@@ -5,6 +5,7 @@ export interface User {
   id: string; // Firebase UID
   email: string | null; // From Firebase Auth
   username: string; // From RTDB (can be email as fallback if not in RTDB)
+  fullName?: string;
   role: 'admin' | 'editor' | 'super admin' | null; // From RTDB
   editorLevelId?: string; // ID of the assigned EditorLevel
   isEligibleForMorningOT?: boolean;

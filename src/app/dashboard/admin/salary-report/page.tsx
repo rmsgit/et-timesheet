@@ -196,7 +196,7 @@ export default function SalaryReportPage() {
             };
             setReport(reportFromSaved);
             setIsSaved(true);
-            toast({ title: "Loaded Saved Paysheet", description: `Displaying a previously saved paysheet for ${user.username}.`, Close: <button className="absolute right-2 top-2 rounded-md p-1 text-foreground/50 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600"><X className="h-4 w-4" /></button> });
+            toast({ title: "Loaded Saved Paysheet", description: `Displaying a previously saved paysheet for ${user.fullName || user.username}.`, Close: <button className="absolute right-2 top-2 rounded-md p-1 text-foreground/50 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600"><X className="h-4 w-4" /></button> });
         } else {
             setReport(null);
             setIsSaved(false);
@@ -554,7 +554,7 @@ export default function SalaryReportPage() {
             const pdfBase64 = pdfDataUri.substring(pdfDataUri.indexOf(',') + 1);
             
             const subject = `Payslip for ${report.payPeriod}`;
-            const body = `Hi ${report.user.username},\n\nPlease find your payslip for ${report.payPeriod} attached.\n\nBest regards,\nAdmin Team`;
+            const body = `Hi ${report.user.fullName || report.user.username},\n\nPlease find your payslip for ${report.payPeriod} attached.\n\nBest regards,\nAdmin Team`;
             const fileName = `payslip_${report.user.username}_${selectedYear}-${selectedMonth}.pdf`;
 
             const result = await sendEmail({
@@ -633,7 +633,7 @@ export default function SalaryReportPage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         {editorUsers.map(editor => (
-                                            <SelectItem key={editor.id} value={editor.id}>{editor.username}</SelectItem>
+                                            <SelectItem key={editor.id} value={editor.id}>{editor.fullName || editor.username}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
@@ -679,7 +679,7 @@ export default function SalaryReportPage() {
                                 <CardTitle className="text-2xl">Salary Slip for {report.payPeriod}</CardTitle>
                                 <CardDescription>
                                     <div className="flex items-center gap-4 mt-2">
-                                        <span className="flex items-center"><UserIcon className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />{report.user.username}</span>
+                                        <span className="flex items-center"><UserIcon className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />{report.user.fullName || report.user.username}</span>
                                         <span className="flex items-center"><Briefcase className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />{report.user.jobDesignation || 'N/A'}</span>
                                         <span className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />Pay Period: {report.payPeriodStart} to {report.payPeriodEnd}</span>
                                     </div>
@@ -957,6 +957,7 @@ export default function SalaryReportPage() {
     
 
     
+
 
 
 

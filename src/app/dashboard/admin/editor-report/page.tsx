@@ -261,7 +261,7 @@ export default function AdminEditorReportPage() {
                     <SelectContent>
                     {editorUsers.map(editor => (
                         <SelectItem key={editor.id} value={editor.id}>
-                        {editor.username} ({editor.email})
+                        {editor.fullName || editor.username} ({editor.email})
                         </SelectItem>
                     ))}
                     </SelectContent>
@@ -307,7 +307,7 @@ export default function AdminEditorReportPage() {
                 <CardContent>
                   <div className="text-2xl font-bold">{formatDurationFromDecimalHours(totalHours)}</div>
                   <p className="text-xs text-muted-foreground">
-                    For {selectedEditor?.username || 'selected editor'}
+                    For {selectedEditor?.fullName || selectedEditor?.username || 'selected editor'}
                   </p>
                 </CardContent>
               </Card>
@@ -344,7 +344,7 @@ export default function AdminEditorReportPage() {
             <Card className="shadow-lg mt-6">
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <BarChart2 className="mr-2 h-6 w-6 text-primary" /> Daily Work Hours for {selectedEditor?.username || 'Editor'}
+                  <BarChart2 className="mr-2 h-6 w-6 text-primary" /> Daily Work Hours for {selectedEditor?.fullName || selectedEditor?.username || 'Editor'}
                 </CardTitle>
                 <CardDescription>
                   Total hours logged per day (Normal = New Work + Sample Work), from {dateRange?.from ? format(dateRange.from, "PPP") : ''} to {dateRange?.to ? format(dateRange.to, "PPP") : ''}.
@@ -379,7 +379,7 @@ export default function AdminEditorReportPage() {
                   <BarChart2 className="mx-auto h-12 w-12 text-muted-foreground" />
                   <h3 className="mt-4 text-xl font-medium">No Chart Data</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    No daily hours data to display for {selectedEditor?.username || 'the selected editor'} in this period.
+                    No daily hours data to display for {selectedEditor?.fullName || selectedEditor?.username || 'the selected editor'} in this period.
                   </p>
                 </CardContent>
             </Card>
@@ -391,7 +391,7 @@ export default function AdminEditorReportPage() {
           ) : sortedRecords.length > 0 ? (
             <Card className="shadow-lg mt-6">
               <CardHeader>
-                <CardTitle>Detailed Log for {selectedEditor?.username || 'Editor'}</CardTitle>
+                <CardTitle>Detailed Log for {selectedEditor?.fullName || selectedEditor?.username || 'Editor'}</CardTitle>
                 <CardDescription>
                   Showing records from {dateRange?.from ? format(dateRange.from, "PPP") : ''} to {dateRange?.to ? format(dateRange.to, "PPP") : ''}.
                 </CardDescription>
@@ -484,7 +484,7 @@ export default function AdminEditorReportPage() {
               )}
                {totalPages <=1 && sortedRecords.length > 0 && (
                  <CardFooter className="justify-end pt-4">
-                    <p className="text-sm text-muted-foreground">Total entries for {selectedEditor?.username || 'editor'} in range: {sortedRecords.length}</p>
+                    <p className="text-sm text-muted-foreground">Total entries for {selectedEditor?.fullName || selectedEditor?.username || 'editor'} in range: {sortedRecords.length}</p>
                  </CardFooter>
                )}
             </Card>
@@ -494,7 +494,7 @@ export default function AdminEditorReportPage() {
                 <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
                 <h3 className="mt-4 text-xl font-medium">No Records Found</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {selectedEditor?.username || 'The selected editor'} has no time records for the selected date range.
+                  {selectedEditor?.fullName || selectedEditor?.username || 'The selected editor'} has no time records for the selected date range.
                 </p>
               </CardContent>
             </Card>

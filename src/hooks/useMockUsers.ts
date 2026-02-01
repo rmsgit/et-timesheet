@@ -80,7 +80,8 @@ export const useMockUsers = () => {
   const addUserProfileToRTDB = useCallback(async (
     id: string, 
     email: string, 
-    username: string, 
+    username: string,
+    fullName: string | undefined,
     role: 'admin' | 'editor' | 'super admin',
     editorLevelId?: string,
     isEligibleForMorningOT?: boolean,
@@ -144,6 +145,7 @@ export const useMockUsers = () => {
     const userProfileData: Omit<User, 'id'> = {
       email: email.trim(),
       username: trimmedUsername,
+      fullName: fullName?.trim() || null,
       role,
       editorLevelId: role === 'editor' ? (editorLevelId || null) : null,
       isEligibleForMorningOT: role === 'editor' ? (isEligibleForMorningOT ?? false) : false,
