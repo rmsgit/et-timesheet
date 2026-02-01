@@ -71,11 +71,6 @@ export const UserManagementTable: React.FC = () => {
   const [newUserIsEligibleForMorningOT, setNewUserIsEligibleForMorningOT] = useState(false);
   const [newUserAvailableLeaves, setNewUserAvailableLeaves] = useState<number | string>(0);
   const [newUserCompensatoryLeaves, setNewUserCompensatoryLeaves] = useState<number | string>(0);
-  const [newUserBaseSalary, setNewUserBaseSalary] = useState<number | string>('');
-  const [newUserDepartment, setNewUserDepartment] = useState('');
-  const [newUserJobDesignation, setNewUserJobDesignation] = useState('');
-  const [newUserConveyanceAllowance, setNewUserConveyanceAllowance] = useState<number | string>('');
-  const [newUserTravelingAllowance, setNewUserTravelingAllowance] = useState<number | string>('');
   const [newUserJoiningDate, setNewUserJoiningDate] = useState<Date | undefined>(undefined);
   const [newUserPersonalEmail, setNewUserPersonalEmail] = useState('');
   
@@ -97,11 +92,6 @@ export const UserManagementTable: React.FC = () => {
     isEligibleForMorningOT?: boolean; 
     availableLeaves?: number; 
     compensatoryLeaves?: number; 
-    baseSalary?: number;
-    department?: string;
-    jobDesignation?: string;
-    conveyanceAllowance?: number;
-    travelingAllowance?: number;
     joiningDate?: Date;
     personalEmail?: string;
   }>({
@@ -112,11 +102,6 @@ export const UserManagementTable: React.FC = () => {
     isEligibleForMorningOT: false,
     availableLeaves: 0,
     compensatoryLeaves: 0,
-    baseSalary: undefined,
-    department: '',
-    jobDesignation: '',
-    conveyanceAllowance: undefined,
-    travelingAllowance: undefined,
     joiningDate: undefined,
     personalEmail: '',
   });
@@ -231,11 +216,6 @@ export const UserManagementTable: React.FC = () => {
     setNewUserIsEligibleForMorningOT(false);
     setNewUserAvailableLeaves(0);
     setNewUserCompensatoryLeaves(0);
-    setNewUserBaseSalary('');
-    setNewUserDepartment('');
-    setNewUserJobDesignation('');
-    setNewUserConveyanceAllowance('');
-    setNewUserTravelingAllowance('');
     setNewUserJoiningDate(undefined);
     setNewUserPersonalEmail('');
     setIsAddUserDialogOpen(true);
@@ -273,11 +253,11 @@ export const UserManagementTable: React.FC = () => {
         Number(newUserAvailableLeaves),
         Number(newUserCompensatoryLeaves),
         {}, // Initialize claimedCompensatoryYears
-        newUserBaseSalary !== '' ? Number(newUserBaseSalary) : undefined,
-        newUserDepartment,
-        newUserJobDesignation,
-        newUserConveyanceAllowance !== '' ? Number(newUserConveyanceAllowance) : undefined,
-        newUserTravelingAllowance !== '' ? Number(newUserTravelingAllowance) : undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         newUserJoiningDate ? newUserJoiningDate.toISOString() : undefined,
         newUserPersonalEmail
       );
@@ -421,11 +401,6 @@ export const UserManagementTable: React.FC = () => {
         isEligibleForMorningOT: user.isEligibleForMorningOT ?? false,
         availableLeaves: user.availableLeaves ?? 0,
         compensatoryLeaves: user.compensatoryLeaves ?? 0,
-        baseSalary: user.baseSalary,
-        department: user.department,
-        jobDesignation: user.jobDesignation,
-        conveyanceAllowance: user.conveyanceAllowance,
-        travelingAllowance: user.travelingAllowance,
         joiningDate: user.joiningDate ? new Date(user.joiningDate) : undefined,
         personalEmail: user.personalEmail || '',
     });
@@ -464,11 +439,11 @@ export const UserManagementTable: React.FC = () => {
         editUserFormState.availableLeaves,
         editUserFormState.compensatoryLeaves,
         editingUser.claimedCompensatoryYears,
-        editUserFormState.baseSalary,
-        editUserFormState.department,
-        editUserFormState.jobDesignation,
-        editUserFormState.conveyanceAllowance,
-        editUserFormState.travelingAllowance,
+        editingUser.baseSalary,
+        editingUser.department,
+        editingUser.jobDesignation,
+        editingUser.conveyanceAllowance,
+        editingUser.travelingAllowance,
         editUserFormState.joiningDate ? editUserFormState.joiningDate.toISOString() : undefined,
         editUserFormState.personalEmail
     );
@@ -829,44 +804,6 @@ export const UserManagementTable: React.FC = () => {
                         disabled={isSubmittingForm}
                     />
                 </div>
-                <div className="space-y-1.5">
-                    <Label htmlFor="new-user-base-salary">Base Salary</Label>
-                    <Input id="new-user-base-salary" type="number" value={newUserBaseSalary} onChange={(e) => setNewUserBaseSalary(e.target.value)} placeholder="e.g., 50000" disabled={isSubmittingForm} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="new-user-department">Department</Label>
-                  <Select value={newUserDepartment} onValueChange={setNewUserDepartment} disabled={isSubmittingForm}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map(dep => (
-                        <SelectItem key={dep} value={dep}>{dep}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                    <Label htmlFor="new-user-job-designation">Job Designation</Label>
-                    <Select value={newUserJobDesignation} onValueChange={setNewUserJobDesignation} disabled={isSubmittingForm}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select designation" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {jobDesignations.map(des => (
-                          <SelectItem key={des} value={des}>{des}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                </div>
-                <div className="space-y-1.5">
-                    <Label htmlFor="new-user-conveyance-allowance">Conveyance Allowance</Label>
-                    <Input id="new-user-conveyance-allowance" type="number" value={newUserConveyanceAllowance} onChange={(e) => setNewUserConveyanceAllowance(e.target.value)} placeholder="e.g., 2000" disabled={isSubmittingForm} />
-                </div>
-                <div className="space-y-1.5">
-                    <Label htmlFor="new-user-traveling-allowance">Traveling Allowance</Label>
-                    <Input id="new-user-traveling-allowance" type="number" value={newUserTravelingAllowance} onChange={(e) => setNewUserTravelingAllowance(e.target.value)} placeholder="e.g., 1000" disabled={isSubmittingForm} />
-                </div>
                 <div className="flex items-center space-x-2 pt-2">
                     <Checkbox
                         id="new-user-morning-ot"
@@ -1039,52 +976,6 @@ export const UserManagementTable: React.FC = () => {
                                     placeholder="e.g., 0"
                                     disabled={isSubmittingForm}
                                 />
-                            </div>
-                             <div className="space-y-1.5">
-                                <Label htmlFor="edit-base-salary">Base Salary</Label>
-                                <Input id="edit-base-salary" type="number" value={editUserFormState.baseSalary ?? ''} onChange={(e) => setEditUserFormState(prev => ({ ...prev, baseSalary: e.target.value === '' ? undefined : Number(e.target.value) }))} placeholder="e.g., 50000" disabled={isSubmittingForm} />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="edit-department">Department</Label>
-                                <Select
-                                    value={editUserFormState.department ?? ''}
-                                    onValueChange={(value) => setEditUserFormState(prev => ({ ...prev, department: value }))}
-                                    disabled={isSubmittingForm}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select department" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {departments.map(dep => (
-                                            <SelectItem key={dep} value={dep}>{dep}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="edit-job-designation">Job Designation</Label>
-                                <Select
-                                    value={editUserFormState.jobDesignation ?? ''}
-                                    onValueChange={(value) => setEditUserFormState(prev => ({ ...prev, jobDesignation: value }))}
-                                    disabled={isSubmittingForm}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select designation" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {jobDesignations.map(des => (
-                                            <SelectItem key={des} value={des}>{des}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="edit-conveyance-allowance">Conveyance Allowance</Label>
-                                <Input id="edit-conveyance-allowance" type="number" value={editUserFormState.conveyanceAllowance ?? ''} onChange={(e) => setEditUserFormState(prev => ({ ...prev, conveyanceAllowance: e.target.value === '' ? undefined : Number(e.target.value) }))} placeholder="e.g., 2000" disabled={isSubmittingForm} />
-                            </div>
-                             <div className="space-y-1.5">
-                                <Label htmlFor="edit-traveling-allowance">Traveling Allowance</Label>
-                                <Input id="edit-traveling-allowance" type="number" value={editUserFormState.travelingAllowance ?? ''} onChange={(e) => setEditUserFormState(prev => ({ ...prev, travelingAllowance: e.target.value === '' ? undefined : Number(e.target.value) }))} placeholder="e.g., 1000" disabled={isSubmittingForm} />
                             </div>
                             <div className="flex items-center space-x-2 pt-2">
                                 <Checkbox
