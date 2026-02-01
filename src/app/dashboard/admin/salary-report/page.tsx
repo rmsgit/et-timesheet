@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -134,7 +132,7 @@ export default function SalaryReportPage() {
 
     const editorUsers = useMemo(() => {
         if (isUsersLoading || !users) return [];
-        return users.filter(u => u.role === 'editor').sort((a, b) => a.username.localeCompare(b.username));
+        return users.filter(u => u.role === 'editor' || u.role === 'admin' || u.role === 'super admin').sort((a, b) => a.username.localeCompare(b.username));
     }, [users, isUsersLoading]);
     
     const availableYears = useMemo(() => {
@@ -209,7 +207,7 @@ export default function SalaryReportPage() {
             };
             setReport(reportFromSaved);
             setIsSaved(true);
-            toast({ title: "Loaded Saved Paysheet", description: `Displaying a previously saved paysheet for ${user.fullName || user.username}.`, Close: <button className="absolute right-2 top-2 rounded-md p-1 text-foreground/50 opacity-100 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600"><X className="h-4 w-4" /></button> });
+            toast({ title: "Loaded Saved Paysheet", description: `Displaying a previously saved paysheet for ${user.fullName || user.username}.` });
         } else {
             setReport(null);
             setIsSaved(false);
@@ -257,7 +255,7 @@ export default function SalaryReportPage() {
 
     const handleGenerateReport = async () => {
         if (!selectedUserId) {
-            toast({ title: 'Editor Not Selected', description: 'Please select an editor to generate a report.', variant: 'destructive' });
+            toast({ title: 'User Not Selected', description: 'Please select a user to generate a report.', variant: 'destructive' });
             return;
         }
 
@@ -627,13 +625,13 @@ export default function SalaryReportPage() {
                 <CardHeader>
                     <CardTitle>Generate Monthly Salary Slip</CardTitle>
                     <CardDescription>
-                        Select an editor, year, and month to view a saved paysheet or generate a new one.
+                        Select a user, year, and month to view a saved paysheet or generate a new one.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
                         <div className="space-y-2 md:col-span-2">
-                            <Label htmlFor="editor-select">Editor</Label>
+                            <Label htmlFor="editor-select">User</Label>
                             {mainLoadingState ? (
                                 <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
                                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -641,7 +639,7 @@ export default function SalaryReportPage() {
                             ) : (
                                 <Select value={selectedUserId} onValueChange={setSelectedUserId} disabled={mainLoadingState}>
                                     <SelectTrigger id="editor-select">
-                                        <SelectValue placeholder="Select an editor" />
+                                        <SelectValue placeholder="Select a user" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {editorUsers.map(editor => (
@@ -896,9 +894,9 @@ export default function SalaryReportPage() {
                 <Card className="text-center py-10 border-dashed">
                     <CardContent>
                         <UserIcon className="mx-auto h-12 w-12 text-muted-foreground" />
-                        <h3 className="mt-4 text-xl font-medium">Select an Editor</h3>
+                        <h3 className="mt-4 text-xl font-medium">Select a User</h3>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            Choose an editor to begin generating a salary report.
+                            Choose a user to begin generating a salary report.
                         </p>
                     </CardContent>
                 </Card>
