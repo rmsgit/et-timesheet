@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -53,7 +52,7 @@ import { format } from 'date-fns';
 
 type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role' | 'joiningDate' | 'fullName' | 'department' | 'jobDesignation'>;
 
-const departments = ["HR", "Admin", "Editors"];
+const departments = ["HR", "Admin", "Editor"];
 const jobDesignations = ["Team Leader", "Team Assist", "Editor"];
 
 export const UserManagementTable: React.FC = () => {
