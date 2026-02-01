@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -9,10 +10,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, History, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { format } from 'date-fns';
+import { format, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
+import { useMockUsers } from '@/hooks/useMockUsers';
+import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
+import type { DateRange } from 'react-day-picker';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const formatCurrency = (amount: number) => {
     if (isNaN(amount)) return 'N/A';
@@ -23,8 +29,11 @@ export default function PayslipHistoryPage() {
     const { isSuperAdmin, isAuthLoading } = useAuth();
     const router = useRouter();
     const { paysheets, isLoading: isPaysheetsLoading } = usePaysheet();
+    const { users, isUsersLoading } = useMockUsers();
     const { toast } = useToast();
     
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+    const [selectedUserId, setSelectedUserId] = useState<string>('all');
     const [paysheetListPage, setPaysheetListPage] = useState(1);
     const paysheetsPerPage = 15;
 
@@ -35,13 +44,38 @@ export default function PayslipHistoryPage() {
         }
     }, [isSuperAdmin, isAuthLoading, router]);
     
+    const userList = useMemo(() => {
+        if (isUsersLoading || !users) return [];
+        return users.sort((a, b) => (a.fullName || a.username).localeCompare(b.fullName || b.username));
+    }, [users, isUsersLoading]);
+    
+    const filteredPaysheets = useMemo(() => {
+        let filtered = [...paysheets];
+
+        if (selectedUserId !== 'all') {
+            filtered = filtered.filter(p => p.userId === selectedUserId);
+        }
+
+        if (dateRange?.from) {
+            const startDate = startOfDay(dateRange.from);
+            const endDate = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+            filtered = filtered.filter(p => {
+                if (!p.generatedAt) return false;
+                const paysheetDate = parseISO(p.generatedAt);
+                return isWithinInterval(paysheetDate, { start: startDate, end: endDate });
+            });
+        }
+
+        return filtered;
+    }, [paysheets, selectedUserId, dateRange]);
+
     const sortedPaysheets = useMemo(() => {
-        return [...paysheets].sort((a, b) => {
+        return [...filteredPaysheets].sort((a, b) => {
             const dateA = a.generatedAt ? new Date(a.generatedAt).getTime() : 0;
             const dateB = b.generatedAt ? new Date(b.generatedAt).getTime() : 0;
             return dateB - dateA;
         });
-    }, [paysheets]);
+    }, [filteredPaysheets]);
 
     const paginatedPaysheets = useMemo(() => {
         const startIndex = (paysheetListPage - 1) * paysheetsPerPage;
@@ -59,7 +93,7 @@ export default function PayslipHistoryPage() {
         if (sortedPaysheets.length === 0) {
             toast({
                 title: "No Data",
-                description: "There is no data to export.",
+                description: "There is no data to export based on the current filters.",
                 variant: "destructive"
             });
             return;
@@ -125,6 +159,46 @@ export default function PayslipHistoryPage() {
             </h1>
             <Card>
                 <CardHeader>
+                    <CardTitle>Filter Paysheets</CardTitle>
+                    <CardDescription>Filter paysheets by user and the date they were generated.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <Label htmlFor="user-filter">User</Label>
+                        {isUsersLoading ? (
+                            <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
+                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : (
+                            <Select
+                                value={selectedUserId}
+                                onValueChange={(value) => { setSelectedUserId(value); setPaysheetListPage(1); }}
+                                disabled={isUsersLoading || isPaysheetsLoading}
+                            >
+                                <SelectTrigger id="user-filter">
+                                    <SelectValue placeholder="Select a user" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Users</SelectItem>
+                                    {userList.map(user => (
+                                        <SelectItem key={user.id} value={user.id}>{user.fullName || user.username}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Generated Date Range</Label>
+                        <DateRangePicker
+                            dateRange={dateRange}
+                            onDateChange={(range) => { setDateRange(range); setPaysheetListPage(1); }}
+                            disabled={isPaysheetsLoading}
+                        />
+                    </div>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
                     <div className="flex justify-between items-center">
                         <div>
                             <CardTitle>Saved Paysheets History</CardTitle>
@@ -137,12 +211,12 @@ export default function PayslipHistoryPage() {
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                    {isPaysheetsLoading ? (
+                    {isPaysheetsLoading || isUsersLoading ? (
                         <div className="flex items-center justify-center h-40 p-6">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
                         </div>
                     ) : sortedPaysheets.length === 0 ? (
-                        <div className="text-center text-muted-foreground py-10 p-6">No paysheets have been saved yet.</div>
+                        <div className="text-center text-muted-foreground py-10 p-6">No paysheets found for the selected filters.</div>
                     ) : (
                         <>
                             <ScrollArea className="h-[calc(100vh-24rem)]">
@@ -215,13 +289,16 @@ export default function PayslipHistoryPage() {
                             </ScrollArea>
                             {totalPaysheetPages > 1 && (
                                 <div className="flex items-center justify-between space-x-2 p-4 border-t">
-                                  <Button variant="outline" size="sm" onClick={() => setPaysheetListPage(p => Math.max(1, p - 1))} disabled={paysheetListPage === 1}>
-                                    <ChevronLeft className="mr-1 h-4 w-4" /> Previous
-                                  </Button>
-                                  <span className="text-sm text-muted-foreground">Page {paysheetListPage} of {totalPaysheetPages}</span>
-                                  <Button variant="outline" size="sm" onClick={() => setPaysheetListPage(p => Math.min(totalPaysheetPages, p + 1))} disabled={paysheetListPage === totalPaysheetPages}>
-                                    Next <ChevronRight className="ml-1 h-4 w-4" />
-                                  </Button>
+                                  <span className="text-sm text-muted-foreground">Total: {sortedPaysheets.length} paysheets</span>
+                                  <div className="flex items-center space-x-2">
+                                    <Button variant="outline" size="sm" onClick={() => setPaysheetListPage(p => Math.max(1, p - 1))} disabled={paysheetListPage === 1}>
+                                      <ChevronLeft className="mr-1 h-4 w-4" /> Previous
+                                    </Button>
+                                    <span className="text-sm text-muted-foreground">Page {paysheetListPage} of {totalPaysheetPages}</span>
+                                    <Button variant="outline" size="sm" onClick={() => setPaysheetListPage(p => Math.min(totalPaysheetPages, p + 1))} disabled={paysheetListPage === totalPaysheetPages}>
+                                      Next <ChevronRight className="ml-1 h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </div>
                             )}
                         </>
@@ -230,4 +307,5 @@ export default function PayslipHistoryPage() {
             </Card>
         </div>
     );
-}
+
+    
