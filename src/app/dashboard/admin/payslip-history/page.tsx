@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -8,7 +7,7 @@ import { usePaysheet } from '@/hooks/usePaysheet';
 import type { Paysheet } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, History, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { Loader2, History, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 
@@ -47,8 +46,8 @@ export default function PayslipHistoryPage() {
 
     const totalPaysheetPages = Math.ceil(sortedPaysheets.length / paysheetsPerPage);
 
-    const handleViewPaysheet = (paysheet: Paysheet) => {
-        const url = `/dashboard/admin/salary-report?userId=${paysheet.userId}&year=${paysheet.year}&month=${paysheet.month}`;
+    const handleDownloadPaysheet = (paysheet: Paysheet) => {
+        const url = `/dashboard/admin/salary-report?userId=${paysheet.userId}&year=${paysheet.year}&month=${paysheet.month}&download=true`;
         router.push(url);
     };
 
@@ -72,7 +71,7 @@ export default function PayslipHistoryPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Saved Paysheets History</CardTitle>
-                    <CardDescription>Browse all previously generated and saved paysheets. Click "View" to load the full report.</CardDescription>
+                    <CardDescription>Browse all previously generated and saved paysheets. Click "Download" to get the PDF.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {isPaysheetsLoading ? (
@@ -101,9 +100,9 @@ export default function PayslipHistoryPage() {
                                             <TableCell>{formatCurrency(p.netSalary)}</TableCell>
                                             <TableCell>{p.generatedAt ? format(new Date(p.generatedAt), 'PPP p') : 'N/A'}</TableCell>
                                             <TableCell className="text-right">
-                                                <Button variant="outline" size="sm" onClick={() => handleViewPaysheet(p)}>
-                                                    <Search className="mr-2 h-4 w-4" />
-                                                    View
+                                                <Button variant="outline" size="sm" onClick={() => handleDownloadPaysheet(p)}>
+                                                    <Download className="mr-2 h-4 w-4" />
+                                                    Download
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
