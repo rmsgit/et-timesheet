@@ -168,8 +168,8 @@ export const SalaryConfigurationTable: React.FC = () => {
               <TableHeader>
                 <TableRow>
                   {renderSortableHeader('User', 'username')}
-                  {renderSortableHeader('Base Salary', 'baseSalary')}
-                  {renderSortableHeader('Conveyance', 'conveyanceAllowance')}
+                  {renderSortableHeader('Basic Salary', 'baseSalary')}
+                  {renderSortableHeader('Conv. Allowance', 'conveyanceAllowance')}
                   {renderSortableHeader('Traveling', 'travelingAllowance')}
                   {renderSortableHeader('Morning OT', 'isEligibleForMorningOT')}
                   <TableHead className="text-right">Actions</TableHead>
@@ -238,11 +238,11 @@ export const SalaryConfigurationTable: React.FC = () => {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="baseSalary" className="text-right">Base Salary</Label>
+              <Label htmlFor="baseSalary" className="text-right">Basic Salary</Label>
               <Input id="baseSalary" name="baseSalary" type="number" value={formState.baseSalary} onChange={handleFormChange} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="conveyanceAllowance" className="text-right">Conveyance</Label>
+              <Label htmlFor="conveyanceAllowance" className="text-right">Conv. Allowance</Label>
               <Input id="conveyanceAllowance" name="conveyanceAllowance" type="number" value={formState.conveyanceAllowance} onChange={handleFormChange} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
