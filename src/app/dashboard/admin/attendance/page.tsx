@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 
-const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorningOT?: boolean): string => {
+const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorningOT?: boolean, date?: Date): string => {
     if ((!checkIn || typeof checkIn !== 'string' || !checkIn.includes(':')) && (!checkOut || typeof checkOut !== 'string' || !checkOut.includes(':'))){
         return '';
     }
@@ -57,37 +57,49 @@ const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorni
     }
 
     const dummyDate = '1970-01-01T';
+    const isSaturday = date ? date.getDay() === 6 : false;
+
     try {
-        const isEligible = isEligibleForMorningOT === true;
-        const startTime = new Date(`${dummyDate}08:15:00`);
-        const endTime = new Date(`${dummyDate}17:15:00`);
-        
-        const checkInTime = normalizedCheckInTime ? new Date(`${dummyDate}${normalizedCheckInTime}`) : null;
-        const checkOutTime = normalizedCheckOutTime ? new Date(`${dummyDate}${normalizedCheckOutTime}`) : null;
-        
-        if ((checkInTime && isNaN(checkInTime.getTime())) || (checkOutTime && isNaN(checkOutTime.getTime()))) {
-            return '';
-        }
+        let totalOtSeconds = 0;
 
-        // Disqualification Rule: If user arrives late, they get no OT at all, regardless of eligibility.
-        if (checkInTime && checkInTime > startTime) {
-            return '';
-        }
+        if (isSaturday) {
+            const saturdayEndTime = new Date(`${dummyDate}14:00:00`); // 2 PM
+            const checkOutTime = normalizedCheckOutTime ? new Date(`${dummyDate}${normalizedCheckOutTime}`) : null;
+            if (checkOutTime && !isNaN(checkOutTime.getTime()) && checkOutTime > saturdayEndTime) {
+                totalOtSeconds = Math.floor((checkOutTime.getTime() - saturdayEndTime.getTime()) / 1000);
+            }
+        } else {
+            const isEligible = isEligibleForMorningOT === true;
+            const startTime = new Date(`${dummyDate}08:15:00`);
+            const endTime = new Date(`${dummyDate}17:15:00`);
+            
+            const checkInTime = normalizedCheckInTime ? new Date(`${dummyDate}${normalizedCheckInTime}`) : null;
+            const checkOutTime = normalizedCheckOutTime ? new Date(`${dummyDate}${normalizedCheckOutTime}`) : null;
+            
+            if ((checkInTime && isNaN(checkInTime.getTime())) || (checkOutTime && isNaN(checkOutTime.getTime()))) {
+                return '';
+            }
 
-        let morningOtSeconds = 0;
-        let eveningOtSeconds = 0;
+            // Disqualification Rule: If user arrives late, they get no OT at all, regardless of eligibility.
+            if (checkInTime && checkInTime > startTime) {
+                return '';
+            }
 
-        // Calculate morning OT only if eligible and arrived early
-        if (checkInTime && isEligible && checkInTime < startTime) {
-            morningOtSeconds = Math.floor((startTime.getTime() - checkInTime.getTime()) / 1000);
-        }
+            let morningOtSeconds = 0;
+            let eveningOtSeconds = 0;
 
-        // Calculate evening OT if they stayed late
-        if (checkOutTime && checkOutTime > endTime) {
-            eveningOtSeconds = Math.floor((checkOutTime.getTime() - endTime.getTime()) / 1000);
+            // Calculate morning OT only if eligible and arrived early
+            if (checkInTime && isEligible && checkInTime < startTime) {
+                morningOtSeconds = Math.floor((startTime.getTime() - checkInTime.getTime()) / 1000);
+            }
+
+            // Calculate evening OT if they stayed late
+            if (checkOutTime && checkOutTime > endTime) {
+                eveningOtSeconds = Math.floor((checkOutTime.getTime() - endTime.getTime()) / 1000);
+            }
+            
+            totalOtSeconds = morningOtSeconds + eveningOtSeconds;
         }
-        
-        const totalOtSeconds = morningOtSeconds + eveningOtSeconds;
 
         if (totalOtSeconds <= 0) {
             return '';
@@ -105,8 +117,6 @@ const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorni
         console.error("Error calculating overtime for:", checkIn, checkOut, e);
         return '';
     }
-
-    return '';
 };
 
 const calculateEarlyLeave = (checkOut: string, leaveInfo: string): string => {
@@ -279,6 +289,10 @@ export default function AttendancePage() {
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+            if(jsonData[0].every(column => !column)){
+                jsonData.splice(0, 1)
+            }
+            console.log("jsonData", jsonData)
 
             const dateRangeString = (jsonData[2] && typeof jsonData[2][0] === 'string') ? jsonData[2][0] : '';
             
@@ -352,7 +366,7 @@ export default function AttendancePage() {
                     date: format(day, 'MMM d, yyyy'),
                     checkIn: checkInValue,
                     checkOut: checkOutValue,
-                    overtime: calculateOvertime(checkInValue, checkOutValue, selectedUser.isEligibleForMorningOT),
+                    overtime: calculateOvertime(checkInValue, checkOutValue, selectedUser.isEligibleForMorningOT, day),
                     leaveInfo,
                     earlyLeave,
                 };
@@ -385,7 +399,8 @@ export default function AttendancePage() {
       record[field] = value;
       
       if (field === 'checkIn' || field === 'checkOut') {
-        record.overtime = calculateOvertime(record.checkIn, record.checkOut, selectedUser?.isEligibleForMorningOT);
+        const recordDate = new Date(record.date);
+        record.overtime = calculateOvertime(record.checkIn, record.checkOut, selectedUser?.isEligibleForMorningOT, recordDate);
         record.earlyLeave = calculateEarlyLeave(record.checkOut, record.leaveInfo);
       }
       
