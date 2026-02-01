@@ -191,7 +191,7 @@ export default function LeaveManagementPage() {
                         <SelectContent>
                             <SelectItem value="all">All Users</SelectItem>
                             {allUsersSorted.map(user => (
-                                <SelectItem key={user.id} value={user.id}>{user.username} ({user.role})</SelectItem>
+                                <SelectItem key={user.id} value={user.id}>{user.username}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
