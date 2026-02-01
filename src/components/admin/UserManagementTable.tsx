@@ -54,7 +54,7 @@ import { format } from 'date-fns';
 type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role' | 'joiningDate' | 'fullName' | 'department' | 'jobDesignation'>;
 
 const departments = ["HR", "Admin", "Editors"];
-const jobDesignations = ["Team Leader", "Team Assist", "Editors"];
+const jobDesignations = ["Team Leader", "Team Assist", "Editor"];
 
 export const UserManagementTable: React.FC = () => {
   const { users: allUsers, addUserProfileToRTDB, deleteUserProfileFromRTDB, isUsersLoading } = useMockUsers();
