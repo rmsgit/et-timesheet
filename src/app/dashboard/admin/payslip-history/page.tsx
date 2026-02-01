@@ -7,7 +7,7 @@ import { usePaysheet } from '@/hooks/usePaysheet';
 import type { Paysheet } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, History, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { Loader2, History, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 
@@ -46,8 +46,8 @@ export default function PayslipHistoryPage() {
 
     const totalPaysheetPages = Math.ceil(sortedPaysheets.length / paysheetsPerPage);
 
-    const handleDownloadPaysheet = (paysheet: Paysheet) => {
-        const url = `/dashboard/admin/salary-report?userId=${paysheet.userId}&year=${paysheet.year}&month=${paysheet.month}&download=true`;
+    const handleViewPaysheet = (paysheet: Paysheet) => {
+        const url = `/dashboard/admin/salary-report?userId=${paysheet.userId}&year=${paysheet.year}&month=${paysheet.month}`;
         router.push(url);
     };
 
@@ -71,7 +71,7 @@ export default function PayslipHistoryPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Saved Paysheets History</CardTitle>
-                    <CardDescription>Browse all previously generated and saved paysheets. Click "Download" to get the PDF.</CardDescription>
+                    <CardDescription>Browse all previously generated and saved paysheets. Click "View" to load the details.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {isPaysheetsLoading ? (
@@ -139,9 +139,9 @@ export default function PayslipHistoryPage() {
                                             <TableCell className="text-right whitespace-nowrap">{formatCurrency(epfTotal)}</TableCell>
                                             <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.companyEtfContribution || 0)}</TableCell>
                                             <TableCell className="text-right sticky right-0 bg-card">
-                                                <Button variant="outline" size="sm" onClick={() => handleDownloadPaysheet(p)}>
-                                                    <Download className="mr-2 h-4 w-4" />
-                                                    Download
+                                                <Button variant="outline" size="sm" onClick={() => handleViewPaysheet(p)}>
+                                                    <History className="mr-2 h-4 w-4" />
+                                                    View
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
