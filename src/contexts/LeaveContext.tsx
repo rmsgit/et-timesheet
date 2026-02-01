@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, ReactNode, useState, useEffect, useCallback } from 'react';
@@ -32,7 +31,7 @@ interface LeaveProviderProps {
 export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, isAdmin, isSuperAdmin } = useAuth();
   const { showLoader, hideLoader } = useLoader();
   const { toast } = useToast();
 
@@ -116,7 +115,7 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
   }, [user, toast]);
 
   const adminApplyCompensatoryLeave = useCallback(async (editorId: string, reason: string, earnedInYear: number): Promise<{ success: boolean, id?: string }> => {
-    if (!user || user.role !== 'admin') {
+    if (!user || !(isAdmin || isSuperAdmin)) {
         toast({ title: "Permission Denied", description: "Only admins can perform this action.", variant: "destructive" });
         return { success: false };
     }
@@ -145,10 +144,10 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
         toast({ title: "Error", description: "Failed to submit leave request.", variant: "destructive" });
         return { success: false };
     }
-  }, [user, toast]);
+  }, [user, toast, isAdmin, isSuperAdmin]);
 
   const updateLeaveStatus = useCallback(async (leaveId: string, status: 'approved' | 'rejected'): Promise<{ success: boolean }> => {
-    if (!user || user.role !== 'admin') {
+    if (!user || !(isAdmin || isSuperAdmin)) {
       toast({ title: "Permission Denied", description: "Only admins can approve or reject leave.", variant: "destructive" });
       return { success: false };
     }
@@ -169,7 +168,7 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
       toast({ title: "Error", description: "Failed to update leave status.", variant: "destructive" });
       return { success: false };
     }
-  }, [user, toast]);
+  }, [user, toast, isAdmin, isSuperAdmin]);
 
   const cancelLeaveRequest = useCallback(async (leaveId: string): Promise<{ success: boolean }> => {
     if (!user) {
@@ -226,7 +225,7 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
   }, [toast]);
   
   const deleteLeaveRequest = useCallback(async (leaveId: string): Promise<{ success: boolean }> => {
-    if (!user || user.role !== 'admin') {
+    if (!user || !(isAdmin || isSuperAdmin)) {
       toast({ title: "Permission Denied", description: "Only admins can delete leave requests.", variant: "destructive" });
       return { success: false };
     }
@@ -244,7 +243,7 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
       toast({ title: "Error", description: "Failed to delete leave request.", variant: "destructive" });
       return { success: false };
     }
-  }, [user, toast]);
+  }, [user, toast, isAdmin, isSuperAdmin]);
 
   return (
     <LeaveContext.Provider value={{ leaveRequests, isLoading, applyForLeave, adminApplyCompensatoryLeave, updateLeaveStatus, cancelLeaveRequest, updateLeaveRequest, deleteLeaveRequest }}>
