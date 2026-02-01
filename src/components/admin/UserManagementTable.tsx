@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Award, ChevronsUpDown, Leaf, Edit, Gift, Calendar as CalendarIcon, ShieldCheck } from 'lucide-react';
+import { MoreHorizontal, UserPlus, Trash2, Edit2, Shield, Save, X, AlertTriangle, Loader2, KeyRound, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Award, ChevronsUpDown, Leaf, Edit, Gift, Calendar as CalendarIcon, ShieldCheck, Briefcase } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -51,7 +51,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 
 
-type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role' | 'joiningDate' | 'fullName'>;
+type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role' | 'joiningDate' | 'fullName' | 'department' | 'jobDesignation'>;
 
 const departments = ["HR", "Admin", "Editors"];
 const jobDesignations = ["Team Leader", "Team Assist", "Editors"];
@@ -72,6 +72,8 @@ export const UserManagementTable: React.FC = () => {
   const [newUserAvailableLeaves, setNewUserAvailableLeaves] = useState<number | string>(0);
   const [newUserJoiningDate, setNewUserJoiningDate] = useState<Date | undefined>(undefined);
   const [newUserPersonalEmail, setNewUserPersonalEmail] = useState('');
+  const [newUserDepartment, setNewUserDepartment] = useState<string>('');
+  const [newUserJobDesignation, setNewUserJobDesignation] = useState<string>('');
   
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -92,6 +94,8 @@ export const UserManagementTable: React.FC = () => {
     availableLeaves?: number; 
     joiningDate?: Date;
     personalEmail?: string;
+    department?: string;
+    jobDesignation?: string;
   }>({
     username: '',
     fullName: '',
@@ -101,6 +105,8 @@ export const UserManagementTable: React.FC = () => {
     availableLeaves: 0,
     joiningDate: undefined,
     personalEmail: '',
+    department: '',
+    jobDesignation: '',
   });
 
   const [selectedUserIds, setSelectedUserIds] = useState(new Set<string>());
@@ -214,6 +220,8 @@ export const UserManagementTable: React.FC = () => {
     setNewUserAvailableLeaves(0);
     setNewUserJoiningDate(undefined);
     setNewUserPersonalEmail('');
+    setNewUserDepartment('');
+    setNewUserJobDesignation('');
     setIsAddUserDialogOpen(true);
   };
 
@@ -251,8 +259,8 @@ export const UserManagementTable: React.FC = () => {
         0, // Compensatory leaves default to 0
         {}, // Initialize claimedCompensatoryYears
         undefined,
-        undefined,
-        undefined,
+        newUserDepartment,
+        newUserJobDesignation,
         undefined,
         undefined,
         newUserJoiningDate ? newUserJoiningDate.toISOString() : undefined,
@@ -399,6 +407,8 @@ export const UserManagementTable: React.FC = () => {
         availableLeaves: user.availableLeaves ?? 0,
         joiningDate: user.joiningDate ? new Date(user.joiningDate) : undefined,
         personalEmail: user.personalEmail || '',
+        department: user.department || '',
+        jobDesignation: user.jobDesignation || '',
     });
     setIsEditUserDialogOpen(true);
   };
@@ -435,7 +445,14 @@ export const UserManagementTable: React.FC = () => {
         editingUser.isEligibleForMorningOT,
         editUserFormState.availableLeaves,
         editingUser.compensatoryLeaves,
-        editingUser.claimedCompensatoryYears
+        editingUser.claimedCompensatoryYears,
+        editingUser.baseSalary,
+        editUserFormState.department,
+        editUserFormState.jobDesignation,
+        editingUser.conveyanceAllowance,
+        editingUser.travelingAllowance,
+        editUserFormState.joiningDate ? editUserFormState.joiningDate.toISOString() : undefined,
+        editUserFormState.personalEmail
     );
 
     if (result.success) {
@@ -530,11 +547,11 @@ export const UserManagementTable: React.FC = () => {
         <CardContent>
           {isUsersLoading ? (
             <TableSkeleton 
-              columnCount={6} 
+              columnCount={8} 
               rowCount={3} 
               showTableHeader={true} 
-              headerTexts={["", "User", "Email", "Role", "Editor Level", "Joining Date", "Actions"]} 
-              cellWidths={["w-12", "w-[20%]", "w-[20%]", "w-[15%]", "w-[15%]", "w-[15%]", "w-[15%] text-right"]} 
+              headerTexts={["", "User", "Email", "Role", "Editor Level", "Department", "Designation", "Joining Date", "Actions"]} 
+              cellWidths={["w-12", "w-[15%]", "w-[15%]", "w-[10%]", "w-[10%]", "w-[10%]", "w-[10%]", "w-[15%]", "w-[10%] text-right"]} 
             />
           ) : sortedUsers.length === 0 ? (
             <div className="text-center py-10 border-2 border-dashed rounded-lg bg-card">
@@ -561,6 +578,8 @@ export const UserManagementTable: React.FC = () => {
                   {renderSortableHeader("Email", "email")}
                   {renderSortableHeader("Role", "role")}
                   {renderSortableHeader("Editor Level", "editorLevelName")}
+                  {renderSortableHeader("Department", "department")}
+                  {renderSortableHeader("Designation", "jobDesignation")}
                   {renderSortableHeader("Joining Date", "joiningDate")}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -606,6 +625,8 @@ export const UserManagementTable: React.FC = () => {
                             user.role === 'editor' && sortedEditorLevelsForSelect.length > 0 ? <span className="text-xs text-muted-foreground">Not Set</span> : 'N/A'
                         )}
                     </TableCell>
+                    <TableCell>{user.department || 'N/A'}</TableCell>
+                    <TableCell>{user.jobDesignation || 'N/A'}</TableCell>
                     <TableCell>
                       {user.joiningDate ? format(new Date(user.joiningDate), 'PPP') : 'N/A'}
                     </TableCell>
@@ -745,6 +766,20 @@ export const UserManagementTable: React.FC = () => {
                     />
                     </PopoverContent>
                 </Popover>
+            </div>
+             <div className="space-y-1.5">
+              <Label htmlFor="new-user-department">Department</Label>
+              <Select value={newUserDepartment} onValueChange={setNewUserDepartment} disabled={isSubmittingForm}>
+                <SelectTrigger id="new-user-department"><SelectValue placeholder="Select department" /></SelectTrigger>
+                <SelectContent>{departments.map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-user-job-designation">Job Designation</Label>
+              <Select value={newUserJobDesignation} onValueChange={setNewUserJobDesignation} disabled={isSubmittingForm}>
+                <SelectTrigger id="new-user-job-designation"><SelectValue placeholder="Select designation" /></SelectTrigger>
+                <SelectContent>{jobDesignations.map(des => <SelectItem key={des} value={des}>{des}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="new-user-role">Role</Label>
@@ -892,6 +927,20 @@ export const UserManagementTable: React.FC = () => {
                             />
                             </PopoverContent>
                         </Popover>
+                    </div>
+                     <div className="space-y-1.5">
+                      <Label htmlFor="edit-user-department">Department</Label>
+                      <Select value={editUserFormState.department} onValueChange={(value) => setEditUserFormState(prev => ({ ...prev, department: value }))} disabled={isSubmittingForm}>
+                        <SelectTrigger id="edit-user-department"><SelectValue placeholder="Select department" /></SelectTrigger>
+                        <SelectContent>{departments.map(dep => <SelectItem key={dep} value={dep}>{dep}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-user-job-designation">Job Designation</Label>
+                      <Select value={editUserFormState.jobDesignation} onValueChange={(value) => setEditUserFormState(prev => ({ ...prev, jobDesignation: value }))} disabled={isSubmittingForm}>
+                        <SelectTrigger id="edit-user-job-designation"><SelectValue placeholder="Select designation" /></SelectTrigger>
+                        <SelectContent>{jobDesignations.map(des => <SelectItem key={des} value={des}>{des}</SelectItem>)}</SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1.5">
                         <Label htmlFor="edit-user-role">Role</Label>

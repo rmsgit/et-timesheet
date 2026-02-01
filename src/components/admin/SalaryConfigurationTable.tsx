@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -24,10 +25,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 
-type SortableKeys = keyof Pick<User, 'username' | 'baseSalary' | 'department' | 'jobDesignation' | 'conveyanceAllowance' | 'travelingAllowance' | 'isEligibleForMorningOT'>;
-
-const departments = ["HR", "Admin", "Editors"];
-const jobDesignations = ["Team Leader", "Team Assist", "Editors"];
+type SortableKeys = keyof Pick<User, 'username' | 'baseSalary' | 'conveyanceAllowance' | 'travelingAllowance' | 'isEligibleForMorningOT'>;
 
 export const SalaryConfigurationTable: React.FC = () => {
   const { users, addUserProfileToRTDB, isUsersLoading } = useMockUsers();
@@ -38,8 +36,6 @@ export const SalaryConfigurationTable: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formState, setFormState] = useState({
     baseSalary: '',
-    department: '',
-    jobDesignation: '',
     conveyanceAllowance: '',
     travelingAllowance: '',
     isEligibleForMorningOT: false,
@@ -102,8 +98,6 @@ export const SalaryConfigurationTable: React.FC = () => {
     setEditingUser(user);
     setFormState({
       baseSalary: user.baseSalary?.toString() || '',
-      department: user.department || '',
-      jobDesignation: user.jobDesignation || '',
       conveyanceAllowance: user.conveyanceAllowance?.toString() || '',
       travelingAllowance: user.travelingAllowance?.toString() || '',
       isEligibleForMorningOT: user.isEligibleForMorningOT || false,
@@ -124,6 +118,7 @@ export const SalaryConfigurationTable: React.FC = () => {
       editingUser.id,
       editingUser.email!,
       editingUser.username,
+      editingUser.fullName,
       editingUser.role!,
       editingUser.editorLevelId,
       formState.isEligibleForMorningOT,
@@ -131,8 +126,8 @@ export const SalaryConfigurationTable: React.FC = () => {
       editingUser.compensatoryLeaves,
       editingUser.claimedCompensatoryYears,
       formState.baseSalary !== '' ? Number(formState.baseSalary) : undefined,
-      formState.department,
-      formState.jobDesignation,
+      editingUser.department,
+      editingUser.jobDesignation,
       formState.conveyanceAllowance !== '' ? Number(formState.conveyanceAllowance) : undefined,
       formState.travelingAllowance !== '' ? Number(formState.travelingAllowance) : undefined,
       editingUser.joiningDate,
@@ -174,8 +169,6 @@ export const SalaryConfigurationTable: React.FC = () => {
                 <TableRow>
                   {renderSortableHeader('User', 'username')}
                   {renderSortableHeader('Base Salary', 'baseSalary')}
-                  {renderSortableHeader('Department', 'department')}
-                  {renderSortableHeader('Job Designation', 'jobDesignation')}
                   {renderSortableHeader('Conveyance', 'conveyanceAllowance')}
                   {renderSortableHeader('Traveling', 'travelingAllowance')}
                   {renderSortableHeader('Morning OT', 'isEligibleForMorningOT')}
@@ -192,14 +185,12 @@ export const SalaryConfigurationTable: React.FC = () => {
                           <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div>
-                            <div className="font-medium">{user.username}</div>
+                            <div className="font-medium">{user.fullName || user.username}</div>
                             <div className="text-sm text-muted-foreground">{user.email}</div>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>{user.baseSalary ?? 'N/A'}</TableCell>
-                    <TableCell>{user.department || 'N/A'}</TableCell>
-                    <TableCell>{user.jobDesignation || 'N/A'}</TableCell>
                     <TableCell>{user.conveyanceAllowance ?? 'N/A'}</TableCell>
                     <TableCell>{user.travelingAllowance ?? 'N/A'}</TableCell>
                      <TableCell>
@@ -242,45 +233,13 @@ export const SalaryConfigurationTable: React.FC = () => {
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Salary for {editingUser?.username}</DialogTitle>
+            <DialogTitle>Edit Salary for {editingUser?.fullName || editingUser?.username}</DialogTitle>
             <DialogDescription>Update the payroll information for this user.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="baseSalary" className="text-right">Base Salary</Label>
               <Input id="baseSalary" name="baseSalary" type="number" value={formState.baseSalary} onChange={handleFormChange} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="department" className="text-right">Department</Label>
-              <Select
-                value={formState.department}
-                onValueChange={(value) => setFormState(prev => ({ ...prev, department: value }))}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map(dep => (
-                    <SelectItem key={dep} value={dep}>{dep}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="jobDesignation" className="text-right">Job Designation</Label>
-               <Select
-                  value={formState.jobDesignation}
-                  onValueChange={(value) => setFormState(prev => ({ ...prev, jobDesignation: value }))}
-                >
-                <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select designation" />
-                </SelectTrigger>
-                <SelectContent>
-                    {jobDesignations.map(des => (
-                        <SelectItem key={des} value={des}>{des}</SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="conveyanceAllowance" className="text-right">Conveyance</Label>
