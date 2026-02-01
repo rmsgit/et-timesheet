@@ -7,10 +7,12 @@ import { usePaysheet } from '@/hooks/usePaysheet';
 import type { Paysheet } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, History, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, History, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useToast } from '@/hooks/use-toast';
+import * as XLSX from 'xlsx';
 
 const formatCurrency = (amount: number) => {
     if (isNaN(amount)) return 'N/A';
@@ -21,6 +23,7 @@ export default function PayslipHistoryPage() {
     const { isSuperAdmin, isAuthLoading } = useAuth();
     const router = useRouter();
     const { paysheets, isLoading: isPaysheetsLoading } = usePaysheet();
+    const { toast } = useToast();
     
     const [paysheetListPage, setPaysheetListPage] = useState(1);
     const paysheetsPerPage = 15;
@@ -52,6 +55,57 @@ export default function PayslipHistoryPage() {
         router.push(url);
     };
 
+    const handleExportToExcel = () => {
+        if (sortedPaysheets.length === 0) {
+            toast({
+                title: "No Data",
+                description: "There is no data to export.",
+                variant: "destructive"
+            });
+            return;
+        }
+
+        const dataForExport = sortedPaysheets.map(p => {
+            const netPlusAllow = (p.netSalary || 0) + (p.otherPayment || 0);
+            const epfTotal = (p.epfDeduction || 0) + (p.companyEpfContribution || 0);
+            return {
+                'Slry. Date': p.payPeriod,
+                'Co-worker Name': p.username,
+                'Basic Salary': p.baseSalary,
+                'Conv.Allowance': p.conveyanceAllowance,
+                'Travelling Allowance': p.travelingAllowance,
+                'Overtime': p.otAmount || 0,
+                'Poya': p.specialWorkingDayAmount || 0,
+                'No Pay Leaves (-)': p.noPayLeaveDeduction,
+                'Advance (-)': p.advanceDeduction,
+                'Loan Settelments (-)': p.loanDeduction,
+                'EPF 8% (-)': p.epfDeduction,
+                'Gross Salary': p.totalEarnings,
+                'Tot. Deduction': p.totalDeductions,
+                'Net Salary': p.netSalary,
+                'Special allow': p.otherPayment || 0,
+                'Net + Allow': netPlusAllow,
+                'Target Insentive': p.noLeaveBonusAmount || 0,
+                '-': '',
+                'Grand Total': p.netSalary,
+                'EPF 12%': p.companyEpfContribution || 0,
+                'EPF Total': epfTotal,
+                'ETF 3%': p.companyEtfContribution || 0
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(dataForExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Payslip History");
+
+        XLSX.writeFile(workbook, `payslip_history_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+        toast({
+            title: "Export Successful",
+            description: "The payslip history has been exported to an Excel file."
+        });
+    };
+
 
     if (isAuthLoading || !isSuperAdmin) {
         return (
@@ -71,8 +125,16 @@ export default function PayslipHistoryPage() {
             </h1>
             <Card>
                 <CardHeader>
-                    <CardTitle>Saved Paysheets History</CardTitle>
-                    <CardDescription>Browse all previously generated and saved paysheets. Click "View" to load the details.</CardDescription>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle>Saved Paysheets History</CardTitle>
+                            <CardDescription>Browse all previously generated and saved paysheets. Click "View" to load the details.</CardDescription>
+                        </div>
+                        <Button onClick={handleExportToExcel} variant="outline" disabled={isPaysheetsLoading || sortedPaysheets.length === 0}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Export to Excel
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent className="p-0">
                     {isPaysheetsLoading ? (
