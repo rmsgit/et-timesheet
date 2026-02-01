@@ -85,28 +85,67 @@ export default function PayslipHistoryPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Pay Period</TableHead>
-                                        <TableHead>Employee</TableHead>
-                                        <TableHead>Net Salary</TableHead>
-                                        <TableHead>Generated On</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
+                                        <TableHead className="whitespace-nowrap">Slry. Date</TableHead>
+                                        <TableHead className="whitespace-nowrap">Co-worker Name</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">Basic Salary</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">Conv.Allowance</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">Travelling Allowance</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">Overtime</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">Poya</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">No Pay Leaves (-)</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">Advance (-)</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">Loan Settelments (-)</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">EPF 8% (-)</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">Gross Salary</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">Tot. Deduction</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">Net Salary</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">Special allow</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">Net + Allow</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">Target Insentive</TableHead>
+                                        <TableHead className="whitespace-nowrap">-</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">Grand Total</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">EPF 12%</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">EPF Total</TableHead>
+                                        <TableHead className="whitespace-nowrap text-right">ETF 3%</TableHead>
+                                        <TableHead className="text-right sticky right-0 bg-card">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {paginatedPaysheets.map(p => (
+                                    {paginatedPaysheets.map(p => {
+                                        const netPlusAllow = (p.netSalary || 0) + (p.otherPayment || 0);
+                                        const epfTotal = (p.epfDeduction || 0) + (p.companyEpfContribution || 0);
+                                        return (
                                         <TableRow key={p.id}>
-                                            <TableCell className="font-medium">{p.payPeriod}</TableCell>
-                                            <TableCell>{p.username}</TableCell>
-                                            <TableCell>{formatCurrency(p.netSalary)}</TableCell>
-                                            <TableCell>{p.generatedAt ? format(new Date(p.generatedAt), 'PPP p') : 'N/A'}</TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="font-medium whitespace-nowrap">{p.payPeriod}</TableCell>
+                                            <TableCell className="whitespace-nowrap">{p.username}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.baseSalary)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.conveyanceAllowance)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.travelingAllowance)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.otAmount || 0)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.specialWorkingDayAmount || 0)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.noPayLeaveDeduction)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.advanceDeduction)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.loanDeduction)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.epfDeduction)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.totalEarnings)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.totalDeductions)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap font-bold">{formatCurrency(p.netSalary)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.otherPayment || 0)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(netPlusAllow)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.noLeaveBonusAmount || 0)}</TableCell>
+                                            <TableCell>-</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap font-bold">{formatCurrency(p.netSalary)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.companyEpfContribution || 0)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(epfTotal)}</TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">{formatCurrency(p.companyEtfContribution || 0)}</TableCell>
+                                            <TableCell className="text-right sticky right-0 bg-card">
                                                 <Button variant="outline" size="sm" onClick={() => handleDownloadPaysheet(p)}>
                                                     <Download className="mr-2 h-4 w-4" />
                                                     Download
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
-                                    ))}
+                                    )})}
                                 </TableBody>
                             </Table>
                              {totalPaysheetPages > 1 && (
