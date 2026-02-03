@@ -133,6 +133,7 @@ export interface Paysheet {
   allowedLeaves: number;
   leaveDays: number;
   absentDays: number;
+  noPayLeaveDates?: string[];
   totalOTHours: string;
   generatedAt: string; // ISO string
   presentOnSpecialWorkingDays?: number;

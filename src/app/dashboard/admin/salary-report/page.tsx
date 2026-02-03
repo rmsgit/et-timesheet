@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -25,6 +26,7 @@ import html2canvas from 'html2canvas';
 import { useLoader } from '@/hooks/useLoader';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { sendEmail } from '@/app/actions/send-email';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const parseDurationToSeconds = (duration: string): number => {
     if (!duration || typeof duration !== 'string' || duration === '-') return 0;
@@ -74,6 +76,8 @@ interface SalaryReport {
   presentDays: number;
   allowedLeaves: number;
   leaveDays: number;
+  absentDays: number;
+  noPayLeaveDates: string[];
   totalOTHours: string;
   presentOnSpecialWorkingDays: number;
   companyEpfContribution: number;
@@ -200,6 +204,8 @@ export default function SalaryReportPage() {
                 presentDays: savedPaysheet.presentDays,
                 allowedLeaves: savedPaysheet.allowedLeaves,
                 leaveDays: savedPaysheet.leaveDays,
+                absentDays: savedPaysheet.absentDays,
+                noPayLeaveDates: savedPaysheet.noPayLeaveDates || [],
                 totalOTHours: savedPaysheet.totalOTHours,
                 presentOnSpecialWorkingDays: savedPaysheet.presentOnSpecialWorkingDays || 0,
                 companyEpfContribution: savedPaysheet.companyEpfContribution || 0,
@@ -317,6 +323,7 @@ export default function SalaryReportPage() {
 
             let totalWorkingDays = 0;
             let presentDays = 0;
+            const absentDates: Date[] = [];
 
             const daysInPeriod = eachDayOfInterval({ start: payPeriodStart, end: payPeriodEnd });
             daysInPeriod.forEach(currentDate => {
@@ -337,9 +344,12 @@ export default function SalaryReportPage() {
                     totalWorkingDays++;
 
                     const timesheetEntryForDay = timesheetRecordsForMonth.find(t => isSameDay(parseISO(t.date), currentDate));
+                    const leaveForDay = userLeavesForMonth.find(req => req.date && isSameDay(parseISO(req.date), currentDate));
 
                     if (timesheetEntryForDay) {
                         presentDays++;
+                    } else if (!leaveForDay) {
+                        absentDates.push(currentDate);
                     }
                 }
             });
@@ -367,10 +377,10 @@ export default function SalaryReportPage() {
             }
 
             const allowedLeaves = (user.availableLeaves || 0) - leaveDays;
-            const absentDays = totalWorkingDays - presentDays - leaveDays;
+            const absentDays = absentDates.length;
             
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
-            const noPayLeaveDeduction = Math.round(((absentDays > 0 ? absentDays : 0) * perDaySalary) / 10) * 10;
+            const noPayLeaveDeduction = Math.round(absentDays * perDaySalary);
             const epfDeduction = (baseSalary * epfRate) / 100;
             
             const companyEpfContribution = baseSalary * 0.12;
@@ -405,6 +415,8 @@ export default function SalaryReportPage() {
                 presentDays,
                 allowedLeaves,
                 leaveDays,
+                absentDays,
+                noPayLeaveDates: absentDates.map(d => format(d, 'MMM d, yyyy')),
                 totalOTHours: formatSecondsToHoursString(totalOTSeconds),
                 presentOnSpecialWorkingDays,
                 companyEpfContribution,
@@ -428,7 +440,6 @@ export default function SalaryReportPage() {
         }
 
         setIsSaving(true);
-        const absentDays = report.totalWorkingDays - report.presentDays - report.leaveDays;
         const paysheetToSave: Omit<Paysheet, 'id' | 'generatedAt'> = {
             userId: report.user.id,
             username: report.user.username,
@@ -454,7 +465,8 @@ export default function SalaryReportPage() {
             presentDays: report.presentDays,
             allowedLeaves: report.allowedLeaves,
             leaveDays: report.leaveDays,
-            absentDays: absentDays > 0 ? absentDays : 0,
+            absentDays: report.absentDays,
+            noPayLeaveDates: report.noPayLeaveDates,
             totalOTHours: report.totalOTHours,
             presentOnSpecialWorkingDays: report.presentOnSpecialWorkingDays,
             companyEpfContribution: report.companyEpfContribution,
@@ -798,7 +810,24 @@ export default function SalaryReportPage() {
                                 <Table>
                                     <TableBody>
                                         <TableRow>
-                                            <TableCell>No Pay Leave ({Math.max(0, report.totalWorkingDays - report.presentDays - report.leaveDays)} days)</TableCell>
+                                            <TableCell>
+                                                {report.absentDays > 0 && report.noPayLeaveDates.length > 0 ? (
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span className="underline decoration-dashed cursor-help">
+                                                                    No Pay Leave ({report.absentDays} days)
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Dates: {report.noPayLeaveDates.join(', ')}</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                ) : (
+                                                    `No Pay Leave (${report.absentDays} days)`
+                                                )}
+                                            </TableCell>
                                             <TableCell className="text-right font-medium">{formatCurrency(report.noPayLeaveDeduction)}</TableCell>
                                         </TableRow>
                                         <TableRow>
