@@ -317,7 +317,7 @@ export default function SalaryReportPage() {
                 return total + parseDurationToSeconds(record.overtime);
             }, 0);
             const totalOTDecimalHours = totalOTSeconds / 3600;
-            const otAmount = totalOTDecimalHours * otRate;
+            const otAmount = Math.round((totalOTDecimalHours * otRate) / 25) * 25;
 
             const specialWorkingDaysInMonth = holidaysInMonth.filter(h => h.isWorkingDay);
             const presentOnSpecialWorkingDays = specialWorkingDaysInMonth.filter(swd => 
@@ -334,7 +334,7 @@ export default function SalaryReportPage() {
                 if (leave.leaveType !== 'short-leave') acc.nonShortLeaves.push(leave);
                 return acc;
             }, { total: 0, nonShortLeaves: [] as LeaveRequest[] });
-            const displayLeaveDays = leaveBreakdown.total;
+            const totalLeaveDays = leaveBreakdown.total;
             
             const publicHolidayDates = holidaysInMonth.filter(h => !h.isWorkingDay).map(h => startOfDay(new Date(h.date)));
             const publicHolidayTimes = new Set(publicHolidayDates.map(d => d.getTime()));
@@ -343,27 +343,28 @@ export default function SalaryReportPage() {
                     .filter(l => l.leaveType === 'full-day' || l.leaveType === 'compensatory')
                     .map(l => startOfDay(parseISO(l.date)).getTime())
             );
+            const specialWorkingDayTimes = new Set(specialWorkingDaysInMonth.map(h => startOfDay(new Date(h.date)).getTime()));
 
             let totalWorkingDays = 0;
             let presentDays = 0;
             const absentDates: Date[] = [];
-
+            
             daysInPeriod.forEach(currentDate => {
-                const isNonWorkingSunday = isSunday(currentDate) && !specialWorkingDaysInMonth.some(swd => isSameDay(new Date(swd.date), currentDate));
+                const isNonWorkingSunday = isSunday(currentDate) && !specialWorkingDayTimes.has(currentDate.getTime());
                 const isPublicHoliday = publicHolidayTimes.has(currentDate.getTime());
-                const isWorkingDay = !isNonWorkingSunday && !isPublicHoliday;
+                
+                if (!isNonWorkingSunday && !isPublicHoliday) {
+                    totalWorkingDays++;
+                }
 
                 const attendanceEntryForDay = attendance.find(a => isSameDay(new Date(a.date), currentDate));
                 if (attendanceEntryForDay && attendanceEntryForDay.checkIn) {
                     presentDays++;
                 }
 
-                if (isWorkingDay) {
-                    totalWorkingDays++;
-                    const isOnFullDayLeave = fullDayLeaveDateTimes.has(currentDate.getTime());
-                    if (!(attendanceEntryForDay && attendanceEntryForDay.checkIn) && !isOnFullDayLeave) {
-                        absentDates.push(currentDate);
-                    }
+                const isOnFullDayLeave = fullDayLeaveDateTimes.has(currentDate.getTime());
+                if (!isNonWorkingSunday && !isPublicHoliday && !isOnFullDayLeave && !(attendanceEntryForDay && attendanceEntryForDay.checkIn)) {
+                    absentDates.push(currentDate);
                 }
             });
 
@@ -378,7 +379,7 @@ export default function SalaryReportPage() {
                 }
             }
 
-            const allowedLeaves = (user.availableLeaves || 0) - displayLeaveDays;
+            const allowedLeaves = (user.availableLeaves || 0) - totalLeaveDays;
             const absentDays = absentDates.length;
             
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
@@ -416,7 +417,7 @@ export default function SalaryReportPage() {
                 totalWorkingDays,
                 presentDays,
                 allowedLeaves,
-                leaveDays: displayLeaveDays,
+                leaveDays: totalLeaveDays,
                 absentDays,
                 noPayLeaveDates: absentDates.map(d => format(d, 'MMM d, yyyy')),
                 totalOTHours: formatSecondsToHoursString(totalOTSeconds),
@@ -990,5 +991,6 @@ export default function SalaryReportPage() {
         </div>
     );
 }
+
 
 
