@@ -3,7 +3,7 @@
 
 import React, { createContext, ReactNode, useState, useEffect, useCallback } from 'react';
 import { database } from '@/lib/firebase';
-import { ref, onValue, set } from 'firebase/database';
+import { ref, onValue, set, remove } from 'firebase/database';
 import { FIREBASE_PAYSHEETS_PATH } from '@/lib/constants';
 import type { Paysheet } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +16,7 @@ interface PaysheetContextType {
   paysheets: Paysheet[];
   isLoading: boolean;
   savePaysheet: (paysheetData: Omit<Paysheet, 'id' | 'generatedAt'>) => Promise<{ success: boolean; id?: string }>;
+  deletePaysheet: (paysheetId: string) => Promise<{ success: boolean }>;
 }
 
 export const PaysheetContext = createContext<PaysheetContextType | undefined>(undefined);
@@ -27,7 +28,7 @@ interface PaysheetProviderProps {
 export const PaysheetProvider: React.FC<PaysheetProviderProps> = ({ children }) => {
   const [paysheets, setPaysheets] = useState<Paysheet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -55,8 +56,8 @@ export const PaysheetProvider: React.FC<PaysheetProviderProps> = ({ children }) 
   }, []);
 
   const savePaysheet = useCallback(async (paysheetData: Omit<Paysheet, 'id' | 'generatedAt'>): Promise<{ success: boolean; id?: string }> => {
-    if (!user || user.role !== 'admin') {
-      toast({ title: "Permission Denied", description: "Only admins can save paysheets.", variant: "destructive" });
+    if (!user || !isSuperAdmin) {
+      toast({ title: "Permission Denied", description: "Only super admins can save paysheets.", variant: "destructive" });
       return { success: false };
     }
     if (!database) return { success: false };
@@ -80,10 +81,31 @@ export const PaysheetProvider: React.FC<PaysheetProviderProps> = ({ children }) 
       toast({ title: "Error", description: "Failed to save paysheet.", variant: "destructive" });
       return { success: false };
     }
-  }, [user, toast]);
+  }, [user, isSuperAdmin, toast]);
+  
+  const deletePaysheet = useCallback(async (paysheetId: string): Promise<{ success: boolean }> => {
+    if (!isSuperAdmin) {
+      toast({ title: "Permission Denied", description: "Only super admins can delete paysheets.", variant: "destructive" });
+      return { success: false };
+    }
+    if (!database) {
+      toast({ title: "Database Error", description: "Database not connected.", variant: "destructive" });
+      return { success: false };
+    }
+
+    try {
+      await remove(ref(database, `${FIREBASE_PAYSHEETS_PATH}/${paysheetId}`));
+      toast({ title: "Success", description: "Paysheet has been deleted." });
+      return { success: true };
+    } catch (error) {
+      console.error("Firebase delete paysheet error:", error);
+      toast({ title: "Error", description: "Failed to delete paysheet.", variant: "destructive" });
+      return { success: false };
+    }
+  }, [isSuperAdmin, toast]);
 
   return (
-    <PaysheetContext.Provider value={{ paysheets, isLoading, savePaysheet }}>
+    <PaysheetContext.Provider value={{ paysheets, isLoading, savePaysheet, deletePaysheet }}>
       {children}
     </PaysheetContext.Provider>
   );
