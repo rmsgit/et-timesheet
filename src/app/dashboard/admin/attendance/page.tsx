@@ -7,7 +7,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CalendarCheck, Upload, User, Loader2, Hourglass, Plane, AlertTriangle, Search, Trash2 } from 'lucide-react';
+import { CalendarCheck, Upload, User, Loader2, Hourglass, Plane, AlertTriangle, Search, Trash2, NotebookText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { useAttendance } from '@/hooks/useAttendance';
@@ -577,6 +577,11 @@ export default function AttendancePage() {
                                     <Plane className="mr-2 h-4 w-4" /> Leave
                                 </div>
                               </TableHead>
+                              <TableHead className="w-[150px]">
+                                <div className="flex items-center">
+                                    <NotebookText className="mr-2 h-4 w-4" /> Remarks
+                                </div>
+                              </TableHead>
                           </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -584,6 +589,14 @@ export default function AttendancePage() {
                                 const recordDate = new Date(rec.date);
                                 const isSunday = recordDate.getDay() === 0;
                                 const publicHoliday = holidays.find(h => !h.isWorkingDay && isSameDay(parseISO(h.date), recordDate));
+                                
+                                let remark = '';
+                                if (publicHoliday) {
+                                    remark = publicHoliday.name;
+                                } else if (isSunday) {
+                                    remark = 'Sunday';
+                                }
+
                                 return (
                                 <TableRow key={recordIndex} className={cn((isSunday || publicHoliday) && "bg-muted/50")}>
                                     <TableCell className="font-medium">{format(recordDate, 'MMM d, yyyy (EEE)')}</TableCell>
@@ -619,6 +632,9 @@ export default function AttendancePage() {
                                     </TableCell>
                                     <TableCell>
                                       {rec.leaveInfo && <Badge variant="outline" className="capitalize border-sky-500 text-sky-500">{rec.leaveInfo}</Badge>}
+                                    </TableCell>
+                                    <TableCell>
+                                      {remark && <Badge variant="secondary">{remark}</Badge>}
                                     </TableCell>
                                 </TableRow>
                                 );
