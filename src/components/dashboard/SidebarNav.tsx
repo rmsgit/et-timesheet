@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -71,7 +72,7 @@ export function SidebarNav() {
   
   return (
     <SidebarMenu>
-      {isEditor && ( 
+      {(isEditor || isAdmin) && ( 
         <SidebarGroup>
           <SidebarGroupLabel>Editor Tools</SidebarGroupLabel>
           {personalRoutes.map((route) => (
