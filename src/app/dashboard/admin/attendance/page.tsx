@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
+import { useHolidays } from '@/hooks/useHolidays';
 
 const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorningOT?: boolean, date?: Date): string => {
     if ((!checkIn || typeof checkIn !== 'string' || !checkIn.includes(':')) && (!checkOut || typeof checkOut !== 'string' || !checkOut.includes(':'))){
@@ -189,9 +190,10 @@ export default function AttendancePage() {
   
   const { users: allUsers, isUsersLoading } = useMockUsers();
   const { leaveRequests, isLoading: isLoadingLeave } = useLeave();
+  const { holidays, isLoading: isLoadingHolidays } = useHolidays();
   const { saveAttendanceForMonth, getAttendanceForMonth, deleteAttendanceForMonth } = useAttendance();
   
-  const isLoading = isUsersLoading || isLoadingLeave;
+  const isLoading = isUsersLoading || isLoadingLeave || isLoadingHolidays;
 
   const selectableUsers = useMemo(() => {
     if (isUsersLoading || !allUsers) return [];
@@ -557,7 +559,7 @@ export default function AttendancePage() {
                   <Table>
                       <TableHeader>
                           <TableRow>
-                              <TableHead className="w-[150px]">Date</TableHead>
+                              <TableHead className="w-[180px]">Date</TableHead>
                               <TableHead>Check-in</TableHead>
                               <TableHead>Check-out</TableHead>
                               <TableHead className="w-[100px]">
@@ -578,44 +580,49 @@ export default function AttendancePage() {
                           </TableRow>
                       </TableHeader>
                       <TableBody>
-                          {attendanceData.map((rec, recordIndex) => (
-                              <TableRow key={recordIndex}>
-                                  <TableCell className="font-medium">{rec.date}</TableCell>
-                                  <TableCell>
-                                      <Input 
-                                          type="text" 
-                                          value={rec.checkIn}
-                                          onChange={(e) => handleAttendanceChange(recordIndex, 'checkIn', e.target.value)}
-                                          placeholder="--:--:--"
-                                          className="h-9" 
-                                      />
-                                  </TableCell>
-                                  <TableCell>
-                                      <Input 
-                                          type="text" 
-                                          value={rec.checkOut} 
-                                          onChange={(e) => handleAttendanceChange(recordIndex, 'checkOut', e.target.value)}
-                                          placeholder="--:--:--"
-                                          className="h-9"
-                                      />
-                                  </TableCell>
-                                  <TableCell className="text-sm">
-                                      <span className="font-mono text-muted-foreground">{rec.overtime}</span>
-                                  </TableCell>
-                                   <TableCell>
-                                      <Input 
-                                          type="text" 
-                                          value={rec.earlyLeave} 
-                                          onChange={(e) => handleAttendanceChange(recordIndex, 'earlyLeave', e.target.value)}
-                                          placeholder="--h --m"
-                                          className="h-9 font-mono text-orange-600"
-                                      />
-                                  </TableCell>
-                                  <TableCell>
-                                    {rec.leaveInfo && <Badge variant="outline" className="capitalize border-sky-500 text-sky-500">{rec.leaveInfo}</Badge>}
-                                  </TableCell>
-                              </TableRow>
-                          ))}
+                          {attendanceData.map((rec, recordIndex) => {
+                                const recordDate = new Date(rec.date);
+                                const isSunday = recordDate.getDay() === 0;
+                                const publicHoliday = holidays.find(h => !h.isWorkingDay && isSameDay(parseISO(h.date), recordDate));
+                                return (
+                                <TableRow key={recordIndex} className={cn((isSunday || publicHoliday) && "bg-muted/50")}>
+                                    <TableCell className="font-medium">{format(recordDate, 'MMM d, yyyy (EEE)')}</TableCell>
+                                    <TableCell>
+                                        <Input 
+                                            type="text" 
+                                            value={rec.checkIn}
+                                            onChange={(e) => handleAttendanceChange(recordIndex, 'checkIn', e.target.value)}
+                                            placeholder="--:--:--"
+                                            className="h-9" 
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Input 
+                                            type="text" 
+                                            value={rec.checkOut} 
+                                            onChange={(e) => handleAttendanceChange(recordIndex, 'checkOut', e.target.value)}
+                                            placeholder="--:--:--"
+                                            className="h-9"
+                                        />
+                                    </TableCell>
+                                    <TableCell className="text-sm">
+                                        <span className="font-mono text-muted-foreground">{rec.overtime}</span>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Input 
+                                            type="text" 
+                                            value={rec.earlyLeave} 
+                                            onChange={(e) => handleAttendanceChange(recordIndex, 'earlyLeave', e.target.value)}
+                                            placeholder="--h --m"
+                                            className="h-9 font-mono text-orange-600"
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                      {rec.leaveInfo && <Badge variant="outline" className="capitalize border-sky-500 text-sky-500">{rec.leaveInfo}</Badge>}
+                                    </TableCell>
+                                </TableRow>
+                                );
+                            })}
                       </TableBody>
                   </Table>
                    <div className="flex justify-end mt-6">
@@ -646,7 +653,7 @@ export default function AttendancePage() {
             <Search className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-4 text-xl font-medium">No Saved Records</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              No attendance records found for {selectedUser?.username} for {format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}.
+              No attendance records found for ${selectedUser?.username} for {format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}.
             </p>
              <p className="mt-1 text-sm text-muted-foreground">
               Upload a file to create a new attendance sheet for this period.
