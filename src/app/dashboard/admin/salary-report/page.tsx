@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save, Banknote, Landmark, RefreshCw, Mail, Download, X, History, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save, Banknote, Landmark, RefreshCw, Mail, Download, X, History, ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, differenceInYears } from 'date-fns';
@@ -320,10 +320,10 @@ export default function SalaryReportPage() {
 
             const daysInPeriod = eachDayOfInterval({ start: payPeriodStart, end: payPeriodEnd });
             daysInPeriod.forEach(currentDate => {
-                const isSunday = currentDate.getDay() === 0;
+                const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
                 const holidayInfo = holidaysInMonth.find(h => isSameDay(new Date(h.date), currentDate));
 
-                let isWorkingDayForCalc = !isSunday;
+                let isWorkingDayForCalc = !isWeekend;
 
                 if(holidayInfo) {
                     if(!holidayInfo.isWorkingDay) {
