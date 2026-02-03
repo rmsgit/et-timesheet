@@ -106,12 +106,7 @@ const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorni
             return '';
         }
 
-        const otMinutesPart = Math.floor(totalOtSeconds / 60);
-        const otSecondsPart = totalOtSeconds % 60;
-        let totalOtMinutes = otMinutesPart;
-        if (otSecondsPart > 30) {
-            totalOtMinutes += 1;
-        }
+        const totalOtMinutes = Math.round(totalOtSeconds / 60);
 
         if (totalOtMinutes <= 0) {
             return '';
