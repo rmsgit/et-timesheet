@@ -319,29 +319,32 @@ export default function SalaryReportPage() {
             ).length;
 
             const specialWorkingDayAmount = Math.round(((baseSalary / 25) * presentOnSpecialWorkingDays));
+            
+            const daysInPeriod = eachDayOfInterval({ start: effectivePayPeriodStart, end: effectivePayPeriodEnd });
 
+            // Calculate leave days for display
+            const leaveDays = userLeavesForMonth.reduce((total, leave) => {
+                if (leave.leaveType === 'full-day' || leave.leaveType === 'compensatory') return total + 1;
+                if (leave.leaveType === 'half-day') return total + 0.5;
+                return total;
+            }, 0);
+
+            // New logic for Total Working Days based on user formula
             let totalWorkingDays = 0;
             let presentDays = 0;
             const absentDates: Date[] = [];
-
-            const daysInPeriod = eachDayOfInterval({ start: effectivePayPeriodStart, end: effectivePayPeriodEnd });
+            
             daysInPeriod.forEach(currentDate => {
-                const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
-                const holidayInfo = holidaysInMonth.find(h => isSameDay(new Date(h.date), currentDate));
+                 const isSunday = currentDate.getDay() === 0;
+                 const holidayInfo = holidaysInMonth.find(h => isSameDay(new Date(h.date), currentDate));
+                 const isPublicHoliday = holidayInfo && !holidayInfo.isWorkingDay;
+                 const isSpecialWorkingDay = holidayInfo && holidayInfo.isWorkingDay;
 
-                let isWorkingDayForCalc = !isWeekend;
+                 const isWorkingDayForPayroll = (!isSunday && !isPublicHoliday) || isSpecialWorkingDay;
 
-                if(holidayInfo) {
-                    if(!holidayInfo.isWorkingDay) {
-                        isWorkingDayForCalc = false;
-                    } else {
-                        isWorkingDayForCalc = true;
-                    }
-                }
-                
-                if (isWorkingDayForCalc) {
+                 if (isWorkingDayForPayroll) {
                     totalWorkingDays++;
-
+                    
                     const attendanceEntryForDay = attendance.find(a => isSameDay(new Date(a.date), currentDate));
                     const leaveForDay = userLeavesForMonth.find(req => req.date && isSameDay(parseISO(req.date), currentDate));
 
@@ -350,19 +353,9 @@ export default function SalaryReportPage() {
                     } else if (!leaveForDay) {
                         absentDates.push(currentDate);
                     }
-                }
+                 }
             });
 
-            const leaveDays = userLeavesForMonth.reduce((total, leave) => {
-                if (leave.leaveType === 'full-day' || leave.leaveType === 'compensatory') {
-                    return total + 1;
-                }
-                if (leave.leaveType === 'half-day') {
-                    return total + 0.5;
-                }
-                return total;
-            }, 0);
-            
             let noLeaveBonusAmount = 0;
             const nonShortLeaveDaysCount = userLeavesForMonth.filter(l => l.leaveType !== 'short-leave').length;
 
@@ -413,7 +406,7 @@ export default function SalaryReportPage() {
                 totalWorkingDays,
                 presentDays,
                 allowedLeaves,
-                leaveDays,
+                leaveDays: displayLeaveDays,
                 absentDays,
                 noPayLeaveDates: absentDates.map(d => format(d, 'MMM d, yyyy')),
                 totalOTHours: formatSecondsToHoursString(totalOTSeconds),
@@ -987,3 +980,4 @@ export default function SalaryReportPage() {
         </div>
     );
 }
+
