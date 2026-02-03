@@ -66,21 +66,17 @@ export function SidebarNav() {
      // { href: '/dashboard/settings', label: 'Settings', icon: Settings },
   ];
 
+  const adminCategoryOrder = ["Reports", "Management", "Payroll", "Attendance Management", "Configuration"];
 
   const isActive = (href: string) => pathname === href;
 
-  const routesForCurrentUser = isEditor 
-    ? personalRoutes 
-    : isAdmin 
-    ? personalRoutes.filter(route => route.href === '/dashboard/my-attendance' || route.href === '/dashboard/my-leave') 
-    : [];
-  
-  return (
-    <SidebarMenu>
-      {(isEditor || isAdmin) && routesForCurrentUser.length > 0 && (
+  // Editor-only view
+  if (isEditor && !isAdmin) {
+    return (
+      <SidebarMenu>
         <SidebarGroup>
           <SidebarGroupLabel>Attendance Management</SidebarGroupLabel>
-          {routesForCurrentUser.map((route) => (
+          {personalRoutes.map((route) => (
             <SidebarMenuItem key={route.href}>
               <Link href={route.href} passHref legacyBehavior>
                 <SidebarMenuButton
@@ -99,46 +95,72 @@ export function SidebarNav() {
             </SidebarMenuItem>
           ))}
         </SidebarGroup>
-      )}
+      </SidebarMenu>
+    );
+  }
 
-      {isAdmin && (
-        <>
-          {Object.entries(adminRoutesByCategory).map(([category, routes]) => {
-            if (category === "Payroll" && !isSuperAdmin) {
-              return null;
-            }
-            return (
-              <SidebarGroup key={category}>
-                <SidebarGroupLabel>{category}</SidebarGroupLabel>
-                {routes.map((route) => {
-                  const isLeaveManagement = route.href === '/dashboard/admin/leave-management';
-                  const showBadge = isLeaveManagement && pendingLeaveCount > 0;
-                  return (
+  // Admin view (covers super admin as well)
+  if (isAdmin) {
+    const adminPersonalRoutes = personalRoutes.filter(route => route.href === '/dashboard/my-attendance' || route.href === '/dashboard/my-leave');
+    
+    return (
+      <SidebarMenu>
+        {adminCategoryOrder.map(category => {
+          if (category === "Payroll" && !isSuperAdmin) {
+            return null;
+          }
+
+          if (category === "Attendance Management") {
+            if (adminPersonalRoutes.length > 0) {
+              return (
+                <SidebarGroup key={category}>
+                  <SidebarGroupLabel>{category}</SidebarGroupLabel>
+                  {adminPersonalRoutes.map((route) => (
                     <SidebarMenuItem key={route.href}>
                       <Link href={route.href} passHref legacyBehavior>
-                        <SidebarMenuButton
-                          asChild
-                          variant="default"
-                          size="default"
-                          isActive={isActive(route.href)}
-                          tooltip={{ children: route.label, side: "right", align: "center" }}
-                        >
-                          <a>
-                            <route.icon />
-                            <span>{route.label}</span>
-                             {showBadge && <SidebarMenuBadge>{pendingLeaveCount}</SidebarMenuBadge>}
-                          </a>
+                        <SidebarMenuButton asChild variant="default" size="default" isActive={isActive(route.href)} tooltip={{ children: route.label, side: "right", align: "center" }}>
+                          <a><route.icon /><span>{route.label}</span></a>
                         </SidebarMenuButton>
                       </Link>
                     </SidebarMenuItem>
-                  );
-                })}
-              </SidebarGroup>
-            );
-          })}
-        </>
-      )}
-      
+                  ))}
+                </SidebarGroup>
+              );
+            }
+            return null;
+          }
+
+          const routes = adminRoutesByCategory[category as keyof typeof adminRoutesByCategory];
+          return (
+            <SidebarGroup key={category}>
+              <SidebarGroupLabel>{category}</SidebarGroupLabel>
+              {routes.map((route) => {
+                const isLeaveManagement = route.href === '/dashboard/admin/leave-management';
+                const showBadge = isLeaveManagement && pendingLeaveCount > 0;
+                return (
+                  <SidebarMenuItem key={route.href}>
+                    <Link href={route.href} passHref legacyBehavior>
+                      <SidebarMenuButton asChild variant="default" size="default" isActive={isActive(route.href)} tooltip={{ children: route.label, side: "right", align: "center" }}>
+                        <a>
+                          <route.icon />
+                          <span>{route.label}</span>
+                          {showBadge && <SidebarMenuBadge>{pendingLeaveCount}</SidebarMenuBadge>}
+                        </a>
+                      </SidebarMenuButton>
+                    </Link>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarGroup>
+          );
+        })}
+      </SidebarMenu>
+    );
+  }
+  
+  // Fallback for users with no specific role or for common routes if any are added later
+  return (
+    <SidebarMenu>
       {commonRoutes.length > 0 && (
         <SidebarGroup>
           <SidebarGroupLabel>General</SidebarGroupLabel>
