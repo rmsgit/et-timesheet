@@ -28,10 +28,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CheckCircle, XCircle, Hourglass, Plane, Loader2, User, Ban, MoreHorizontal, Trash2 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isWithinInterval } from 'date-fns';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
+import type { DateRange } from 'react-day-picker';
 
 export default function LeaveManagementPage() {
   const { leaveRequests, isLoading: isLoadingLeave, updateLeaveStatus, deleteLeaveRequest } = useLeave();
@@ -41,6 +43,7 @@ export default function LeaveManagementPage() {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [leaveRequestToDelete, setLeaveRequestToDelete] = useState<(LeaveRequest & { username: string }) | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const isLoading = isLoadingLeave || isUsersLoading;
 
@@ -56,11 +59,24 @@ export default function LeaveManagementPage() {
   }, [leaveRequests, getUsername]);
 
   const filteredRequests = useMemo(() => {
-    if (selectedUserId === 'all') {
-        return requestsWithUsernames;
+    let filtered = requestsWithUsernames;
+
+    if (selectedUserId !== 'all') {
+        filtered = filtered.filter(req => req.userId === selectedUserId);
     }
-    return requestsWithUsernames.filter(req => req.userId === selectedUserId);
-  }, [requestsWithUsernames, selectedUserId]);
+    
+    if (dateRange?.from) {
+        const from = dateRange.from;
+        const to = dateRange.to || from;
+        filtered = filtered.filter(req => {
+            if (!req.date) return false; // Exclude requests with no date when filtering by date
+            const reqDate = parseISO(req.date);
+            return isWithinInterval(reqDate, { start: from, end: to });
+        });
+    }
+
+    return filtered;
+  }, [requestsWithUsernames, selectedUserId, dateRange]);
 
   const pendingRequests = useMemo(() => filteredRequests.filter(req => req.status === 'pending'), [filteredRequests]);
   const approvedRequests = useMemo(() => filteredRequests.filter(req => req.status === 'approved'), [filteredRequests]);
@@ -88,7 +104,7 @@ export default function LeaveManagementPage() {
 
   const renderTable = (requests: (LeaveRequest & { username: string })[]) => {
       if (isLoading) return <TableSkeleton columnCount={7} />;
-      if (requests.length === 0) return <p className="text-center text-muted-foreground py-8">No requests in this category for the selected user.</p>;
+      if (requests.length === 0) return <p className="text-center text-muted-foreground py-8">No requests in this category for the selected filters.</p>;
 
       const currentStatus = requests[0]?.status;
 
@@ -177,25 +193,36 @@ export default function LeaveManagementPage() {
             <CardDescription>Review, approve, or reject leave requests submitted by editors.</CardDescription>
         </CardHeader>
         <CardContent>
-            <div className="mb-6 space-y-2">
-                <Label htmlFor="user-filter">Filter by User</Label>
-                {isUsersLoading ? (
-                    <div className="flex items-center justify-center h-10 border rounded-md bg-muted w-full sm:w-[280px]">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                    </div>
-                ) : (
-                    <Select value={selectedUserId} onValueChange={setSelectedUserId} disabled={isLoading}>
-                        <SelectTrigger id="user-filter" className="w-full sm:w-[280px]">
-                            <SelectValue placeholder="Select a user" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Users</SelectItem>
-                            {allUsersSorted.map(user => (
-                                <SelectItem key={user.id} value={user.id}>{user.username}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                )}
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                <div className="space-y-2">
+                    <Label htmlFor="user-filter">Filter by User</Label>
+                    {isUsersLoading ? (
+                        <div className="flex items-center justify-center h-10 border rounded-md bg-muted w-full sm:w-[280px]">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : (
+                        <Select value={selectedUserId} onValueChange={setSelectedUserId} disabled={isLoading}>
+                            <SelectTrigger id="user-filter" className="w-full sm:w-[280px]">
+                                <SelectValue placeholder="Select a user" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Users</SelectItem>
+                                {allUsersSorted.map(user => (
+                                    <SelectItem key={user.id} value={user.id}>{user.username}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="date-range-filter">Filter by Leave Date</Label>
+                    <DateRangePicker
+                        id="date-range-filter"
+                        dateRange={dateRange}
+                        onDateChange={setDateRange}
+                        disabled={isLoading}
+                    />
+                </div>
             </div>
 
             <Tabs defaultValue="pending">
