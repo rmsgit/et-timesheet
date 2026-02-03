@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -69,13 +68,19 @@ export function SidebarNav() {
 
 
   const isActive = (href: string) => pathname === href;
+
+  const routesForCurrentUser = isEditor 
+    ? personalRoutes 
+    : isAdmin 
+    ? personalRoutes.filter(route => route.href === '/dashboard/my-attendance' || route.href === '/dashboard/my-leave') 
+    : [];
   
   return (
     <SidebarMenu>
-      {(isEditor || isAdmin) && ( 
+      {(isEditor || isAdmin) && routesForCurrentUser.length > 0 && (
         <SidebarGroup>
-          <SidebarGroupLabel>Editor Tools</SidebarGroupLabel>
-          {personalRoutes.map((route) => (
+          <SidebarGroupLabel>Attendance Management</SidebarGroupLabel>
+          {routesForCurrentUser.map((route) => (
             <SidebarMenuItem key={route.href}>
               <Link href={route.href} passHref legacyBehavior>
                 <SidebarMenuButton
