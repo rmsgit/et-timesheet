@@ -59,11 +59,20 @@ const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorni
 
     const dummyDate = '1970-01-01T';
     const isSaturday = date ? date.getDay() === 6 : false;
+    const companyStartTime = new Date(`${dummyDate}08:15:00`);
 
     try {
+        const checkInTime = normalizedCheckInTime ? new Date(`${dummyDate}${normalizedCheckInTime}`) : null;
+        if (checkInTime && isNaN(checkInTime.getTime())) return ''; // Invalid check-in time format
+
         let totalOtSeconds = 0;
 
         if (isSaturday) {
+            // Disqualification Rule for Saturday: No OT if late.
+            if (checkInTime && checkInTime > companyStartTime) {
+                return '';
+            }
+            
             const saturdayEndTime = new Date(`${dummyDate}14:00:00`); // 2 PM
             const checkOutTime = normalizedCheckOutTime ? new Date(`${dummyDate}${normalizedCheckOutTime}`) : null;
             if (checkOutTime && !isNaN(checkOutTime.getTime()) && checkOutTime > saturdayEndTime) {
@@ -71,18 +80,16 @@ const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorni
             }
         } else {
             const isEligible = isEligibleForMorningOT === true;
-            const startTime = new Date(`${dummyDate}08:15:00`);
             const endTime = new Date(`${dummyDate}17:15:00`);
             
-            const checkInTime = normalizedCheckInTime ? new Date(`${dummyDate}${normalizedCheckInTime}`) : null;
             const checkOutTime = normalizedCheckOutTime ? new Date(`${dummyDate}${normalizedCheckOutTime}`) : null;
             
-            if ((checkInTime && isNaN(checkInTime.getTime())) || (checkOutTime && isNaN(checkOutTime.getTime()))) {
+            if (checkOutTime && isNaN(checkOutTime.getTime())) {
                 return '';
             }
 
-            // Disqualification Rule: If user arrives late, they get no OT at all, regardless of eligibility.
-            if (checkInTime && checkInTime > startTime) {
+            // Disqualification Rule for other days: If user arrives late, they get no OT at all.
+            if (checkInTime && checkInTime > companyStartTime) {
                 return '';
             }
 
@@ -90,8 +97,8 @@ const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorni
             let eveningOtSeconds = 0;
 
             // Calculate morning OT only if eligible and arrived early
-            if (checkInTime && isEligible && checkInTime < startTime) {
-                morningOtSeconds = Math.floor((startTime.getTime() - checkInTime.getTime()) / 1000);
+            if (checkInTime && isEligible && checkInTime < companyStartTime) {
+                morningOtSeconds = Math.floor((companyStartTime.getTime() - checkInTime.getTime()) / 1000);
             }
 
             // Calculate evening OT if they stayed late
@@ -106,6 +113,7 @@ const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorni
             return '';
         }
 
+        // Round total seconds to the nearest minute
         const totalOtMinutes = Math.round(totalOtSeconds / 60);
 
         if (totalOtMinutes <= 0) {
