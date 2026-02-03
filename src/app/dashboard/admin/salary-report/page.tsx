@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -285,15 +284,8 @@ export default function SalaryReportPage() {
             
             const attendance = await getAttendanceForMonth(selectedUserId, selectedYear, selectedMonth) || [];
 
-            let payPeriodStart: Date, payPeriodEnd: Date;
-            if (attendance.length > 0) {
-                const dates = attendance.map(rec => new Date(rec.date));
-                payPeriodStart = dates.reduce((min, d) => d < min ? d : min, dates[0]);
-                payPeriodEnd = dates.reduce((max, d) => d > max ? d : max, dates[0]);
-            } else {
-                payPeriodStart = startOfMonth(new Date(yearNum, monthNum));
-                payPeriodEnd = endOfMonth(new Date(yearNum, monthNum));
-            }
+            const payPeriodStart = startOfMonth(new Date(yearNum, monthNum));
+            const payPeriodEnd = endOfMonth(new Date(yearNum, monthNum));
             
             const effectivePayPeriodStart = startOfDay(payPeriodStart);
             const effectivePayPeriodEnd = endOfDay(payPeriodEnd);
@@ -321,40 +313,42 @@ export default function SalaryReportPage() {
             const specialWorkingDayAmount = Math.round(((baseSalary / 25) * presentOnSpecialWorkingDays));
             
             const daysInPeriod = eachDayOfInterval({ start: effectivePayPeriodStart, end: effectivePayPeriodEnd });
-
-            // Calculate leave days for display
+            
             const leaveDays = userLeavesForMonth.reduce((total, leave) => {
                 if (leave.leaveType === 'full-day' || leave.leaveType === 'compensatory') return total + 1;
                 if (leave.leaveType === 'half-day') return total + 0.5;
                 return total;
             }, 0);
-
-            // New logic for Total Working Days based on user formula
-            let totalWorkingDays = 0;
+            
             let presentDays = 0;
             const absentDates: Date[] = [];
+            const leaveDates = userLeavesForMonth.map(l => startOfDay(parseISO(l.date)));
+            const publicHolidayDates = holidaysInMonth.filter(h => !h.isWorkingDay).map(h => startOfDay(new Date(h.date)));
+            
+            const nonWorkingDays = new Set<number>();
+            leaveDates.forEach(d => nonWorkingDays.add(d.getTime()));
+            publicHolidayDates.forEach(d => nonWorkingDays.add(d.getTime()));
+            
+            let totalWorkingDays = 0;
             
             daysInPeriod.forEach(currentDate => {
                  const isSunday = currentDate.getDay() === 0;
-                 const holidayInfo = holidaysInMonth.find(h => isSameDay(new Date(h.date), currentDate));
-                 const isPublicHoliday = holidayInfo && !holidayInfo.isWorkingDay;
-                 const isSpecialWorkingDay = holidayInfo && holidayInfo.isWorkingDay;
+                 const isPublicHoliday = publicHolidayDates.some(h => isSameDay(h, currentDate));
+                 const isLeaveDay = leaveDates.some(l => isSameDay(l, currentDate));
 
-                 const isWorkingDayForPayroll = (!isSunday && !isPublicHoliday) || isSpecialWorkingDay;
-
-                 if (isWorkingDayForPayroll) {
+                 if (!isSunday && !isPublicHoliday && !isLeaveDay) {
                     totalWorkingDays++;
                     
                     const attendanceEntryForDay = attendance.find(a => isSameDay(new Date(a.date), currentDate));
-                    const leaveForDay = userLeavesForMonth.find(req => req.date && isSameDay(parseISO(req.date), currentDate));
-
+                    
                     if (attendanceEntryForDay && attendanceEntryForDay.checkIn) {
                         presentDays++;
-                    } else if (!leaveForDay) {
+                    } else {
                         absentDates.push(currentDate);
                     }
                  }
             });
+
 
             let noLeaveBonusAmount = 0;
             const nonShortLeaveDaysCount = userLeavesForMonth.filter(l => l.leaveType !== 'short-leave').length;
@@ -406,7 +400,7 @@ export default function SalaryReportPage() {
                 totalWorkingDays,
                 presentDays,
                 allowedLeaves,
-                leaveDays: displayLeaveDays,
+                leaveDays: leaveDays,
                 absentDays,
                 noPayLeaveDates: absentDates.map(d => format(d, 'MMM d, yyyy')),
                 totalOTHours: formatSecondsToHoursString(totalOTSeconds),
