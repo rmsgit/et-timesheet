@@ -55,7 +55,7 @@ export default function CompensatoryLeavePage() {
     const { users, isUsersLoading } = useMockUsers();
     const { getAttendanceForYear } = useAttendance();
     const { leaveRequests, adminApplyCompensatoryLeave, isLoading: isLeaveLoading } = useLeave();
-    const [selectedYear, setSelectedYear] = useState<string>('2025');
+    const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
     const [summaryData, setSummaryData] = useState<DueLeaveSummary[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(false);
 

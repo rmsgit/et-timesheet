@@ -113,8 +113,12 @@ const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorni
             return '';
         }
 
-        // Round total seconds to the nearest minute
-        const totalOtMinutes = Math.round(totalOtSeconds / 60);
+        const seconds = totalOtSeconds % 60;
+        let totalOtMinutes = Math.floor(totalOtSeconds / 60);
+
+        if (seconds > 30) {
+            totalOtMinutes += 1;
+        }
 
         if (totalOtMinutes <= 0) {
             return '';
@@ -215,7 +219,7 @@ export default function AttendancePage() {
   const [selectedUserId, setSelectedUserId] = useState<string | undefined>(undefined);
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
 
-  const [selectedYear, setSelectedYear] = useState<string>('2025');
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() + 1).toString().padStart(2, '0'));
 
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);

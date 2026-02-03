@@ -91,7 +91,7 @@ export default function SalaryReportPage() {
     const searchParams = useSearchParams();
 
     const [selectedUserId, setSelectedUserId] = useState<string | undefined>();
-    const [selectedYear, setSelectedYear] = useState<string>('2025');
+    const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
     const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() + 1).toString().padStart(2, '0'));
     const [report, setReport] = useState<SalaryReport | null>(null);
     const [isLoadingReport, setIsLoadingReport] = useState(false);
@@ -990,6 +990,3 @@ export default function SalaryReportPage() {
         </div>
     );
 }
-
-
-

@@ -51,7 +51,7 @@ export default function HolidaysPage() {
     const [holidayToDelete, setHolidayToDelete] = useState<Holiday | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const [selectedYear, setSelectedYear] = useState<string>('2025');
+    const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
 
     const availableYears = useMemo(() => {
         const years = [];
