@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -327,49 +328,48 @@ export default function SalaryReportPage() {
             
             const daysInPeriod = eachDayOfInterval({ start: effectivePayPeriodStart, end: effectivePayPeriodEnd });
             
-            const displayLeaveDays = userLeavesForMonth.reduce((total, leave) => {
-                if (leave.leaveType === 'full-day' || leave.leaveType === 'compensatory') return total + 1;
-                if (leave.leaveType === 'half-day') return total + 0.5;
-                return total;
-            }, 0);
+            const leaveBreakdown = userLeavesForMonth.reduce((acc, leave) => {
+                if (leave.leaveType === 'full-day' || leave.leaveType === 'compensatory') acc.total += 1;
+                if (leave.leaveType === 'half-day') acc.total += 0.5;
+                if (leave.leaveType !== 'short-leave') acc.nonShortLeaves.push(leave);
+                return acc;
+            }, { total: 0, nonShortLeaves: [] as LeaveRequest[] });
+            const displayLeaveDays = leaveBreakdown.total;
             
-            const leaveDates = userLeavesForMonth.map(l => startOfDay(parseISO(l.date)));
             const publicHolidayDates = holidaysInMonth.filter(h => !h.isWorkingDay).map(h => startOfDay(new Date(h.date)));
-            
-            const nonWorkingDayTimes = new Set<number>();
-            publicHolidayDates.forEach(d => nonWorkingDayTimes.add(d.getTime()));
-            leaveDates.forEach(d => {
-                const isFullDayOrCompensatory = userLeavesForMonth.find(l => isSameDay(startOfDay(parseISO(l.date)), d) && (l.leaveType === 'full-day' || l.leaveType === 'compensatory'));
-                if (isFullDayOrCompensatory) {
-                  nonWorkingDayTimes.add(d.getTime());
-                }
-            });
-            
+            const publicHolidayTimes = new Set(publicHolidayDates.map(d => d.getTime()));
+            const fullDayLeaveDateTimes = new Set(
+                userLeavesForMonth
+                    .filter(l => l.leaveType === 'full-day' || l.leaveType === 'compensatory')
+                    .map(l => startOfDay(parseISO(l.date)).getTime())
+            );
+
             let totalWorkingDays = 0;
             let presentDays = 0;
             const absentDates: Date[] = [];
-            
-            daysInPeriod.forEach(currentDate => {
-                 const isNonWorkingSunday = isSunday(currentDate) && !specialWorkingDaysInMonth.some(swd => isSameDay(new Date(swd.date), currentDate));
-                 if (isNonWorkingSunday || nonWorkingDayTimes.has(currentDate.getTime())) {
-                     return;
-                 }
-                 
-                 totalWorkingDays++;
 
-                 const attendanceEntryForDay = attendance.find(a => isSameDay(new Date(a.date), currentDate));
-                 
-                 if (attendanceEntryForDay && attendanceEntryForDay.checkIn) {
+            daysInPeriod.forEach(currentDate => {
+                const isNonWorkingSunday = isSunday(currentDate) && !specialWorkingDaysInMonth.some(swd => isSameDay(new Date(swd.date), currentDate));
+                const isPublicHoliday = publicHolidayTimes.has(currentDate.getTime());
+                const isWorkingDay = !isNonWorkingSunday && !isPublicHoliday;
+
+                const attendanceEntryForDay = attendance.find(a => isSameDay(new Date(a.date), currentDate));
+                if (attendanceEntryForDay && attendanceEntryForDay.checkIn) {
                     presentDays++;
-                 } else {
-                    absentDates.push(currentDate);
-                 }
+                }
+
+                if (isWorkingDay) {
+                    totalWorkingDays++;
+                    const isOnFullDayLeave = fullDayLeaveDateTimes.has(currentDate.getTime());
+                    if (!(attendanceEntryForDay && attendanceEntryForDay.checkIn) && !isOnFullDayLeave) {
+                        absentDates.push(currentDate);
+                    }
+                }
             });
 
-            let noLeaveBonusAmount = 0;
-            const nonShortLeaveDaysCount = userLeavesForMonth.filter(l => l.leaveType !== 'short-leave').length;
 
-            if (nonShortLeaveDaysCount <= 2 && user.joiningDate && (settings?.noLeaveBonusOneYearOrMore || settings?.noLeaveBonusLessThanOneYear)) {
+            let noLeaveBonusAmount = 0;
+            if (leaveBreakdown.nonShortLeaves.length <= 2 && user.joiningDate && (settings?.noLeaveBonusOneYearOrMore || settings?.noLeaveBonusLessThanOneYear)) {
                 const yearsOfService = differenceInYears(effectivePayPeriodEnd, parseISO(user.joiningDate));
                 if (yearsOfService >= 1) {
                     noLeaveBonusAmount = settings.noLeaveBonusOneYearOrMore || 0;
@@ -990,4 +990,5 @@ export default function SalaryReportPage() {
         </div>
     );
 }
+
 
