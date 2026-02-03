@@ -4,6 +4,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useLeave } from '@/hooks/useLeave';
 import { useMockUsers } from '@/hooks/useMockUsers';
+import { useAuth } from '@/hooks/useAuth';
 import type { LeaveRequest } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ import type { DateRange } from 'react-day-picker';
 export default function LeaveManagementPage() {
   const { leaveRequests, isLoading: isLoadingLeave, updateLeaveStatus, deleteLeaveRequest } = useLeave();
   const { users, isUsersLoading } = useMockUsers();
+  const { isSuperAdmin } = useAuth();
   
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
@@ -156,18 +158,20 @@ export default function LeaveManagementPage() {
                                     <DropdownMenuSeparator />
                                   </>
                                 )}
-                                <DropdownMenuItem
-                                  onClick={() => handleDelete(req)}
-                                  className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
-                                  disabled={isDeleting === req.id}
-                                >
-                                  {isDeleting === req.id ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                  )}
-                                  Delete
-                                </DropdownMenuItem>
+                                {isSuperAdmin && (
+                                  <DropdownMenuItem
+                                    onClick={() => handleDelete(req)}
+                                    className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
+                                    disabled={isDeleting === req.id}
+                                  >
+                                    {isDeleting === req.id ? (
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                    )}
+                                    Delete
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, ReactNode, useState, useEffect, useCallback } from 'react';
@@ -225,8 +226,8 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
   }, [toast]);
   
   const deleteLeaveRequest = useCallback(async (leaveId: string): Promise<{ success: boolean }> => {
-    if (!user || !(isAdmin || isSuperAdmin)) {
-      toast({ title: "Permission Denied", description: "Only admins can delete leave requests.", variant: "destructive" });
+    if (!user || !isSuperAdmin) {
+      toast({ title: "Permission Denied", description: "Only super admins can delete leave requests.", variant: "destructive" });
       return { success: false };
     }
     if (!database) {
@@ -243,7 +244,7 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
       toast({ title: "Error", description: "Failed to delete leave request.", variant: "destructive" });
       return { success: false };
     }
-  }, [user, toast, isAdmin, isSuperAdmin]);
+  }, [user, toast, isSuperAdmin]);
 
   return (
     <LeaveContext.Provider value={{ leaveRequests, isLoading, applyForLeave, adminApplyCompensatoryLeave, updateLeaveStatus, cancelLeaveRequest, updateLeaveRequest, deleteLeaveRequest }}>
