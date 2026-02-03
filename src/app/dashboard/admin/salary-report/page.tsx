@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save, Banknote, Landmark, RefreshCw, Mail, Download, X, History, ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, differenceInYears, startOfDay, endOfDay } from 'date-fns';
+import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, differenceInYears, startOfDay, endOfDay, isSunday } from 'date-fns';
 import { usePaysheet } from '@/hooks/usePaysheet';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { Input } from '@/components/ui/input';
@@ -284,8 +284,21 @@ export default function SalaryReportPage() {
             
             const attendance = await getAttendanceForMonth(selectedUserId, selectedYear, selectedMonth) || [];
 
-            const payPeriodStart = startOfMonth(new Date(yearNum, monthNum));
-            const payPeriodEnd = endOfMonth(new Date(yearNum, monthNum));
+            let payPeriodStart: Date;
+            let payPeriodEnd: Date;
+
+            if (attendance.length > 0) {
+                const dates = attendance.map(rec => new Date(rec.date)).sort((a, b) => a.getTime() - b.getTime());
+                payPeriodStart = dates[0];
+                payPeriodEnd = dates[dates.length - 1];
+            } else {
+                payPeriodStart = startOfMonth(new Date(yearNum, monthNum));
+                payPeriodEnd = endOfMonth(new Date(yearNum, monthNum));
+                toast({
+                    title: "Using Default Pay Period",
+                    description: "No attendance sheet found for this period. Using the full month for calculations.",
+                });
+            }
             
             const effectivePayPeriodStart = startOfDay(payPeriodStart);
             const effectivePayPeriodEnd = endOfDay(payPeriodEnd);
@@ -314,41 +327,44 @@ export default function SalaryReportPage() {
             
             const daysInPeriod = eachDayOfInterval({ start: effectivePayPeriodStart, end: effectivePayPeriodEnd });
             
-            const leaveDays = userLeavesForMonth.reduce((total, leave) => {
+            const displayLeaveDays = userLeavesForMonth.reduce((total, leave) => {
                 if (leave.leaveType === 'full-day' || leave.leaveType === 'compensatory') return total + 1;
                 if (leave.leaveType === 'half-day') return total + 0.5;
                 return total;
             }, 0);
             
-            let presentDays = 0;
-            const absentDates: Date[] = [];
             const leaveDates = userLeavesForMonth.map(l => startOfDay(parseISO(l.date)));
             const publicHolidayDates = holidaysInMonth.filter(h => !h.isWorkingDay).map(h => startOfDay(new Date(h.date)));
             
-            const nonWorkingDays = new Set<number>();
-            leaveDates.forEach(d => nonWorkingDays.add(d.getTime()));
-            publicHolidayDates.forEach(d => nonWorkingDays.add(d.getTime()));
+            const nonWorkingDayTimes = new Set<number>();
+            publicHolidayDates.forEach(d => nonWorkingDayTimes.add(d.getTime()));
+            leaveDates.forEach(d => {
+                const isFullDayOrCompensatory = userLeavesForMonth.find(l => isSameDay(startOfDay(parseISO(l.date)), d) && (l.leaveType === 'full-day' || l.leaveType === 'compensatory'));
+                if (isFullDayOrCompensatory) {
+                  nonWorkingDayTimes.add(d.getTime());
+                }
+            });
             
             let totalWorkingDays = 0;
+            let presentDays = 0;
+            const absentDates: Date[] = [];
             
             daysInPeriod.forEach(currentDate => {
-                 const isSunday = currentDate.getDay() === 0;
-                 const isPublicHoliday = publicHolidayDates.some(h => isSameDay(h, currentDate));
-                 const isLeaveDay = leaveDates.some(l => isSameDay(l, currentDate));
+                 const isNonWorkingSunday = isSunday(currentDate) && !specialWorkingDaysInMonth.some(swd => isSameDay(new Date(swd.date), currentDate));
+                 if (isNonWorkingSunday || nonWorkingDayTimes.has(currentDate.getTime())) {
+                     return;
+                 }
+                 
+                 totalWorkingDays++;
 
-                 if (!isSunday && !isPublicHoliday && !isLeaveDay) {
-                    totalWorkingDays++;
-                    
-                    const attendanceEntryForDay = attendance.find(a => isSameDay(new Date(a.date), currentDate));
-                    
-                    if (attendanceEntryForDay && attendanceEntryForDay.checkIn) {
-                        presentDays++;
-                    } else {
-                        absentDates.push(currentDate);
-                    }
+                 const attendanceEntryForDay = attendance.find(a => isSameDay(new Date(a.date), currentDate));
+                 
+                 if (attendanceEntryForDay && attendanceEntryForDay.checkIn) {
+                    presentDays++;
+                 } else {
+                    absentDates.push(currentDate);
                  }
             });
-
 
             let noLeaveBonusAmount = 0;
             const nonShortLeaveDaysCount = userLeavesForMonth.filter(l => l.leaveType !== 'short-leave').length;
@@ -362,7 +378,7 @@ export default function SalaryReportPage() {
                 }
             }
 
-            const allowedLeaves = (user.availableLeaves || 0) - leaveDays;
+            const allowedLeaves = (user.availableLeaves || 0) - displayLeaveDays;
             const absentDays = absentDates.length;
             
             const perDaySalary = totalWorkingDays > 0 ? baseSalary / totalWorkingDays : 0;
@@ -400,7 +416,7 @@ export default function SalaryReportPage() {
                 totalWorkingDays,
                 presentDays,
                 allowedLeaves,
-                leaveDays: leaveDays,
+                leaveDays: displayLeaveDays,
                 absentDays,
                 noPayLeaveDates: absentDates.map(d => format(d, 'MMM d, yyyy')),
                 totalOTHours: formatSecondsToHoursString(totalOTSeconds),
