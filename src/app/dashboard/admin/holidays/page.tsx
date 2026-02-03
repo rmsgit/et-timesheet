@@ -51,18 +51,15 @@ export default function HolidaysPage() {
     const [holidayToDelete, setHolidayToDelete] = useState<Holiday | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+    const [selectedYear, setSelectedYear] = useState<string>('2025');
 
     const availableYears = useMemo(() => {
-        const years = new Set(holidays.map(h => getYear(parseISO(h.date))));
-        const currentYear = new Date().getFullYear();
-        years.add(currentYear);
-        for(let i = 1; i <= 3; i++) {
-            years.add(currentYear + i);
-            years.add(currentYear - i);
+        const years = [];
+        for (let i = 2030; i >= 2025; i--) {
+            years.push(i);
         }
-        return Array.from(years).sort((a, b) => b - a);
-    }, [holidays]);
+        return years.sort((a, b) => b - a);
+    }, []);
     
     const filteredHolidays = useMemo(() => {
         return holidays.filter(h => getYear(parseISO(h.date)).toString() === selectedYear);

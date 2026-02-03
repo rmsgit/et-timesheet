@@ -54,7 +54,7 @@ export default function MyLeavePage() {
   const { user } = useAuth();
   const { leaveRequests, isLoading, applyForLeave, cancelLeaveRequest, updateLeaveRequest } = useLeave();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState<number>(2025);
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);

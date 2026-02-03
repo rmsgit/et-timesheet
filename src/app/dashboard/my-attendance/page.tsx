@@ -52,7 +52,7 @@ export default function MyAttendancePage() {
   const { leaveRequests, isLoading: isLeaveLoading } = useLeave();
   const { holidays, isLoading: isHolidaysLoading } = useHolidays();
 
-  const [currentDisplayDate, setCurrentDisplayDate] = useState(new Date());
+  const [currentDisplayDate, setCurrentDisplayDate] = useState(new Date(2025, new Date().getMonth(), 1));
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[] | null>(null);
   const [isFetchingAttendance, setIsFetchingAttendance] = useState(false);
 

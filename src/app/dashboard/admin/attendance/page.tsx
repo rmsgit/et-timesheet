@@ -215,7 +215,7 @@ export default function AttendancePage() {
   const [selectedUserId, setSelectedUserId] = useState<string | undefined>(undefined);
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
 
-  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+  const [selectedYear, setSelectedYear] = useState<string>('2025');
   const [selectedMonth, setSelectedMonth] = useState<string>((new Date().getMonth() + 1).toString().padStart(2, '0'));
 
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
@@ -243,9 +243,8 @@ export default function AttendancePage() {
   }, [allUsers, isUsersLoading]);
 
   const availableYears = useMemo(() => {
-      const currentYear = new Date().getFullYear();
       const years = [];
-      for (let i = currentYear; i >= 2020; i--) {
+      for (let i = 2030; i >= 2025; i--) {
           years.push(i.toString());
       }
       return years;
