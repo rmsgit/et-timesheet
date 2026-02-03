@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save, Banknote, Landmark, RefreshCw, Mail, Download, X, History, ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, differenceInYears } from 'date-fns';
+import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, differenceInYears, startOfDay, endOfDay } from 'date-fns';
 import { usePaysheet } from '@/hooks/usePaysheet';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { Input } from '@/components/ui/input';
@@ -294,19 +294,22 @@ export default function SalaryReportPage() {
                 payPeriodEnd = endOfMonth(new Date(yearNum, monthNum));
             }
             
+            const effectivePayPeriodStart = startOfDay(payPeriodStart);
+            const effectivePayPeriodEnd = endOfDay(payPeriodEnd);
+
             const timesheetRecordsForMonth = getTimesheetForMonth(selectedUserId).filter(rec => {
                 const recDate = parseISO(rec.date);
-                return isWithinInterval(recDate, {start: payPeriodStart, end: payPeriodEnd});
+                return isWithinInterval(recDate, {start: effectivePayPeriodStart, end: effectivePayPeriodEnd});
             });
             
             const userLeavesForMonth = leaveRequests.filter(req => 
                 req.userId === selectedUserId &&
                 req.status === 'approved' &&
                 req.date &&
-                isWithinInterval(parseISO(req.date), { start: payPeriodStart, end: payPeriodEnd })
+                isWithinInterval(parseISO(req.date), { start: effectivePayPeriodStart, end: effectivePayPeriodEnd })
             );
 
-            const holidaysInMonth = holidays.filter(h => isWithinInterval(new Date(h.date), { start: payPeriodStart, end: payPeriodEnd }));
+            const holidaysInMonth = holidays.filter(h => isWithinInterval(new Date(h.date), { start: effectivePayPeriodStart, end: effectivePayPeriodEnd }));
             
             const totalOTSeconds = attendance.reduce((total, record) => {
                 return total + parseDurationToSeconds(record.overtime);
@@ -325,7 +328,7 @@ export default function SalaryReportPage() {
             let presentDays = 0;
             const absentDates: Date[] = [];
 
-            const daysInPeriod = eachDayOfInterval({ start: payPeriodStart, end: payPeriodEnd });
+            const daysInPeriod = eachDayOfInterval({ start: effectivePayPeriodStart, end: effectivePayPeriodEnd });
             daysInPeriod.forEach(currentDate => {
                 const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
                 const holidayInfo = holidaysInMonth.find(h => isSameDay(new Date(h.date), currentDate));
@@ -368,7 +371,7 @@ export default function SalaryReportPage() {
             const nonShortLeaveDaysCount = userLeavesForMonth.filter(l => l.leaveType !== 'short-leave').length;
 
             if (nonShortLeaveDaysCount <= 2 && user.joiningDate && (settings?.noLeaveBonusOneYearOrMore || settings?.noLeaveBonusLessThanOneYear)) {
-                const yearsOfService = differenceInYears(payPeriodEnd, parseISO(user.joiningDate));
+                const yearsOfService = differenceInYears(effectivePayPeriodEnd, parseISO(user.joiningDate));
                 if (yearsOfService >= 1) {
                     noLeaveBonusAmount = settings.noLeaveBonusOneYearOrMore || 0;
                 } else {
@@ -393,9 +396,9 @@ export default function SalaryReportPage() {
 
             const generatedReport: SalaryReport = {
                 user,
-                payPeriod: format(payPeriodStart, 'MMMM yyyy'),
-                payPeriodStart: format(payPeriodStart, 'PPP'),
-                payPeriodEnd: format(payPeriodEnd, 'PPP'),
+                payPeriod: format(effectivePayPeriodStart, 'MMMM yyyy'),
+                payPeriodStart: format(effectivePayPeriodStart, 'PPP'),
+                payPeriodEnd: format(effectivePayPeriodEnd, 'PPP'),
                 baseSalary,
                 conveyanceAllowance,
                 travelingAllowance,
