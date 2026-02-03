@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -296,11 +297,6 @@ export default function SalaryReportPage() {
             
             const effectivePayPeriodStart = startOfDay(payPeriodStart);
             const effectivePayPeriodEnd = endOfDay(payPeriodEnd);
-
-            const timesheetRecordsForMonth = getTimesheetForMonth(selectedUserId).filter(rec => {
-                const recDate = parseISO(rec.date);
-                return isWithinInterval(recDate, {start: effectivePayPeriodStart, end: effectivePayPeriodEnd});
-            });
             
             const userLeavesForMonth = leaveRequests.filter(req => 
                 req.userId === selectedUserId &&
@@ -319,7 +315,7 @@ export default function SalaryReportPage() {
 
             const specialWorkingDaysInMonth = holidaysInMonth.filter(h => h.isWorkingDay);
             const presentOnSpecialWorkingDays = specialWorkingDaysInMonth.filter(swd => 
-                timesheetRecordsForMonth.some(t => isSameDay(parseISO(t.date), new Date(swd.date)))
+                attendance.some(attRec => isSameDay(new Date(attRec.date), new Date(swd.date)) && attRec.checkIn)
             ).length;
 
             const specialWorkingDayAmount = Math.round(((baseSalary / 25) * presentOnSpecialWorkingDays));
@@ -346,10 +342,10 @@ export default function SalaryReportPage() {
                 if (isWorkingDayForCalc) {
                     totalWorkingDays++;
 
-                    const timesheetEntryForDay = timesheetRecordsForMonth.find(t => isSameDay(parseISO(t.date), currentDate));
+                    const attendanceEntryForDay = attendance.find(a => isSameDay(new Date(a.date), currentDate));
                     const leaveForDay = userLeavesForMonth.find(req => req.date && isSameDay(parseISO(req.date), currentDate));
 
-                    if (timesheetEntryForDay) {
+                    if (attendanceEntryForDay && attendanceEntryForDay.checkIn) {
                         presentDays++;
                     } else if (!leaveForDay) {
                         absentDates.push(currentDate);
