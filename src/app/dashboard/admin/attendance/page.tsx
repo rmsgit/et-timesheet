@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { CalendarCheck, Upload, User, Loader2, Hourglass, Plane, AlertTriangle, Search, Trash2, NotebookText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMockUsers } from '@/hooks/useMockUsers';
@@ -106,8 +106,14 @@ const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorni
             return '';
         }
 
-        const hours = Math.floor(totalOtSeconds / 3600);
-        const minutes = Math.floor((totalOtSeconds % 3600) / 60);
+        const totalOtMinutes = Math.round(totalOtSeconds / 60);
+
+        if (totalOtMinutes <= 0) {
+            return '';
+        }
+
+        const hours = Math.floor(totalOtMinutes / 60);
+        const minutes = totalOtMinutes % 60;
 
         const partStrings: string[] = [];
         if (hours > 0) partStrings.push(`${hours}h`);
@@ -169,6 +175,30 @@ const calculateEarlyLeave = (checkOut: string, leaveInfo: string): string => {
     }
 };
 
+const parseDurationToSeconds = (duration: string): number => {
+    if (!duration || typeof duration !== 'string' || duration === '-') return 0;
+    
+    let totalSeconds = 0;
+    const hourMatch = duration.match(/(\d+)\s*h/);
+    const minMatch = duration.match(/(\d+)\s*m/);
+
+    if (hourMatch) {
+        totalSeconds += parseInt(hourMatch[1], 10) * 3600;
+    }
+    if (minMatch) {
+        totalSeconds += parseInt(minMatch[1], 10) * 60;
+    }
+
+    return totalSeconds;
+};
+
+const formatSecondsToHoursString = (totalSeconds: number): string => {
+    if (totalSeconds <= 0) return '0h 0m';
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+};
+
 
 export default function AttendancePage() {
   const [file, setFile] = useState<File | null>(null);
@@ -194,6 +224,10 @@ export default function AttendancePage() {
   const { saveAttendanceForMonth, getAttendanceForMonth, deleteAttendanceForMonth } = useAttendance();
   
   const isLoading = isUsersLoading || isLoadingLeave || isLoadingHolidays;
+
+  const totalMonthlyOTSeconds = useMemo(() => {
+    return attendanceData.reduce((acc, record) => acc + parseDurationToSeconds(record.overtime), 0);
+  }, [attendanceData]);
 
   const selectableUsers = useMemo(() => {
     if (isUsersLoading || !allUsers) return [];
@@ -640,6 +674,15 @@ export default function AttendancePage() {
                                 );
                             })}
                       </TableBody>
+                      <TableFooter>
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-right font-bold">Total Monthly Overtime:</TableCell>
+                          <TableCell className="font-bold text-lg text-primary">
+                            {formatSecondsToHoursString(totalMonthlyOTSeconds)}
+                          </TableCell>
+                          <TableCell colSpan={3} />
+                        </TableRow>
+                      </TableFooter>
                   </Table>
                    <div className="flex justify-end mt-6">
                         <Button onClick={handleSaveAttendance} disabled={isSaving || isProcessing}>
