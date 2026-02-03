@@ -5,13 +5,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAttendance } from '@/hooks/useAttendance';
 import { useLeave } from '@/hooks/useLeave';
+import { useHolidays } from '@/hooks/useHolidays';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, getMonth, getYear, isSameDay, parseISO } from 'date-fns';
 import type { AttendanceRecord } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Hourglass, AlertTriangle, Plane, Calendar as CalendarIcon, Loader2, BookOpen } from 'lucide-react';
+import { Clock, Hourglass, AlertTriangle, Plane, Calendar as CalendarIcon, Loader2, BookOpen, NotebookText, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const parseDurationToSeconds = (duration: string): number => {
@@ -49,6 +50,7 @@ export default function MyAttendancePage() {
   const { user, isAuthLoading } = useAuth();
   const { getAttendanceForMonth } = useAttendance();
   const { leaveRequests, isLoading: isLeaveLoading } = useLeave();
+  const { holidays, isLoading: isHolidaysLoading } = useHolidays();
 
   const [currentDisplayDate, setCurrentDisplayDate] = useState(new Date());
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[] | null>(null);
@@ -57,7 +59,7 @@ export default function MyAttendancePage() {
   const selectedYear = getYear(currentDisplayDate);
   const selectedMonth = getMonth(currentDisplayDate);
   
-  const isLoading = isAuthLoading || isLeaveLoading || isFetchingAttendance;
+  const isLoading = isAuthLoading || isLeaveLoading || isFetchingAttendance || isHolidaysLoading;
 
   useEffect(() => {
     const fetchAttendance = async () => {
@@ -83,20 +85,31 @@ export default function MyAttendancePage() {
 
     const recordsFromData = attendanceData.map(rec => {
         const day = new Date(rec.date);
-        const leaveForDay = approvedLeaves.find(req => isSameDay(parseISO(req.date), day));
-        const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+        const leaveForDay = approvedLeaves.find(req => req.date && isSameDay(parseISO(req.date), day));
+        const isSunday = day.getDay() === 0;
+        const isSaturday = day.getDay() === 6;
+        const publicHoliday = holidays.find(h => !h.isWorkingDay && isSameDay(parseISO(h.date), day));
         
         let status = 'Present';
-         if (leaveForDay) {
+        if (leaveForDay) {
             status = 'On Leave';
-        } else if (isWeekend && !rec.checkIn && !rec.checkOut) {
+        } else if (publicHoliday) {
+            status = 'Holiday';
+        } else if (isSunday) {
+            status = 'Sunday';
+        } else if (isSaturday && !rec.checkIn && !rec.checkOut) {
             status = 'Weekend';
         } else if (!rec.checkIn && !rec.checkOut) {
-            status = 'Absent'
+            status = 'Absent';
+        }
+
+        let remark = '';
+        if (publicHoliday) {
+            remark = publicHoliday.name;
         }
 
         return {
-            dateObj: day, // For sorting
+            dateObj: day,
             date: format(day, 'MMM d, yyyy (EEE)'),
             checkIn: rec.checkIn || '-',
             checkOut: rec.checkOut || '-',
@@ -104,6 +117,8 @@ export default function MyAttendancePage() {
             earlyLeave: rec.earlyLeave || '-',
             leaveInfo: leaveForDay ? leaveForDay.leaveType.replace('-', ' ') : (rec.leaveInfo || '-'),
             status: status,
+            remark: remark,
+            isHolidayOrSunday: !!publicHoliday || isSunday
         };
     });
 
@@ -111,7 +126,7 @@ export default function MyAttendancePage() {
     
     return recordsFromData.map(({ dateObj, ...rest }) => rest);
 
-  }, [attendanceData, approvedLeaves]);
+  }, [attendanceData, approvedLeaves, holidays]);
   
   const summaryStats = useMemo(() => {
     let totalOvertimeSeconds = 0;
@@ -167,6 +182,10 @@ export default function MyAttendancePage() {
         return <Badge variant="outline" className="border-sky-500 text-sky-500">On Leave</Badge>;
       case 'Weekend':
         return <Badge variant="outline">Weekend</Badge>;
+      case 'Sunday':
+        return <Badge variant="outline">Sunday</Badge>;
+      case 'Holiday':
+        return <Badge variant="outline" className="border-yellow-500 text-yellow-500">Holiday</Badge>;
       case 'Absent':
         return <Badge variant="destructive">Absent</Badge>;
       default:
@@ -265,18 +284,24 @@ export default function MyAttendancePage() {
                             <TableHead>Overtime</TableHead>
                             <TableHead>Early Leave</TableHead>
                             <TableHead>Leave Type</TableHead>
+                            <TableHead>Remarks</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {combinedMonthData.map((day, index) => (
-                            <TableRow key={index}>
+                            <TableRow key={index} className={cn(day.isHolidayOrSunday && "bg-muted/50")}>
                                 <TableCell className="font-medium">{day.date}</TableCell>
                                 <TableCell>{getStatusBadge(day.status)}</TableCell>
                                 <TableCell>{day.checkIn}</TableCell>
                                 <TableCell>{day.checkOut}</TableCell>
                                 <TableCell>{day.overtime}</TableCell>
                                 <TableCell className={cn(day.earlyLeave !== '-' && "text-orange-600 font-medium")}>{day.earlyLeave}</TableCell>
-                                <TableCell className="capitalize">{day.leaveInfo}</TableCell>
+                                <TableCell className="capitalize">
+                                    {day.leaveInfo && day.leaveInfo !== '-' && <Badge variant="outline" className="border-sky-500 text-sky-500">{day.leaveInfo}</Badge>}
+                                </TableCell>
+                                <TableCell>
+                                    {day.remark && <Badge variant="secondary">{day.remark}</Badge>}
+                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
@@ -296,5 +321,3 @@ export default function MyAttendancePage() {
     </div>
   );
 }
-
-    
