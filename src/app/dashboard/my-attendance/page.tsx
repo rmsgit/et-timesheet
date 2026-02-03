@@ -151,9 +151,8 @@ export default function MyAttendancePage() {
   }, [combinedMonthData]);
 
   const availableYears = useMemo(() => {
-      const currentYear = new Date().getFullYear();
       const years = [];
-      for (let i = currentYear; i >= 2020; i--) {
+      for (let i = 2030; i >= 2025; i--) {
           years.push(i.toString());
       }
       return years;
