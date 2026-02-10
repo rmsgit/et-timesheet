@@ -132,6 +132,7 @@ export default function MyAttendancePage() {
     let totalOvertimeSeconds = 0;
     let totalEarlyLeaveSeconds = 0;
     let totalLeaves = 0;
+    let lateDaysCount = 0;
 
     combinedMonthData.forEach(rec => {
         totalOvertimeSeconds += parseDurationToSeconds(rec.overtime);
@@ -141,21 +142,35 @@ export default function MyAttendancePage() {
         } else if (rec.leaveInfo.toLowerCase().includes('half')) {
             totalLeaves += 0.5;
         }
+
+        if (rec.checkIn && rec.checkIn !== '-') {
+            try {
+                const companyStartTime = new Date(`1970-01-01T08:15:00`);
+                const checkInTime = new Date(`1970-01-01T${rec.checkIn}`);
+                if (!isNaN(checkInTime.getTime()) && checkInTime > companyStartTime) {
+                    lateDaysCount++;
+                }
+            } catch (e) {
+                // ignore malformed time string
+            }
+        }
     });
 
     return {
         totalOvertime: formatDurationFromTotalSeconds(totalOvertimeSeconds),
         totalEarlyLeave: formatDurationFromTotalSeconds(totalEarlyLeaveSeconds),
         totalLeaves: totalLeaves,
+        lateDays: lateDaysCount,
     };
   }, [combinedMonthData]);
 
   const availableYears = useMemo(() => {
-      const years = [];
-      for (let i = 2030; i >= 2025; i--) {
-          years.push(i.toString());
-      }
-      return years;
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let i = 2030; i >= 2025; i--) {
+        years.push(i.toString());
+    }
+    return years;
   }, []);
 
   const availableMonths = useMemo(() => {
@@ -198,7 +213,7 @@ export default function MyAttendancePage() {
         <CalendarIcon className="mr-3 h-8 w-8 text-primary" /> My Attendance Log
       </h1>
       
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Overtime</CardTitle>
@@ -227,6 +242,16 @@ export default function MyAttendancePage() {
             <CardContent>
                 <div className="text-2xl font-bold text-orange-600">{summaryStats.totalEarlyLeave}</div>
                 <p className="text-xs text-muted-foreground">For the selected month</p>
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Late Days</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{summaryStats.lateDays}</div>
+                <p className="text-xs text-muted-foreground">Days checked-in after 8:15 AM</p>
             </CardContent>
         </Card>
       </div>
