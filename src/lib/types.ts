@@ -111,6 +111,8 @@ export interface Paysheet {
   userId: string;
   username: string;
   payPeriod: string; // e.g., "August 2024"
+  payPeriodStart: string;
+  payPeriodEnd: string;
   year: string;
   month: string;
   baseSalary: number;

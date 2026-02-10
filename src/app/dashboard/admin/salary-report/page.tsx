@@ -178,14 +178,12 @@ export default function SalaryReportPage() {
             
             const yearNum = parseInt(savedPaysheet.year, 10);
             const monthNum = parseInt(savedPaysheet.month, 10) - 1;
-            const payPeriodStartDt = startOfMonth(new Date(yearNum, monthNum));
-            const payPeriodEndDt = endOfMonth(new Date(yearNum, monthNum));
-
+            
             const reportFromSaved: SalaryReport = {
                 user: user,
                 payPeriod: savedPaysheet.payPeriod,
-                payPeriodStart: format(payPeriodStartDt, 'PPP'),
-                payPeriodEnd: format(payPeriodEndDt, 'PPP'),
+                payPeriodStart: savedPaysheet.payPeriodStart || format(startOfMonth(new Date(yearNum, monthNum)), 'PPP'),
+                payPeriodEnd: savedPaysheet.payPeriodEnd || format(endOfMonth(new Date(yearNum, monthNum)), 'PPP'),
                 baseSalary: savedPaysheet.baseSalary,
                 conveyanceAllowance: savedPaysheet.conveyanceAllowance,
                 travelingAllowance: savedPaysheet.travelingAllowance,
@@ -275,6 +273,18 @@ export default function SalaryReportPage() {
             const user = users.find(u => u.id === selectedUserId);
             if (!user) throw new Error('User not found');
 
+            const attendance = await getAttendanceForMonth(selectedUserId, selectedYear, selectedMonth) || [];
+
+            if (attendance.length === 0) {
+                toast({
+                    title: "Attendance Sheet Missing",
+                    description: "No attendance data found for this user for the selected month. Please upload an attendance sheet to generate a salary report.",
+                    variant: "destructive",
+                });
+                setIsLoadingReport(false);
+                return;
+            }
+
             const baseSalary = user.baseSalary || 0;
             const conveyanceAllowance = user.conveyanceAllowance || 0;
             const travelingAllowance = user.travelingAllowance || 0;
@@ -284,23 +294,9 @@ export default function SalaryReportPage() {
             const yearNum = parseInt(selectedYear, 10);
             const monthNum = parseInt(selectedMonth, 10) - 1;
             
-            const attendance = await getAttendanceForMonth(selectedUserId, selectedYear, selectedMonth) || [];
-
-            let payPeriodStart: Date;
-            let payPeriodEnd: Date;
-
-            if (attendance.length > 0) {
-                const dates = attendance.map(rec => new Date(rec.date)).sort((a, b) => a.getTime() - b.getTime());
-                payPeriodStart = dates[0];
-                payPeriodEnd = dates[dates.length - 1];
-            } else {
-                payPeriodStart = startOfMonth(new Date(yearNum, monthNum));
-                payPeriodEnd = endOfMonth(new Date(yearNum, monthNum));
-                toast({
-                    title: "Using Default Pay Period",
-                    description: "No attendance sheet found for this period. Using the full month for calculations.",
-                });
-            }
+            const dates = attendance.map(rec => new Date(rec.date)).sort((a, b) => a.getTime() - b.getTime());
+            const payPeriodStart = dates[0];
+            const payPeriodEnd = dates[dates.length - 1];
             
             const effectivePayPeriodStart = startOfDay(payPeriodStart);
             const effectivePayPeriodEnd = endOfDay(payPeriodEnd);
@@ -464,6 +460,8 @@ export default function SalaryReportPage() {
             userId: report.user.id,
             username: report.user.username,
             payPeriod: report.payPeriod,
+            payPeriodStart: report.payPeriodStart,
+            payPeriodEnd: report.payPeriodEnd,
             year: selectedYear,
             month: selectedMonth,
             baseSalary: report.baseSalary,
