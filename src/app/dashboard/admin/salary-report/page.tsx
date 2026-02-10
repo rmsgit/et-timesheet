@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save, Banknote, Landmark, RefreshCw, Mail, Download, X, History, ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
 import { format, getDaysInMonth, isSameDay, parseISO, startOfMonth, endOfMonth, isWithinInterval, eachDayOfInterval, differenceInYears, startOfDay, endOfDay, isSunday } from 'date-fns';
 import { usePaysheet } from '@/hooks/usePaysheet';
 import { useTimesheet } from '@/hooks/useTimesheet';
@@ -75,6 +75,7 @@ interface SalaryReport {
   netSalary: number;
   totalWorkingDays: number;
   presentDays: number;
+  lateDaysCount: number;
   allowedLeaves: number;
   leaveDays: number;
   absentDays: number;
@@ -141,6 +142,7 @@ export default function SalaryReportPage() {
     }, [users, isUsersLoading]);
     
     const availableYears = useMemo(() => {
+      const currentYear = new Date().getFullYear();
       const years = [];
       for (let i = 2030; i >= 2025; i--) {
           years.push(i.toString());
@@ -202,6 +204,7 @@ export default function SalaryReportPage() {
                 netSalary: savedPaysheet.netSalary,
                 totalWorkingDays: savedPaysheet.totalWorkingDays,
                 presentDays: savedPaysheet.presentDays,
+                lateDaysCount: savedPaysheet.lateDaysCount ?? 0,
                 allowedLeaves: savedPaysheet.allowedLeaves,
                 leaveDays: savedPaysheet.leaveDays,
                 absentDays: savedPaysheet.absentDays,
@@ -325,6 +328,21 @@ export default function SalaryReportPage() {
 
             const specialWorkingDayAmount = Math.round(((baseSalary / 25) * presentOnSpecialWorkingDays));
             
+            const lateDaysCount = attendance.reduce((count, record) => {
+                if (record.checkIn) {
+                    try {
+                        const companyStartTime = new Date(`1970-01-01T08:15:00`);
+                        const checkInTime = new Date(`1970-01-01T${record.checkIn}`);
+                        if (!isNaN(checkInTime.getTime()) && checkInTime > companyStartTime) {
+                            return count + 1;
+                        }
+                    } catch (e) {
+                        // ignore malformed time
+                    }
+                }
+                return count;
+            }, 0);
+
             const daysInPeriod = eachDayOfInterval({ start: effectivePayPeriodStart, end: effectivePayPeriodEnd });
             
             const leaveBreakdown = userLeavesForMonth.reduce((acc, leave) => {
@@ -415,6 +433,7 @@ export default function SalaryReportPage() {
                 netSalary: netSalary,
                 totalWorkingDays,
                 presentDays,
+                lateDaysCount,
                 allowedLeaves,
                 leaveDays: totalLeaveDays,
                 absentDays,
@@ -465,6 +484,7 @@ export default function SalaryReportPage() {
             netSalary: report.netSalary,
             totalWorkingDays: report.totalWorkingDays,
             presentDays: report.presentDays,
+            lateDaysCount: report.lateDaysCount,
             allowedLeaves: report.allowedLeaves,
             leaveDays: report.leaveDays,
             absentDays: report.absentDays,
@@ -732,6 +752,7 @@ export default function SalaryReportPage() {
                                <TableHeader>
                                  <TableRow>
                                    <TableHead>Total Working Days</TableHead>
+                                   <TableHead>Late Days</TableHead>
                                    <TableHead>Leave Taken</TableHead>
                                    <TableHead>Present</TableHead>
                                    <TableHead>Balance leave</TableHead>
@@ -741,6 +762,7 @@ export default function SalaryReportPage() {
                                 <TableBody>
                                     <TableRow>
                                         <TableCell>{report.totalWorkingDays}</TableCell>
+                                        <TableCell>{report.lateDaysCount}</TableCell>
                                         <TableCell>{report.leaveDays}</TableCell>
                                         <TableCell>{report.presentDays}</TableCell>
                                         <TableCell>{report.allowedLeaves}</TableCell>

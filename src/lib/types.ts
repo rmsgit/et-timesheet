@@ -130,6 +130,7 @@ export interface Paysheet {
   netSalary: number;
   totalWorkingDays: number;
   presentDays: number;
+  lateDaysCount?: number;
   allowedLeaves: number;
   leaveDays: number;
   absentDays: number;
