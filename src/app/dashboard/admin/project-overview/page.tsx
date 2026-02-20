@@ -295,20 +295,30 @@ export default function ProjectOverviewPage() {
   const chartDataByEditor = useMemo(() => {
     if (isUsersApiLoading || !allUsers || filteredTimeRecordsByDate.length === 0) return [];
 
-    const projectCountsByEditor: { [userId: string]: Set<string> } = {};
+    const projectCountsByEditor: { [userId: string]: { revisionProjects: Set<string>, otherProjects: Set<string> } } = {};
     const editorUsers = allUsers.filter(u => u.role === 'editor');
 
-    editorUsers.forEach(editor => projectCountsByEditor[editor.id] = new Set());
+    editorUsers.forEach(editor => {
+        projectCountsByEditor[editor.id] = { revisionProjects: new Set(), otherProjects: new Set() };
+    });
 
     filteredTimeRecordsByDate.forEach(record => {
       if (projectCountsByEditor[record.userId]) {
-        projectCountsByEditor[record.userId].add(record.projectName);
+        if (record.workType === 'Revision') {
+            projectCountsByEditor[record.userId].revisionProjects.add(record.projectName);
+        } else { // 'New work' or 'Sample work'
+            projectCountsByEditor[record.userId].otherProjects.add(record.projectName);
+        }
       }
     });
 
     return editorUsers
-      .map(editor => ({ name: editor.username, count: projectCountsByEditor[editor.id]?.size || 0 }))
-      .filter(item => item.count > 0);
+      .map(editor => ({ 
+          name: editor.username, 
+          revisionProjects: projectCountsByEditor[editor.id]?.revisionProjects.size || 0,
+          otherProjects: projectCountsByEditor[editor.id]?.otherProjects.size || 0,
+        }))
+      .filter(item => item.revisionProjects > 0 || item.otherProjects > 0);
   }, [filteredTimeRecordsByDate, allUsers, isUsersApiLoading]);
 
 
@@ -462,10 +472,11 @@ export default function ProjectOverviewPage() {
                     <Tooltip
                       contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
                       labelStyle={{ color: 'hsl(var(--foreground))' }}
-                      formatter={(value: number) => [`${value} projects`, "Count"]}
+                      formatter={(value: number, name: string) => [`${value} projects`, name]}
                     />
-                    <Legend wrapperStyle={{fontSize: "12px"}} />
-                    <Bar dataKey="count" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} name="Project Count" />
+                    <Legend wrapperStyle={{fontSize: "12px"}}/>
+                    <Bar dataKey="otherProjects" stackId="a" fill="hsl(var(--primary))" name="Other Projects" />
+                    <Bar dataKey="revisionProjects" stackId="a" fill="hsl(var(--accent))" name="Revision Projects" radius={[4, 4, 0, 0]}/>
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
