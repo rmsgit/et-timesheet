@@ -45,6 +45,31 @@ const formatDurationFromTotalSeconds = (totalSeconds: number): string => {
   return parts.length > 0 ? parts.join(' ') : '0m';
 };
 
+const getCheckInStyling = (checkIn: string): string => {
+    if (!checkIn || checkIn === '-') return '';
+
+    try {
+        const dummyDate = '1970-01-01T';
+        const timeParts = checkIn.split(':');
+        if (timeParts.length !== 3) return '';
+        const checkInTime = new Date(`${dummyDate}${checkIn}`);
+        if (isNaN(checkInTime.getTime())) return '';
+
+        const companyStart = new Date(`${dummyDate}08:15:00`);
+        const gracePeriodEnd = new Date(`${dummyDate}08:16:00`);
+        
+        if (checkInTime > gracePeriodEnd) { // After 08:16:00
+            return 'bg-red-200 text-red-800 dark:bg-red-800/40 dark:text-red-200';
+        } else if (checkInTime > companyStart) { // From 08:15:01 to 08:16:00
+            return 'bg-yellow-200 text-yellow-800 dark:bg-yellow-800/40 dark:text-yellow-200';
+        }
+
+        return '';
+    } catch (e) {
+        return '';
+    }
+};
+
 
 export default function MyAttendancePage() {
   const { user, isAuthLoading } = useAuth();
@@ -316,7 +341,11 @@ export default function MyAttendancePage() {
                             <TableRow key={index} className={cn(day.isHolidayOrSunday && "bg-muted/50")}>
                                 <TableCell className="font-medium">{day.date}</TableCell>
                                 <TableCell>{getStatusBadge(day.status)}</TableCell>
-                                <TableCell>{day.checkIn}</TableCell>
+                                <TableCell>
+                                    <span className={cn('px-2 py-1 rounded-md', getCheckInStyling(day.checkIn))}>
+                                      {day.checkIn}
+                                    </span>
+                                </TableCell>
                                 <TableCell>{day.checkOut}</TableCell>
                                 <TableCell>{day.overtime}</TableCell>
                                 <TableCell className={cn(day.earlyLeave !== '-' && "text-orange-600 font-medium")}>{day.earlyLeave}</TableCell>
@@ -345,3 +374,5 @@ export default function MyAttendancePage() {
     </div>
   );
 }
+
+    
