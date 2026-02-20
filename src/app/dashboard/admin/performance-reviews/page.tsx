@@ -119,7 +119,7 @@ export default function PerformanceReviewsPage() {
                         <SelectContent>
                         {editorUsers.map(editor => (
                             <SelectItem key={editor.id} value={editor.id}>
-                            {editor.fullName || editor.username} ({editor.email})
+                            {editor.fullName || editor.username}
                             </SelectItem>
                         ))}
                         </SelectContent>

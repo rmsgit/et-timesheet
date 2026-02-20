@@ -261,7 +261,7 @@ export default function AdminEditorReportPage() {
                     <SelectContent>
                     {selectableUsers.map(user => (
                         <SelectItem key={user.id} value={user.id}>
-                        {user.fullName || user.username} ({user.email})
+                        {user.fullName || user.username}
                         </SelectItem>
                     ))}
                     </SelectContent>

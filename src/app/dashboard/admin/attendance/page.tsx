@@ -327,15 +327,22 @@ export default function AttendancePage() {
     reader.onload = (event) => {
         isProcessingFileRef.current = true;
         try {
-            const arrayBuffer = event.target?.result;
-            if (!arrayBuffer) {
+            const fileData = event.target?.result;
+            if (!fileData) {
                 throw new Error("Could not read file buffer.");
             }
             
-            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            const workbook = XLSX.read(fileData, { type: 'binary' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
+            
+            // Convert sheet to JSON, but get raw values to inspect for the date
             const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+            if (!jsonData || jsonData.length === 0) {
+                 throw new Error("The uploaded file appears to be empty or could not be read.");
+            }
+            
             if(jsonData && jsonData.length > 0 && jsonData[0] && jsonData[0].every(column => !column)){
                 jsonData.splice(0, 1)
             }
@@ -402,7 +409,7 @@ export default function AttendancePage() {
                 const checkInValue = dataForDay?.checkIn || '';
                 const checkOutValue = dataForDay?.checkOut || '';
 
-                const leaveForDay = userLeaveRequests.find(req => isSameDay(parseISO(req.date), day));
+                const leaveForDay = userLeaveRequests.find(req => req.date && isSameDay(parseISO(req.date), day));
                 let leaveInfo = '';
                 if (leaveForDay) {
                     leaveInfo = leaveForDay.leaveType.replace('-', ' ');
@@ -436,7 +443,7 @@ export default function AttendancePage() {
         setIsProcessing(false);
     };
 
-    reader.readAsArrayBuffer(selectedFile);
+    reader.readAsBinaryString(selectedFile);
   };
   
   const handleAttendanceChange = (recordIndex: number, field: 'checkIn' | 'checkOut' | 'earlyLeave', value: string) => {
@@ -550,7 +557,7 @@ export default function AttendancePage() {
                         <SelectContent>
                             {selectableUsers.map(user => (
                                 <SelectItem key={user.id} value={user.id}>
-                                    {user.username} ({user.email})
+                                    {user.fullName || user.username}
                                 </SelectItem>
                             ))}
                         </SelectContent>
