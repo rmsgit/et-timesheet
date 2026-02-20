@@ -336,7 +336,7 @@ export default function AttendancePage() {
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-            if(jsonData[0].every(column => !column)){
+            if(jsonData && jsonData.length > 0 && jsonData[0] && jsonData[0].every(column => !column)){
                 jsonData.splice(0, 1)
             }
             console.log("jsonData", jsonData)
