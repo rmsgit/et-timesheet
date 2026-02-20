@@ -7,7 +7,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { CalendarCheck, Upload, User, Loader2, Hourglass, Plane, AlertTriangle, Search, Trash2, NotebookText, RefreshCw } from 'lucide-react';
+import { CalendarCheck, Upload, User, Loader2, Hourglass, Plane, AlertTriangle, Search, Trash2, NotebookText, RefreshCw, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { useAttendance } from '@/hooks/useAttendance';
@@ -270,8 +270,47 @@ export default function AttendancePage() {
   
   const isLoading = isUsersLoading || isLoadingLeave || isLoadingHolidays;
 
-  const totalMonthlyOTSeconds = useMemo(() => {
-    return attendanceData.reduce((acc, record) => acc + parseDurationToSeconds(record.overtime), 0);
+  const { totalMonthlyOTSeconds, lateDays, gracePeriodDays } = useMemo(() => {
+    if (!attendanceData || attendanceData.length === 0) {
+      return { totalMonthlyOTSeconds: 0, lateDays: 0, gracePeriodDays: 0 };
+    }
+
+    let lateDaysCount = 0;
+    let gracePeriodDaysCount = 0;
+
+    attendanceData.forEach(record => {
+      const checkIn = record.checkIn;
+      if (checkIn && typeof checkIn === 'string' && checkIn.includes(':')) {
+        try {
+          const dummyDate = '1970-01-01T';
+          let normalizedTime = checkIn;
+          const parts = checkIn.split(':');
+          if (parts.length === 2) {
+              normalizedTime = `${checkIn}:00`;
+          } else if (parts.length !== 3) {
+              return;
+          }
+
+          const checkInTime = new Date(`${dummyDate}${normalizedTime}`);
+          if (isNaN(checkInTime.getTime())) return;
+
+          const companyStart = new Date(`${dummyDate}08:15:00`);
+          const gracePeriodEnd = new Date(`${dummyDate}08:16:00`);
+          
+          if (checkInTime > gracePeriodEnd) {
+              lateDaysCount++;
+          } else if (checkInTime > companyStart) {
+              gracePeriodDaysCount++;
+          }
+        } catch (e) {
+          // Silent catch for invalid time formats during calculation
+        }
+      }
+    });
+
+    const totalOTSeconds = attendanceData.reduce((acc, record) => acc + parseDurationToSeconds(record.overtime), 0);
+
+    return { totalMonthlyOTSeconds: totalOTSeconds, lateDays: lateDaysCount, gracePeriodDays: gracePeriodDaysCount };
   }, [attendanceData]);
 
   const selectableUsers = useMemo(() => {
@@ -369,14 +408,13 @@ export default function AttendancePage() {
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             
-            // Convert sheet to JSON, but get raw values to inspect for the date
             const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
 
-            if (!jsonData || jsonData.length === 0) {
+            if (!jsonData || jsonData.length === 0 || !jsonData[0]) {
                  throw new Error("The uploaded file appears to be empty or could not be read.");
             }
             
-            if(jsonData && jsonData.length > 0 && jsonData[0] && jsonData[0].every(column => !column)){
+            if(jsonData[0].every(column => !column)){
                 jsonData.splice(0, 1)
             }
             console.log("jsonData", jsonData)
@@ -659,11 +697,43 @@ export default function AttendancePage() {
       )}
       
       {selectedUserId && attendanceData.length > 0 && (
-          <Card>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Monthly OT</CardTitle>
+                        <Hourglass className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{formatSecondsToHoursString(totalMonthlyOTSeconds)}</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-red-600">Late Days</CardTitle>
+                        <AlertTriangle className="h-4 w-4 text-red-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-red-600">{lateDays}</div>
+                        <p className="text-xs text-muted-foreground">Check-in after 8:16 AM</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-yellow-600">Grace Period Days</CardTitle>
+                        <Clock className="h-4 w-4 text-yellow-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-yellow-600">{gracePeriodDays}</div>
+                        <p className="text-xs text-muted-foreground">Check-in from 8:15-8:16 AM</p>
+                    </CardContent>
+                </Card>
+            </div>
+            <Card>
               <CardHeader>
                   <div className="flex justify-between items-start">
                       <div>
-                          <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5" /> Reviewing Attendance for: <span className="ml-2 font-bold text-primary">{selectedUser?.username}</span></CardTitle>
+                          <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5" /> Reviewing Attendance for: <span className="ml-2 font-bold text-primary">{selectedUser?.fullName || selectedUser?.username}</span></CardTitle>
                           <CardDescription className="mt-1.5">
                               Review and edit the attendance data for {format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}.
                           </CardDescription>
@@ -765,15 +835,6 @@ export default function AttendancePage() {
                                 );
                             })}
                       </TableBody>
-                      <TableFooter>
-                        <TableRow>
-                          <TableCell colSpan={3} className="text-right font-bold">Total Monthly Overtime:</TableCell>
-                          <TableCell className="font-bold text-lg text-primary">
-                            {formatSecondsToHoursString(totalMonthlyOTSeconds)}
-                          </TableCell>
-                          <TableCell colSpan={3} />
-                        </TableRow>
-                      </TableFooter>
                   </Table>
                    <div className="flex justify-end mt-6">
                         <Button onClick={handleSaveAttendance} disabled={isSaving || isProcessing}>
@@ -783,6 +844,7 @@ export default function AttendancePage() {
                     </div>
               </CardContent>
           </Card>
+        </>
       )}
 
       {!selectedUserId && !isProcessing && (
@@ -803,7 +865,7 @@ export default function AttendancePage() {
             <Search className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-4 text-xl font-medium">No Saved Records</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              No attendance records found for ${selectedUser?.username} for {format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}.
+              No attendance records found for ${selectedUser?.fullName || selectedUser?.username} for {format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}.
             </p>
              <p className="mt-1 text-sm text-muted-foreground">
               Upload a file to create a new attendance sheet for this period.
@@ -817,7 +879,7 @@ export default function AttendancePage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the attendance sheet for <span className="font-semibold">{selectedUser?.username}</span> for <span className="font-semibold">{format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}</span>.
+              This action cannot be undone. This will permanently delete the attendance sheet for <span className="font-semibold">{selectedUser?.fullName || selectedUser?.username}</span> for <span className="font-semibold">{format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}</span>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
