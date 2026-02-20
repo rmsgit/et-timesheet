@@ -270,13 +270,14 @@ export default function AttendancePage() {
   
   const isLoading = isUsersLoading || isLoadingLeave || isLoadingHolidays;
 
-  const { totalMonthlyOTSeconds, lateDays, gracePeriodDays } = useMemo(() => {
+  const { totalMonthlyOTSeconds, lateDays, gracePeriodDays, earlyLeaveWithoutShortLeaveDays } = useMemo(() => {
     if (!attendanceData || attendanceData.length === 0) {
-      return { totalMonthlyOTSeconds: 0, lateDays: 0, gracePeriodDays: 0 };
+      return { totalMonthlyOTSeconds: 0, lateDays: 0, gracePeriodDays: 0, earlyLeaveWithoutShortLeaveDays: 0 };
     }
 
     let lateDaysCount = 0;
     let gracePeriodDaysCount = 0;
+    let earlyLeaveDaysCount = 0;
 
     attendanceData.forEach(record => {
       const checkIn = record.checkIn;
@@ -306,11 +307,15 @@ export default function AttendancePage() {
           // Silent catch for invalid time formats during calculation
         }
       }
+
+      if (record.earlyLeave && record.earlyLeave.trim() !== '' && !record.leaveInfo.toLowerCase().includes('short')) {
+        earlyLeaveDaysCount++;
+      }
     });
 
     const totalOTSeconds = attendanceData.reduce((acc, record) => acc + parseDurationToSeconds(record.overtime), 0);
 
-    return { totalMonthlyOTSeconds: totalOTSeconds, lateDays: lateDaysCount, gracePeriodDays: gracePeriodDaysCount };
+    return { totalMonthlyOTSeconds: totalOTSeconds, lateDays: lateDaysCount, gracePeriodDays: gracePeriodDaysCount, earlyLeaveWithoutShortLeaveDays: earlyLeaveDaysCount };
   }, [attendanceData]);
 
   const selectableUsers = useMemo(() => {
@@ -698,7 +703,7 @@ export default function AttendancePage() {
       
       {selectedUserId && attendanceData.length > 0 && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Monthly OT</CardTitle>
@@ -726,6 +731,16 @@ export default function AttendancePage() {
                     <CardContent>
                         <div className="text-2xl font-bold text-yellow-600">{gracePeriodDays}</div>
                         <p className="text-xs text-muted-foreground">Check-in from 8:15-8:16 AM</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-orange-600">Regular Early Leave</CardTitle>
+                        <AlertTriangle className="h-4 w-4 text-orange-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-orange-600">{earlyLeaveWithoutShortLeaveDays}</div>
+                        <p className="text-xs text-muted-foreground">Days with early leave, no short leave</p>
                     </CardContent>
                 </Card>
             </div>
