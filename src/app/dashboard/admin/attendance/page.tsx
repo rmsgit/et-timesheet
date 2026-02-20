@@ -30,6 +30,39 @@ import {
 import { cn } from '@/lib/utils';
 import { useHolidays } from '@/hooks/useHolidays';
 
+const getCheckInStyling = (checkIn: string): string => {
+    if (!checkIn || typeof checkIn !== 'string' || !checkIn.includes(':')) {
+        return '';
+    }
+
+    let normalizedTime = checkIn;
+    const parts = checkIn.split(':');
+    if (parts.length === 2) {
+        normalizedTime = `${checkIn}:00`;
+    } else if (parts.length !== 3) {
+        return '';
+    }
+
+    try {
+        const dummyDate = '1970-01-01T';
+        const checkInTime = new Date(`${dummyDate}${normalizedTime}`);
+        if (isNaN(checkInTime.getTime())) return '';
+
+        const companyStart = new Date(`${dummyDate}08:15:00`);
+        const gracePeriodEnd = new Date(`${dummyDate}08:16:00`);
+        
+        if (checkInTime > gracePeriodEnd) { // After 08:16:00
+            return 'bg-red-200 text-red-800 dark:bg-red-800/40 dark:text-red-200 focus-visible:ring-red-400';
+        } else if (checkInTime > companyStart) { // From 08:15:01 to 08:16:00
+            return 'bg-yellow-200 text-yellow-800 dark:bg-yellow-800/40 dark:text-yellow-200 focus-visible:ring-yellow-400';
+        }
+
+        return '';
+    } catch (e) {
+        return '';
+    }
+};
+
 const calculateOvertime = (checkIn: string, checkOut: string, isEligibleForMorningOT?: boolean, date?: Date): string => {
     if ((!checkIn || typeof checkIn !== 'string' || !checkIn.includes(':')) && (!checkOut || typeof checkOut !== 'string' || !checkOut.includes(':'))){
         return '';
@@ -698,7 +731,7 @@ export default function AttendancePage() {
                                             value={rec.checkIn}
                                             onChange={(e) => handleAttendanceChange(recordIndex, 'checkIn', e.target.value)}
                                             placeholder="--:--:--"
-                                            className="h-9" 
+                                            className={cn("h-9", getCheckInStyling(rec.checkIn))} 
                                         />
                                     </TableCell>
                                     <TableCell>
