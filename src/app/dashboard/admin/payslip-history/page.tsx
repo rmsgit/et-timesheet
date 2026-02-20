@@ -5,8 +5,7 @@ import { usePaysheet } from '@/hooks/usePaysheet';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { useRouter } from 'next/navigation';
 import type { Paysheet } from '@/lib/types';
-import { format, parseISO, isWithinInterval } from 'date-fns';
-import { DateRange } from 'react-day-picker';
+import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 
 // Component imports
@@ -14,7 +13,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -35,12 +33,39 @@ export default function PayslipHistoryPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const getInitialPeriod = () => {
+    const now = new Date();
+    // Default to last month. If it's January, it correctly goes to December of previous year.
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return {
+      year: lastMonthDate.getFullYear().toString(),
+      month: (lastMonthDate.getMonth() + 1).toString().padStart(2, '0')
+    };
+  };
+
+  const [selectedYear, setSelectedYear] = useState<string>(getInitialPeriod().year);
+  const [selectedMonth, setSelectedMonth] = useState<string>(getInitialPeriod().month);
+
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
   const [paysheetToDelete, setPaysheetToDelete] = useState<Paysheet | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const isLoading = isPaysheetsLoading || isUsersLoading;
+  
+  const availableYears = useMemo(() => {
+    const years = [];
+    for (let i = 2030; i >= 2025; i--) {
+        years.push(i.toString());
+    }
+    return years;
+  }, []);
+
+  const availableMonths = useMemo(() => {
+      return Array.from({ length: 12 }, (_, i) => ({
+          value: (i + 1).toString().padStart(2, '0'),
+          label: format(new Date(2000, i), 'MMMM'),
+      }));
+  }, []);
 
   const filteredPaysheets = useMemo(() => {
     let filtered = [...paysheets];
@@ -50,18 +75,16 @@ export default function PayslipHistoryPage() {
       filtered = filtered.filter(p => p.userId === selectedUserId);
     }
 
-    // Filter by date range
-    if (dateRange?.from) {
-      const from = dateRange.from;
-      const to = dateRange.to || dateRange.from;
-      filtered = filtered.filter(p => {
-        const paysheetDate = new Date(parseInt(p.year), parseInt(p.month) - 1);
-        return isWithinInterval(paysheetDate, { start: from, end: to });
-      });
+    // Filter by year and month
+    if (selectedYear) {
+      filtered = filtered.filter(p => p.year === selectedYear);
+    }
+    if (selectedMonth) {
+      filtered = filtered.filter(p => p.month === selectedMonth);
     }
 
     return filtered.sort((a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime());
-  }, [paysheets, selectedUserId, dateRange]);
+  }, [paysheets, selectedUserId, selectedYear, selectedMonth]);
   
   const selectableUsers = useMemo(() => {
     if (isUsersLoading || !users) return [];
@@ -136,9 +159,9 @@ export default function PayslipHistoryPage() {
       <Card>
         <CardHeader>
           <CardTitle>Filter Paysheets</CardTitle>
-          <CardDescription>Select a user and/or date range to filter the list of saved paysheets.</CardDescription>
+          <CardDescription>Select a user, year, and month to filter the list of saved paysheets.</CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
             <div className="space-y-2">
                 <Label htmlFor="user-select">Filter by User</Label>
                  {isUsersLoading ? (
@@ -157,9 +180,31 @@ export default function PayslipHistoryPage() {
                     </Select>
                 )}
             </div>
+             <div className="space-y-2">
+              <Label htmlFor="year-select">Year</Label>
+              <Select value={selectedYear} onValueChange={setSelectedYear} disabled={isLoading}>
+                  <SelectTrigger id="year-select">
+                      <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                      {availableYears.map(year => (
+                          <SelectItem key={year} value={year}>{year}</SelectItem>
+                      ))}
+                  </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
-                <Label>Filter by Pay Period</Label>
-                <DateRangePicker dateRange={dateRange} onDateChange={setDateRange} disabled={isLoading} />
+              <Label htmlFor="month-select">Month</Label>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth} disabled={isLoading}>
+                  <SelectTrigger id="month-select">
+                      <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                      {availableMonths.map(month => (
+                          <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+                      ))}
+                  </SelectContent>
+              </Select>
             </div>
         </CardContent>
       </Card>
@@ -228,7 +273,7 @@ export default function PayslipHistoryPage() {
             <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the paysheet for <span className="font-semibold">{paysheetToDelete?.username}</span> for the period <span className="font-semibold">{paysheetToDelete?.payPeriod}</span>.
+                    This will permanently delete the paysheet for <span className="font-semibold">{paysheetToDelete?.username}</span> for the period <span className="font-semibold">{paysheetToDelete?.payPeriod}</span>.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
