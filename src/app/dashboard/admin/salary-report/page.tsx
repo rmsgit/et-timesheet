@@ -55,8 +55,8 @@ const formatSecondsToHoursString = (totalSeconds: number): string => {
 interface SalaryReport {
   user: User;
   payPeriod: string;
-  payPeriodStart: string;
-  payPeriodEnd: string;
+  payPeriodStart?: string;
+  payPeriodEnd?: string;
   baseSalary: number;
   conveyanceAllowance: number;
   travelingAllowance: number;
@@ -176,14 +176,11 @@ export default function SalaryReportPage() {
                 return;
             }
             
-            const yearNum = parseInt(savedPaysheet.year, 10);
-            const monthNum = parseInt(savedPaysheet.month, 10) - 1;
-            
             const reportFromSaved: SalaryReport = {
                 user: user,
                 payPeriod: savedPaysheet.payPeriod,
-                payPeriodStart: savedPaysheet.payPeriodStart || format(startOfMonth(new Date(yearNum, monthNum)), 'PPP'),
-                payPeriodEnd: savedPaysheet.payPeriodEnd || format(endOfMonth(new Date(yearNum, monthNum)), 'PPP'),
+                payPeriodStart: savedPaysheet.payPeriodStart,
+                payPeriodEnd: savedPaysheet.payPeriodEnd,
                 baseSalary: savedPaysheet.baseSalary,
                 conveyanceAllowance: savedPaysheet.conveyanceAllowance,
                 travelingAllowance: savedPaysheet.travelingAllowance,
@@ -722,7 +719,9 @@ export default function SalaryReportPage() {
                                     <div className="flex items-center gap-4 mt-2">
                                         <span className="flex items-center"><UserIcon className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />{report.user.fullName || report.user.username}</span>
                                         <span className="flex items-center"><Briefcase className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />{report.user.jobDesignation || 'N/A'}</span>
-                                        <span className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />Pay Period: {report.payPeriodStart} to {report.payPeriodEnd}</span>
+                                        {report.payPeriodStart && report.payPeriodEnd && (
+                                            <span className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />Pay Period: {report.payPeriodStart} to {report.payPeriodEnd}</span>
+                                        )}
                                     </div>
                                 </CardDescription>
                             </div>
