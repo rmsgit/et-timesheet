@@ -7,7 +7,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { CalendarCheck, Upload, User, Loader2, Hourglass, Plane, AlertTriangle, Search, Trash2, NotebookText } from 'lucide-react';
+import { CalendarCheck, Upload, User, Loader2, Hourglass, Plane, AlertTriangle, Search, Trash2, NotebookText, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { useAttendance } from '@/hooks/useAttendance';
@@ -483,6 +483,40 @@ export default function AttendancePage() {
     setIsDeleteDialogOpen(false);
   };
 
+  const handleResyncData = () => {
+    if (!selectedUser || !attendanceData.length) {
+        toast({ title: 'Cannot Re-sync', description: 'No user or attendance data to re-sync.', variant: 'destructive' });
+        return;
+    }
+
+    const userLeaveRequests = leaveRequests.filter(
+        req => req.userId === selectedUser.id && (req.status === 'approved')
+    );
+
+    const updatedData = attendanceData.map(record => {
+        const recordDate = new Date(record.date);
+        
+        const leaveForDay = userLeaveRequests.find(req => req.date && isSameDay(parseISO(req.date), recordDate));
+        let leaveInfo = '';
+        if (leaveForDay) {
+            leaveInfo = leaveForDay.leaveType.replace('-', ' ');
+        }
+
+        const newOvertime = calculateOvertime(record.checkIn, record.checkOut, selectedUser.isEligibleForMorningOT, recordDate);
+        const newEarlyLeave = calculateEarlyLeave(record.checkOut, leaveInfo);
+
+        return {
+            ...record,
+            leaveInfo,
+            overtime: newOvertime,
+            earlyLeave: newEarlyLeave,
+        };
+    });
+
+    setAttendanceData(updatedData);
+    toast({ title: 'Re-sync Complete', description: 'Leave and holiday data has been refreshed.' });
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight flex items-center">
@@ -594,10 +628,16 @@ export default function AttendancePage() {
                               Review and edit the attendance data for {format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}.
                           </CardDescription>
                       </div>
-                      <Button variant="destructive" size="sm" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving || isProcessing || isDeleting}>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Sheet
-                      </Button>
+                      <div className="flex items-center gap-2">
+                          <Button onClick={handleResyncData} variant="outline" size="sm" disabled={isSaving || isProcessing || isDeleting}>
+                              <RefreshCw className="mr-2 h-4 w-4" />
+                              Re-sync Data
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving || isProcessing || isDeleting}>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete Sheet
+                          </Button>
+                      </div>
                   </div>
               </CardHeader>
               <CardContent>
