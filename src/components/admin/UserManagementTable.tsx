@@ -77,6 +77,7 @@ export const UserManagementTable: React.FC = () => {
   
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmationEmail, setDeleteConfirmationEmail] = useState('');
   
   const [userForPasswordReset, setUserForPasswordReset] = useState<User | null>(null);
   const [isPasswordResetDialogOpen, setIsPasswordResetDialogOpen] = useState(false);
@@ -321,7 +322,6 @@ export const UserManagementTable: React.FC = () => {
           variant: "destructive",
         });
         setIsDeleteDialogOpen(false);
-        setUserToDelete(null);
         return;
       }
     }
@@ -332,7 +332,7 @@ export const UserManagementTable: React.FC = () => {
       if (profileDeleteResult.success) {
         toast({
           title: "User Profile Deleted",
-          description: `Profile for "${userToDelete.username}" deleted from RTDB. Corresponding Firebase Auth user account still exists and needs manual deletion via Firebase Console if required.`,
+          description: `Profile for "${userToDelete.username}" deleted from RTDB. The user's login account will remain and must be deleted manually via the Firebase Console if required.`,
         });
          if (currentPage > 1 && paginatedUsers.length === 1 && sortedUsers.length -1 <= (currentPage -1) * rowsPerPage) {
             setCurrentPage(currentPage - 1);
@@ -350,7 +350,6 @@ export const UserManagementTable: React.FC = () => {
     } finally {
       setIsSubmittingForm(false);
       setIsDeleteDialogOpen(false);
-      setUserToDelete(null);
     }
   };
   
@@ -1026,22 +1025,41 @@ export const UserManagementTable: React.FC = () => {
             </DialogContent>
         </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+        setIsDeleteDialogOpen(open);
+        if (!open) {
+          setUserToDelete(null);
+          setDeleteConfirmationEmail('');
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will delete the user's profile from RTDB. The Firebase Auth user account (for login) will remain and must be deleted manually via the Firebase Console if full deletion is required.
+              This action cannot be undone. This will permanently delete the user profile for <span className="font-semibold">{userToDelete?.username}</span> from the Realtime Database.
+              The user's login account will remain and must be deleted manually via the Firebase Console if required.
+              <br/><br/>
+              To confirm, please type <strong className="text-foreground">{userToDelete?.email}</strong> in the box below.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="py-2">
+            <Input
+              id="delete-confirm-email"
+              value={deleteConfirmationEmail}
+              onChange={(e) => setDeleteConfirmationEmail(e.target.value)}
+              placeholder="Type email to confirm"
+              autoComplete="off"
+              disabled={isSubmittingForm}
+            />
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setUserToDelete(null)} disabled={isSubmittingForm}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isSubmittingForm}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDeleteUser}
-              className={buttonVariants({ variant: "destructive" })}
-              disabled={isSubmittingForm}
+              className={cn(buttonVariants({ variant: "destructive" }))}
+              disabled={isSubmittingForm || deleteConfirmationEmail !== userToDelete?.email}
             >
-              {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete Profile from RTDB'}
+              {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete Profile'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
