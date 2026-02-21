@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -58,7 +59,7 @@ const jobDesignations = ["Team Leader", "Team Assist", "Editor"];
 export const UserManagementTable: React.FC = () => {
   const { users: allUsers, addUserProfileToRTDB, deleteUserProfileFromRTDB, isUsersLoading } = useMockUsers();
   const { editorLevels, isLoadingEditorLevels } = useEditorLevels();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isSuperAdmin } = useAuth();
   const { toast } = useToast();
 
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
@@ -644,14 +645,18 @@ export const UserManagementTable: React.FC = () => {
                            <DropdownMenuItem onClick={() => openPasswordResetDialog(user)} disabled={isSubmittingForm || isLoadingEditorLevels || !user.email}>
                             <KeyRound className="mr-2 h-4 w-4" /> Reset Password
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={() => openDeleteDialog(user)} 
-                            className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
-                            disabled={isSubmittingForm || isLoadingEditorLevels || (auth?.currentUser?.email === user.email && (user.role === 'admin' || user.role === 'super admin') && allUsers.filter(u=>u.role === 'admin' || u.role === 'super admin').length <=1)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete User
-                          </DropdownMenuItem>
+                          {isSuperAdmin && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => openDeleteDialog(user)} 
+                                className="text-destructive focus:text-destructive focus:bg-destructive/10 data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
+                                disabled={isSubmittingForm || isLoadingEditorLevels || (auth?.currentUser?.email === user.email && (user.role === 'admin' || user.role === 'super admin') && allUsers.filter(u=>u.role === 'admin' || u.role === 'super admin').length <=1)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete User
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
