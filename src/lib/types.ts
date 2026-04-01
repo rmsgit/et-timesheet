@@ -88,6 +88,8 @@ export interface LeaveRequest {
   cancelledBy?: string; // user id who cancelled
   cancelledAt?: string; // ISO string
   earnedInYear?: number;
+  startTime?: string;
+  endTime?: string;
 }
 
 export interface AttendanceRecord {

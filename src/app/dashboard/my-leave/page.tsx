@@ -37,6 +37,8 @@ const leaveFormSchema = z.object({
   leaveType: z.enum(['full-day', 'half-day', 'short-leave'], { required_error: "Please select a leave type." }),
   reason: z.enum(leaveReasons, { required_error: "Please select a reason." }),
   otherReason: z.string().optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
 }).refine(data => {
     if (data.reason === 'Other') {
         return !!data.otherReason && data.otherReason.trim().length > 0;
@@ -45,6 +47,14 @@ const leaveFormSchema = z.object({
 }, {
     message: "Please specify the reason if you select 'Other'.",
     path: ['otherReason'],
+}).refine(data => {
+    if (data.leaveType === 'short-leave') {
+        return !!data.startTime && !!data.endTime;
+    }
+    return true;
+}, {
+    message: "Start and end times are required for short leaves.",
+    path: ['startTime'],
 });
 
 
@@ -68,6 +78,7 @@ export default function MyLeavePage() {
   });
 
   const reasonValue = watch("reason");
+  const leaveType = watch("leaveType");
 
   const myLeaveRequests = useMemo(() => {
     if (!user) return [];
@@ -124,9 +135,11 @@ export default function MyLeavePage() {
       }
       reset({
         date: request.date ? parseISO(request.date) : new Date(),
-        leaveType: request.leaveType,
+        leaveType: request.leaveType as any,
         reason: reasonVal,
         otherReason: otherReasonVal,
+        startTime: request.startTime || '',
+        endTime: request.endTime || '',
       });
     } else { // Adding new
       reset({
@@ -134,6 +147,8 @@ export default function MyLeavePage() {
         leaveType: 'full-day',
         reason: undefined,
         otherReason: '',
+        startTime: '',
+        endTime: '',
       });
     }
     setIsFormOpen(true);
@@ -145,9 +160,13 @@ export default function MyLeavePage() {
 
     let result;
     if (editingRequest) {
-        result = await updateLeaveRequest(editingRequest.id, { reason: finalReason });
+        result = await updateLeaveRequest(editingRequest.id, { 
+          reason: finalReason,
+          startTime: data.startTime || undefined,
+          endTime: data.endTime || undefined
+        });
     } else {
-        result = await applyForLeave(data.date, data.leaveType, finalReason);
+        result = await applyForLeave(data.date, data.leaveType, finalReason, undefined, data.startTime, data.endTime);
     }
 
     if (result.success) {
@@ -243,6 +262,33 @@ export default function MyLeavePage() {
                 />
                  {errors.leaveType && <p className="text-sm text-destructive mt-1">{errors.leaveType.message}</p>}
               </div>
+
+              {leaveType === 'short-leave' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="startTime">Start Time</Label>
+                    <Controller
+                      name="startTime"
+                      control={control}
+                      render={({ field }) => (
+                        <Input id="startTime" type="time" {...field} disabled={isSubmitting} />
+                      )}
+                    />
+                    {errors.startTime && <p className="text-sm text-destructive mt-1">{errors.startTime.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="endTime">End Time</Label>
+                    <Controller
+                      name="endTime"
+                      control={control}
+                      render={({ field }) => (
+                        <Input id="endTime" type="time" {...field} disabled={isSubmitting} />
+                      )}
+                    />
+                    {errors.endTime && <p className="text-sm text-destructive mt-1">{errors.endTime.message}</p>}
+                  </div>
+                </div>
+              )}
               
               <div>
                 <Label>Reason</Label>
@@ -340,7 +386,14 @@ export default function MyLeavePage() {
                 {filteredLeaveRequestsForYear.map(req => (
                   <TableRow key={req.id}>
                     <TableCell>{req.date ? format(parseISO(req.date), 'PPP') : 'Unassigned'}</TableCell>
-                    <TableCell className="capitalize">{req.leaveType.replace('-', ' ')}</TableCell>
+                    <TableCell className="capitalize">
+                      {req.leaveType.replace('-', ' ')}
+                      {req.leaveType === 'short-leave' && req.startTime && req.endTime && (
+                        <div className="text-[10px] text-muted-foreground mt-1">
+                          ({req.startTime} - {req.endTime})
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="max-w-[150px] truncate">{req.reason}</TableCell>
                     <TableCell>{getStatusBadge(req.status)}</TableCell>
                     <TableCell className="text-right space-x-1">
