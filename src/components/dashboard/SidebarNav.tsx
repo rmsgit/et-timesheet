@@ -41,6 +41,7 @@ export function SidebarNav() {
       { href: '/dashboard/admin/report', label: 'Overall Report', icon: BarChart3 },
       { href: '/dashboard/admin/editor-report', label: 'Editor Report', icon: UserCheck },
       { href: '/dashboard/admin/project-overview', label: 'Project Overview', icon: Layers },
+      { href: '/dashboard/admin/leave-report', label: 'Leave Report', icon: FileSpreadsheet },
     ],
     "Management": [
       { href: '/dashboard/admin/users', label: 'User Profiles', icon: UsersRound },
@@ -62,7 +63,7 @@ export function SidebarNav() {
     ]
   };
   
-  const commonRoutes = [
+  const commonRoutes: { href: string; label: string; icon: React.ComponentType }[] = [
      // { href: '/dashboard/settings', label: 'Settings', icon: Settings },
   ];
 
