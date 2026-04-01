@@ -1,0 +1,38 @@
+# Settings for Backend (on Cloud Run).
+# See https://firebase.google.com/docs/app-hosting/configure#cloud-run
+runConfig:
+  minInstances: 0
+  # maxInstances: 100
+  # concurrency: 80
+  # cpu: 1
+  # memoryMiB: 512
+
+# Environment variables and secrets.
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: "AIzaSyAFCC9GpOCK9YO4W1WDtdlaDbv4_vKBfI0"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: "editors-table-timesheet"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: "editors-table-timesheet.firebaseapp.com"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_DATABASE_URL
+    value: "https://editors-table-timesheet-default-rtdb.asia-southeast1.firebasedatabase.app"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: "editors-table-timesheet.appspot.com"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "888613151372"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:888613151372:web:4a46b5075afeaf30b5d1a9"
+    availability: [BUILD, RUNTIME]
+  - variable: GMAIL_SMTP_USER
+    value: "editorstable.track@gmail.com"
+    availability: [RUNTIME]
+  - variable: GMAIL_SMTP_PASS
+    value: "eyug ptwy tlnr ilzz"
+    availability: [RUNTIME]

@@ -42,7 +42,7 @@ export default function UserManagementPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <h1 className="text-3xl font-bold tracking-tight flex items-center">
-                <UsersRound className="mr-3 h-8 w-8 text-primary" /> User Profiles & Roles
+                <UsersRound className="mr-3 h-8 w-8 text-primary" /> User and Permissions
             </h1>
             <p className="text-muted-foreground mt-1">
                 Manage user profiles, roles, and see an overview of user activity.

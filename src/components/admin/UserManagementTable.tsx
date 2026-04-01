@@ -528,7 +528,7 @@ export const UserManagementTable: React.FC = () => {
         <CardHeader>
           <div className="flex justify-between items-center flex-wrap gap-4">
             <div>
-              <CardTitle className="text-2xl font-semibold">User Profiles & Roles</CardTitle>
+              <CardTitle className="text-2xl font-semibold">User and Permissions</CardTitle>
               <CardDescription>Manage user profiles (RTDB) and associated Firebase Auth accounts.</CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -821,7 +821,7 @@ export const UserManagementTable: React.FC = () => {
                       </SelectContent>
                       </Select>
                   ) : (
-                      <p className="text-sm text-muted-foreground p-2 border rounded-md">No editor levels defined yet. Please add levels in Admin > Editor Levels.</p>
+                      <p className="text-sm text-muted-foreground p-2 border rounded-md">No editor levels defined yet. Please add levels in Admin &gt; Editor Levels.</p>
                   )}
                 </div>
                 <div className="space-y-1.5">

@@ -45,7 +45,7 @@ export const RATING_SCALE = [
 //       Inside this UID node, add: { "email": "admin@example.com", "username": "admin", "role": "admin" }
 // 2. Subsequent Test Users (Via App's Admin Panel):
 //    a. Log in to the application as the admin user created above.
-//    b. Navigate to Dashboard > Admin Tools > User Profiles & Roles.
+//    b. Navigate to Dashboard > Admin Tools > User and Permissions.
 //    c. Click "Add User" and fill in the details. This will create both the Firebase Auth user
 //       and their profile in the Realtime Database correctly.
 //
