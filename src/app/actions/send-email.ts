@@ -28,13 +28,20 @@ export async function sendEmail(input: SendEmailInput): Promise<{ success: boole
         }
         
         const { to, subject, text, pdfBase64, pdfFileName } = validationResult.data;
+        
+        // Log payload size for debugging
+        const payloadSizeKb = Math.round(pdfBase64.length * 0.75 / 1024);
+        console.log(`Attempting to send email to ${to} (${payloadSizeKb} KB attachment)`);
 
         const smtpUser = process.env.GMAIL_SMTP_USER;
         const smtpPass = process.env.GMAIL_SMTP_PASS;
 
         if (!smtpUser || !smtpPass || smtpUser === 'your-gmail-address@gmail.com') {
-          console.error('Email sending failed: GMAIL_SMTP_USER or GMAIL_SMTP_PASS environment variables are not set correctly.');
-          return { success: false, message: 'Server is not configured for sending emails. Please contact an administrator.' };
+          console.error('Email sending failed: GMAIL_SMTP_USER or GMAIL_SMTP_PASS environment variables are not set or configured correctly.');
+          return { 
+            success: false, 
+            message: 'Email server configuration is incomplete. Please ensure GMAIL_SMTP_USER and GMAIL_SMTP_PASS (App Password) are set in the environment variables.' 
+          };
         }
 
         const transporter = nodemailer.createTransport({
@@ -60,18 +67,26 @@ export async function sendEmail(input: SendEmailInput): Promise<{ success: boole
           ],
         };
 
-        // Awaiting the promise is crucial in serverless environments.
         const info = await transporter.sendMail(mailOptions);
-        console.log(`Email to ${to} sent successfully: ${info.response}`);
+        console.log(`Message sent: ${info.messageId}`);
         return { success: true, message: `Email successfully sent to ${to}.` };
 
     } catch (error: any) {
-      // This will now catch any error, including from sendMail.
-      console.error('Error in sendEmail server action:', error);
-      let errorMessage = 'Failed to send email. Check server logs for details.';
+      console.error('CRITICAL: Error in sendEmail server action:', error);
+      
+      let errorDetail = 'Unknown Error';
       if (error && typeof error.message === 'string') {
-        errorMessage = error.message;
+        errorDetail = error.message;
       }
-      return { success: false, message: errorMessage };
+
+      // Handle common Nodemailer / SMTP errors with better messages
+      if (errorDetail.includes('EAUTH') || errorDetail.includes('Invalid login')) {
+        return { success: false, message: 'Authentication failed. Please check if your Gmail App Password is correct and valid.' };
+      }
+      
+      return { 
+        success: false, 
+        message: `Failed to send email: ${errorDetail}` 
+      };
     }
 }
