@@ -6,7 +6,7 @@ import { useMockUsers } from '@/hooks/useMockUsers';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Calendar as CalendarIcon, Loader2, Search, Download, Info } from 'lucide-react';
+import { FileText, Calendar as CalendarIcon, Loader2, Search, Download, Info, Clock } from 'lucide-react';
 import { format, parseISO, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
@@ -35,16 +35,6 @@ export default function LeaveReportPage() {
 
   const isLoading = isLoadingLeave || isUsersLoading;
 
-  const getBadgeVariant = (type: LeaveType) => {
-    switch (type) {
-      case 'full-day': return 'default';
-      case 'half-day': return 'secondary'; // Will override color anyway
-      case 'short-leave': return 'outline';
-      case 'compensatory': return 'outline';
-      default: return 'outline';
-    }
-  };
-
   const getBadgeStyle = (type: LeaveType) => {
     switch (type) {
       case 'full-day': return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800';
@@ -55,11 +45,26 @@ export default function LeaveReportPage() {
     }
   };
 
-  const getLeaveValue = (type: LeaveType) => {
+  const calculateLeaveValue = (type: LeaveType, startTime?: string, endTime?: string) => {
     switch (type) {
       case 'full-day': return 1;
       case 'half-day': return 0.5;
-      case 'short-leave': return 0.2; // Common convention for short leave
+      case 'short-leave': {
+        if (!startTime || !endTime) return 0.2; // Fallback if times are missing
+        try {
+          const [startH, startM] = startTime.split(':').map(Number);
+          const [endH, endM] = endTime.split(':').map(Number);
+          const startTotalMinutes = startH * 60 + startM;
+          const endTotalMinutes = endH * 60 + endM;
+          const durationMinutes = endTotalMinutes - startTotalMinutes;
+          
+          // Calculate fraction of 8-hour workday (480 minutes)
+          const value = durationMinutes / 480;
+          return Math.max(0, parseFloat(value.toFixed(2)));
+        } catch (e) {
+          return 0.2;
+        }
+      }
       case 'compensatory': return 1;
       default: return 1;
     }
@@ -83,13 +88,15 @@ export default function LeaveReportPage() {
       // Group and summary
       let totalValue = 0;
       const leaves = userLeavesInRange.map(req => {
-        const val = getLeaveValue(req.leaveType);
+        const val = calculateLeaveValue(req.leaveType, req.startTime, req.endTime);
         totalValue += val;
         return {
           date: req.date,
           type: req.leaveType,
           value: val,
-          reason: req.reason
+          reason: req.reason,
+          startTime: req.startTime,
+          endTime: req.endTime
         };
       }).sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
 
@@ -104,7 +111,7 @@ export default function LeaveReportPage() {
     }).filter(data => 
       data.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
       data.username.toLowerCase().includes(searchTerm.toLowerCase())
-    ).sort((a, b) => b.leaveCount - a.leaveCount); // Sort by highest leave count first
+    ).sort((a, b) => b.leaveCount - a.leaveCount);
   }, [users, leaveRequests, dateRange, searchTerm, isLoading]);
 
   const exportToExcel = () => {
@@ -114,9 +121,12 @@ export default function LeaveReportPage() {
       const dataToExport = reportData.map(item => ({
         'Full Name': item.fullName,
         'Username': item.username,
-        'Leave Value (Days)': item.leaveCount,
+        'Total Leave (Days)': item.leaveCount.toFixed(2),
         'Remaining Balance': item.balanceLeave,
-        'Detailed Leaves': item.leaves.map(l => `${format(parseISO(l.date), 'yyyy-MM-dd')} (${l.type})`).join(', ')
+        'Detailed Leaves': item.leaves.map(l => {
+            const timeStr = l.type === 'short-leave' ? ` [${l.startTime}-${l.endTime}]` : '';
+            return `${format(parseISO(l.date), 'yyyy-MM-dd')} (${l.type}${timeStr}: ${l.value.toFixed(2)}d)`;
+        }).join(', ')
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -138,7 +148,7 @@ export default function LeaveReportPage() {
             <FileText className="mr-3 h-8 w-8" /> Leave Report
           </h1>
           <p className="text-muted-foreground mt-1">
-            Analyze leave patterns and balances. Includes Full-day, Half-day, and Short leaves.
+            Dynamic leave calculation based on 8-hour workday.
           </p>
         </div>
         <Button onClick={exportToExcel} variant="outline" className="shadow-sm" disabled={isLoading || reportData.length === 0}>
@@ -174,11 +184,11 @@ export default function LeaveReportPage() {
         </CardContent>
       </Card>
 
-      <div className="flex gap-4 flex-wrap text-xs">
+      <div className="flex gap-4 flex-wrap text-xs bg-muted/30 p-3 rounded-lg border border-dashed">
           <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-blue-500"></div> Full-day (1.0)</div>
           <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-amber-500"></div> Half-day (0.5)</div>
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-purple-500"></div> Short-leave (0.2)</div>
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-green-500"></div> Compensatory</div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-purple-500"></div> Short-leave (Dynamic / 8h)</div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-green-500"></div> Compensatory (1.0)</div>
       </div>
 
       <Card className="shadow-xl overflow-hidden border-none ring-1 ring-black/5">
@@ -209,7 +219,7 @@ export default function LeaveReportPage() {
                     </TableCell>
                     <TableCell className="text-center font-mono">
                       <span className="text-lg font-bold">
-                        {row.leaveCount.toFixed(1)}
+                        {row.leaveCount.toFixed(2)}
                       </span>
                     </TableCell>
                     <TableCell className="text-center">
@@ -236,10 +246,18 @@ export default function LeaveReportPage() {
                               <TooltipContent side="top" className="bg-gray-900 text-white font-medium p-2 text-xs border-none">
                                 <div className="space-y-1">
                                   <div className="flex justify-between gap-4">
-                                      <span className="opacity-70 capitalize">{leave.type.replace('-', ' ')}</span>
-                                      <span className="font-bold">{leave.value} Day</span>
+                                      <span className="opacity-70 capitalize flex items-center gap-1">
+                                          {leave.type.replace('-', ' ')}
+                                          {leave.type === 'short-leave' && <Clock className="h-3 w-3" />}
+                                      </span>
+                                      <span className="font-bold">{leave.value.toFixed(2)} Day</span>
                                   </div>
-                                  <div className="text-xs italic border-t border-white/10 pt-1 mt-1 max-w-[200px]">
+                                  {leave.type === 'short-leave' && (
+                                      <div className="text-[10px] text-blue-300 font-mono">
+                                          Time: {leave.startTime} - {leave.endTime}
+                                      </div>
+                                  )}
+                                  <div className="text-xs italic border-t border-white/10 pt-1 mt-1 max-w-[200px] break-words">
                                       {leave.reason || "No reason provided"}
                                   </div>
                                 </div>
