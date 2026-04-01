@@ -66,7 +66,7 @@ export default function CompensatoryLeavePage() {
 
     const editorUsers = useMemo(() => {
         if (isUsersLoading || !users) return [];
-        return users.filter(u => u.role === 'editor').sort((a, b) => a.username.localeCompare(b.username));
+        return users.filter(u => u.role === 'editor' || u.role === 'admin').sort((a, b) => a.username.localeCompare(b.username));
     }, [users, isUsersLoading]);
 
     useEffect(() => {
@@ -166,7 +166,7 @@ export default function CompensatoryLeavePage() {
                 <CardHeader>
                     <CardTitle>Calculate Due Compensatory Leaves</CardTitle>
                     <CardDescription>
-                        Calculates due compensatory leaves for editors based on accumulated early leave hours that occur only on days where a short leave was also taken. The formula is: 1 leave is due for every 8 hours of this specific early leave time for a selected year.
+                        Calculates due compensatory leaves for employees (Editors and Team Leads) based on accumulated early leave hours that occur only on days where a short leave was also taken. The formula is: 1 leave is due for every 8 hours of this specific early leave time for a selected year.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
