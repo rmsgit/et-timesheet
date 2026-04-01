@@ -44,6 +44,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { auth } from '@/lib/firebase'; 
 import { createUserWithEmailAndPassword, deleteUser as deleteAuthUser, sendPasswordResetEmail } from 'firebase/auth'; 
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '../ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -51,7 +52,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 
 
-type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role' | 'joiningDate' | 'fullName' | 'department' | 'jobDesignation'>;
+type SortableUserKeys = keyof Pick<User, 'username' | 'email' | 'role' | 'joiningDate' | 'fullName' | 'department' | 'jobDesignation'> | 'editorLevelName';
 
 const departments = ["HR", "Admin", "Editor"];
 const jobDesignations = ["Team Leader", "Team Assist", "Editor"];
@@ -81,6 +82,7 @@ export const UserManagementTable: React.FC = () => {
   
   const [userForPasswordReset, setUserForPasswordReset] = useState<User | null>(null);
   const [isPasswordResetDialogOpen, setIsPasswordResetDialogOpen] = useState(false);
+  const [newDirectPassword, setNewDirectPassword] = useState('');
 
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
 
@@ -355,43 +357,76 @@ export const UserManagementTable: React.FC = () => {
   
   const openPasswordResetDialog = (user: User) => {
     setUserForPasswordReset(user);
+    setNewDirectPassword('');
     setIsPasswordResetDialogOpen(true);
   };
 
   const handleConfirmPasswordReset = async () => {
-    if (!userForPasswordReset || !userForPasswordReset.email) {
-        toast({ title: "Error", description: "User email is not available for password reset.", variant: "destructive" });
+    if (!userForPasswordReset) {
+        toast({ title: "Error", description: "User for password reset not selected.", variant: "destructive" });
         return;
     }
+
     if (!auth) {
         toast({ title: "Auth Error", description: "Firebase Auth not initialized.", variant: "destructive" });
         return;
     }
-
+    
     setIsSubmittingForm(true);
+
     try {
-        await sendPasswordResetEmail(auth, userForPasswordReset.email);
-        toast({
-            title: "Password Reset Email Sent",
-            description: `An email has been sent to ${userForPasswordReset.email} with instructions to reset their password.`,
-        });
-    } catch (error: any) {
-        console.error("Firebase send password reset email error:", error);
-        let message = "Failed to send password reset email.";
-        if (error.code === 'auth/user-not-found') {
-            message = "There is no user record corresponding to this email. The user may have been deleted from Firebase Auth.";
-        } else if (error.code === 'auth/invalid-email') {
-            message = "The email address is not valid.";
+        if (isSuperAdmin && newDirectPassword.trim() !== '') {
+            if (newDirectPassword.length < 6) {
+                toast({ title: "Invalid Password", description: "Password must be at least 6 characters.", variant: "destructive" });
+                setIsSubmittingForm(false);
+                return;
+            }
+            // Use Cloud Function to reset password directly
+            const functions = getFunctions();
+            const resetPwd = httpsCallable(functions, 'resetUserPassword');
+            const result = await resetPwd({ 
+                targetUid: userForPasswordReset.id, 
+                newPassword: newDirectPassword 
+            });
+            
+            const data = result.data as { success: boolean; message: string };
+            if (data.success) {
+                toast({
+                    title: "Password Updated",
+                    description: `Password for ${userForPasswordReset.username} has been changed successfully.`,
+                });
+            } else {
+                 toast({
+                    title: "Password Reset Failed",
+                    description: data.message || "An error occurred.",
+                    variant: "destructive",
+                });
+            }
+        } else {
+            // Send standard password reset email
+            if (!userForPasswordReset.email) {
+                toast({ title: "Error", description: "User email is not available for password reset.", variant: "destructive" });
+                setIsSubmittingForm(false);
+                return;
+            }
+            await sendPasswordResetEmail(auth, userForPasswordReset.email);
+            toast({
+                title: "Password Reset Email Sent",
+                description: `An email has been sent to ${userForPasswordReset.email} with instructions to reset their password.`,
+            });
         }
+    } catch (error: any) {
+        console.error("Firebase reset password error:", error);
         toast({
-            title: "Password Reset Failed",
-            description: message,
+            title: "Action Failed",
+            description: error.message || "An error occurred while attempting to reset the password.",
             variant: "destructive",
         });
     } finally {
         setIsSubmittingForm(false);
         setIsPasswordResetDialogOpen(false);
         setUserForPasswordReset(null);
+        setNewDirectPassword('');
     }
   };
 
@@ -566,10 +601,9 @@ export const UserManagementTable: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                    <TableHead padding="checkbox">
+                    <TableHead className="w-[50px]">
                         <Checkbox
                             checked={selectedUserIds.size === paginatedUsers.length && paginatedUsers.length > 0}
-                            indeterminate={selectedUserIds.size > 0 && selectedUserIds.size < paginatedUsers.length}
                             onCheckedChange={handleSelectAll}
                         />
                     </TableHead>
@@ -586,7 +620,7 @@ export const UserManagementTable: React.FC = () => {
               <TableBody>
                 {paginatedUsers.map((user) => (
                   <TableRow key={user.id} data-state={selectedUserIds.has(user.id) && "selected"}>
-                    <TableCell padding="checkbox">
+                    <TableCell className="w-[50px]">
                         <Checkbox
                             checked={selectedUserIds.has(user.id)}
                             onCheckedChange={() => handleSelectUser(user.id)}
@@ -1065,19 +1099,54 @@ export const UserManagementTable: React.FC = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={isPasswordResetDialogOpen} onOpenChange={setIsPasswordResetDialogOpen}>
+      <AlertDialog open={isPasswordResetDialogOpen} onOpenChange={(open) => {
+          setIsPasswordResetDialogOpen(open);
+          if (!open) {
+              setNewDirectPassword('');
+              setUserForPasswordReset(null);
+          }
+      }}>
         <AlertDialogContent>
             <AlertDialogHeader>
-                <AlertDialogTitle>Confirm Password Reset</AlertDialogTitle>
+                <AlertDialogTitle>Reset Password for {userForPasswordReset?.username}</AlertDialogTitle>
                 <AlertDialogDescription>
-                    Are you sure you want to send a password reset email to {userForPasswordReset?.email}? 
-                    They will receive instructions to set a new password for their Firebase Authentication account.
+                    {isSuperAdmin ? (
+                        <>
+                            Enter a new password below to reset it directly, or leave it blank to send a reset email to <strong>{userForPasswordReset?.email}</strong>.
+                        </>
+                    ) : (
+                        <>
+                            Are you sure you want to send a password reset email to <strong>{userForPasswordReset?.email}</strong>? 
+                            They will receive instructions to set a new password.
+                        </>
+                    )}
                 </AlertDialogDescription>
             </AlertDialogHeader>
+            
+            {isSuperAdmin && (
+                <div className="py-4 space-y-2">
+                    <Label htmlFor="new-direct-password">New Password</Label>
+                    <div className="relative">
+                        <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            id="new-direct-password"
+                            type="password"
+                            placeholder="Min. 6 characters"
+                            value={newDirectPassword}
+                            onChange={(e) => setNewDirectPassword(e.target.value)}
+                            disabled={isSubmittingForm}
+                            className="pl-10"
+                        />
+                    </div>
+                </div>
+            )}
+
             <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setUserForPasswordReset(null)} disabled={isSubmittingForm}>Cancel</AlertDialogCancel>
+                <AlertDialogCancel onClick={() => { setUserForPasswordReset(null); setNewDirectPassword(''); }} disabled={isSubmittingForm}>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleConfirmPasswordReset} disabled={isSubmittingForm}>
-                    {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Send Reset Email'}
+                    {isSubmittingForm ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (
+                        isSuperAdmin && newDirectPassword.trim() !== '' ? 'Set New Password' : 'Send Reset Email'
+                    )}
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
