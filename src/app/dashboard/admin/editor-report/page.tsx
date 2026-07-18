@@ -2,11 +2,12 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import type { DateRange } from 'react-day-picker';
-import { format, parseISO, eachDayOfInterval, compareAsc } from 'date-fns';
+import { format, parseISO, eachDayOfInterval, compareAsc, isValid } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +60,7 @@ type SortableTimeRecordKeysEditor = keyof Pick<TimeRecord, 'date' | 'projectName
 
 
 export default function AdminEditorReportPage() {
+  const searchParams = useSearchParams();
   const { getRecordsByDateRange, isTimesheetLoading } = useTimesheet();
   const { users: allUsers, isUsersLoading } = useMockUsers();
 
@@ -79,6 +81,27 @@ export default function AdminEditorReportPage() {
     if (isUsersLoading || !allUsers) return [];
     return allUsers.filter(u => u.role === 'editor' || u.role === 'admin' || u.role === 'super admin').sort((a,b) => a.username.localeCompare(b.username));
   }, [allUsers, isUsersLoading]);
+
+  useEffect(() => {
+    const userIdFromQuery = searchParams.get('userId');
+    const fromFromQuery = searchParams.get('from');
+    const toFromQuery = searchParams.get('to');
+
+    if (userIdFromQuery) {
+      setSelectedUserId(userIdFromQuery);
+    }
+
+    if (fromFromQuery) {
+      const from = parseISO(fromFromQuery);
+      if (isValid(from)) {
+        const to = toFromQuery ? parseISO(toFromQuery) : from;
+        setDateRange({
+          from,
+          to: isValid(to) ? to : from,
+        });
+      }
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (selectedUserId) {

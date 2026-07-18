@@ -15,7 +15,7 @@ import {
   SidebarGroupLabel,
   SidebarMenuBadge,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award, Library, Star, ClipboardCheck, TrendingUp, CalendarCheck, Plane, CalendarDays, Gift, PartyPopper, Wallet, FileSpreadsheet, History } from 'lucide-react';
+import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award, Library, Star, ClipboardCheck, TrendingUp, CalendarCheck, Plane, CalendarDays, Gift, PartyPopper, Wallet, FileSpreadsheet, History, ClipboardList, CalendarPlus } from 'lucide-react';
 
 export function SidebarNav() {
   const pathname = usePathname();
@@ -40,12 +40,14 @@ export function SidebarNav() {
     "Reports": [
       { href: '/dashboard/admin/report', label: 'Overall Report', icon: BarChart3 },
       { href: '/dashboard/admin/editor-report', label: 'Editor Report', icon: UserCheck },
+      { href: '/dashboard/admin/editor-work-summary', label: 'Editor Work Summary', icon: ClipboardList },
       { href: '/dashboard/admin/project-overview', label: 'Project Overview', icon: Layers },
       { href: '/dashboard/admin/leave-report', label: 'Leave Report', icon: FileSpreadsheet },
     ],
     "Management": [
       { href: '/dashboard/admin/users', label: 'User Profiles', icon: UsersRound },
       { href: '/dashboard/admin/leave-management', label: 'Leave Requests', icon: Plane },
+      { href: '/dashboard/admin/add-edit-leaves', label: 'Add / Edit Leaves', icon: CalendarPlus },
       { href: '/dashboard/admin/attendance', label: 'Attendance Sheets', icon: CalendarCheck },
       { href: '/dashboard/admin/compensatory-leave', label: 'Compensatory Leave', icon: Gift },
       { href: '/dashboard/admin/holidays', label: 'Holidays', icon: PartyPopper },

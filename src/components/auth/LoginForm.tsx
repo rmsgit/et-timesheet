@@ -56,12 +56,12 @@ export const LoginForm: React.FC = () => {
       <CardHeader className="text-center">
         <div className="mx-auto mb-4">
             <Image 
-                src="https://editorstable.com/wp-content/uploads/2025/01/et-logo.jpg" 
-                alt="Company Logo" 
+                src="/et-logo.jpg" 
+                alt="Editors Table Logo" 
                 width={80} 
                 height={80} 
-                className="rounded-md"
-                data-ai-hint="company logo" 
+                className="rounded-md object-contain"
+                priority
             />
         </div>
         <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>

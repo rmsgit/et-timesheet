@@ -1,28 +1,39 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useTimesheet } from '@/hooks/useTimesheet';
 import { useAuth } from '@/hooks/useAuth';
+import { usePerformanceReviews } from '@/hooks/usePerformanceReviews';
+import { useEditorRatingCategories } from '@/hooks/useEditorRatingCategories';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import type { DateRange } from 'react-day-picker';
-import { format, parseISO, eachDayOfInterval, startOfDay, endOfDay, subDays, compareAsc } from 'date-fns';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, BarChart2, AlertCircle, Loader2, Hourglass, CheckCircle2, ListChecks } from 'lucide-react';
+import type { PerformanceReview } from '@/lib/types';
+import { format, parseISO, eachDayOfInterval, startOfDay, endOfDay, subDays, subYears, compareAsc } from 'date-fns';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { TrendingUp, BarChart2, AlertCircle, CheckCircle2, ListChecks, Star } from 'lucide-react';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function MyProgressPage() {
   const { user, isAuthLoading } = useAuth();
   const { getRecordsByDateRange, isTimesheetLoading } = useTimesheet();
+  const { reviews, isLoading: isLoadingReviews } = usePerformanceReviews();
+  const { editorRatingCategories, isLoading: isLoadingCategories } = useEditorRatingCategories();
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 29),
     to: new Date(),
   });
+
+  const [ratingsDateRange, setRatingsDateRange] = useState<DateRange | undefined>({
+    from: subYears(new Date(), 1),
+    to: new Date(),
+  });
   
   const isLoading = isAuthLoading || isTimesheetLoading;
+  const isRatingsLoading = isLoadingReviews || isLoadingCategories;
 
   const recordsInRange = useMemo(() => {
     if (isLoading || !user || !dateRange?.from) return [];
@@ -80,6 +91,47 @@ export default function MyProgressPage() {
   const totalPendingTasksInRange = useMemo(() => {
     return recordsInRange.filter(record => !record.completedAt).length;
   }, [recordsInRange]);
+
+  const calculateTotalScore = useCallback((review: PerformanceReview): number => {
+    if (!review.categoryRatings || editorRatingCategories.length === 0) return 0;
+
+    return review.categoryRatings.reduce((acc, rating) => {
+      const category = editorRatingCategories.find(c => c.id === rating.categoryId);
+      if (!category || typeof category.weight !== 'number') {
+        return acc;
+      }
+      return acc + (rating.rating || 0) * (category.weight / 100);
+    }, 0);
+  }, [editorRatingCategories]);
+
+  const ratingsChartData = useMemo(() => {
+    if (!user || !ratingsDateRange?.from || editorRatingCategories.length === 0) return [];
+
+    const startDate = startOfDay(ratingsDateRange.from);
+    const endDate = endOfDay(ratingsDateRange.to || ratingsDateRange.from);
+
+    return reviews
+      .filter(review => review.editorId === user.id)
+      .filter(review => {
+        const reviewDate = parseISO(review.date);
+        return reviewDate >= startDate && reviewDate <= endDate;
+      })
+      .sort((a, b) => compareAsc(parseISO(a.date), parseISO(b.date)))
+      .map(review => {
+        const reviewDate = parseISO(review.date);
+        return {
+          date: format(reviewDate, 'MMM d, yyyy'),
+          fullDate: format(reviewDate, 'yyyy-MM-dd'),
+          score: Number(calculateTotalScore(review).toFixed(2)),
+        };
+      });
+  }, [reviews, user, ratingsDateRange, editorRatingCategories, calculateTotalScore]);
+
+  const averageRatingScore = useMemo(() => {
+    if (ratingsChartData.length === 0) return null;
+    const total = ratingsChartData.reduce((acc, point) => acc + point.score, 0);
+    return (total / ratingsChartData.length).toFixed(2);
+  }, [ratingsChartData]);
   
   if (isLoading) {
     return (
@@ -90,6 +142,7 @@ export default function MyProgressPage() {
               <CardSkeleton className="shadow-md" />
               <CardSkeleton className="shadow-md" />
             </div>
+            <CardSkeleton className="shadow-md h-[400px]" />
             <CardSkeleton className="shadow-md h-[400px]" />
         </div>
     );
@@ -166,6 +219,72 @@ export default function MyProgressPage() {
                         There are no completed tasks in the selected date range to display.
                     </p>
                 </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-lg">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center">
+              <Star className="mr-2 h-6 w-6 text-primary" /> Rating Score
+            </CardTitle>
+            <CardDescription>
+              Performance review scores for the selected period
+              {averageRatingScore ? ` · Average ${averageRatingScore} / 5.00` : ''}.
+            </CardDescription>
+          </div>
+          <DateRangePicker
+            dateRange={ratingsDateRange}
+            onDateChange={setRatingsDateRange}
+            disabled={isRatingsLoading}
+          />
+        </CardHeader>
+        <CardContent className="h-[400px] pl-2 pr-6 pt-4 pb-4">
+          {isRatingsLoading ? (
+            <div className="flex h-full w-full items-center justify-center">
+              <Skeleton className="h-full w-full" />
+            </div>
+          ) : ratingsChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={ratingsChartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis
+                  domain={[0, 5]}
+                  ticks={[0, 1, 2, 3, 4, 5]}
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                  labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 'bold' }}
+                  formatter={(value: number) => [`${value.toFixed(2)} / 5.00`, 'Score']}
+                />
+                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                <Line
+                  type="monotone"
+                  dataKey="score"
+                  name="Rating Score"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  dot={{ r: 4, fill: 'hsl(var(--primary))' }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <div className="text-center">
+                <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h3 className="mt-4 text-xl font-medium">No Rating Data</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  There are no performance reviews in the selected date range to display.
+                </p>
+              </div>
             </div>
           )}
         </CardContent>

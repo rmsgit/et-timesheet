@@ -17,6 +17,13 @@ interface LeaveContextType {
   isLoading: boolean;
   applyForLeave: (date: Date | null, leaveType: LeaveType, reason: string, earnedInYear?: number, startTime?: string, endTime?: string) => Promise<{ success: boolean; id?: string }>;
   adminApplyCompensatoryLeave: (editorId: string, reason: string, earnedInYear: number) => Promise<{ success: boolean; id?: string }>;
+  adminApplyLeave: (
+    editorId: string,
+    date: Date,
+    leaveType: LeaveType,
+    reason: string,
+    options?: { status?: 'pending' | 'approved'; startTime?: string; endTime?: string }
+  ) => Promise<{ success: boolean; id?: string }>;
   updateLeaveStatus: (leaveId: string, status: 'approved' | 'rejected') => Promise<{ success: boolean }>;
   cancelLeaveRequest: (leaveId: string) => Promise<{ success: boolean }>;
   updateLeaveRequest: (leaveId: string, updates: Partial<LeaveRequest>) => Promise<{ success: boolean }>;
@@ -90,20 +97,20 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
     const newId = newRequestRef.key;
     if (!newId) return { success: false };
 
-    const leaveData: Omit<LeaveRequest, 'id' | 'cancelledBy' | 'cancelledAt'> = {
+    const leaveData: any = {
         userId: user.id,
         leaveType,
         date: date ? date.toISOString() : '',
         reason,
         status: 'pending',
         requestedAt: new Date().toISOString(),
-        startTime: startTime || undefined,
-        endTime: endTime || undefined,
     };
 
+    if (startTime) leaveData.startTime = startTime;
+    if (endTime) leaveData.endTime = endTime;
+
     if (leaveType === 'compensatory' && earnedInYear) {
-      // Cast to Partial to add optional property
-      (leaveData as Partial<LeaveRequest>).earnedInYear = earnedInYear;
+      leaveData.earnedInYear = earnedInYear;
     }
 
     try {
@@ -149,6 +156,52 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
     }
   }, [user, toast, isAdmin, isSuperAdmin]);
 
+  const adminApplyLeave = useCallback(async (
+    editorId: string,
+    date: Date,
+    leaveType: LeaveType,
+    reason: string,
+    options?: { status?: 'pending' | 'approved'; startTime?: string; endTime?: string }
+  ): Promise<{ success: boolean; id?: string }> => {
+    if (!user || !(isAdmin || isSuperAdmin)) {
+      toast({ title: "Permission Denied", description: "Only admins can perform this action.", variant: "destructive" });
+      return { success: false };
+    }
+    if (!database) return { success: false };
+
+    const newRequestRef = push(ref(database, FIREBASE_LEAVE_REQUESTS_PATH));
+    const newId = newRequestRef.key;
+    if (!newId) return { success: false };
+
+    const status = options?.status ?? 'approved';
+    const leaveData: Record<string, unknown> = {
+      userId: editorId,
+      leaveType,
+      date: date.toISOString(),
+      reason,
+      status,
+      requestedAt: new Date().toISOString(),
+    };
+
+    if (options?.startTime) leaveData.startTime = options.startTime;
+    if (options?.endTime) leaveData.endTime = options.endTime;
+
+    if (status === 'approved') {
+      leaveData.reviewedBy = user.id;
+      leaveData.reviewedAt = new Date().toISOString();
+    }
+
+    try {
+      await set(newRequestRef, leaveData);
+      toast({ title: "Success", description: "Leave has been added for the editor." });
+      return { success: true, id: newId };
+    } catch (error) {
+      console.error("Firebase admin apply leave error:", error);
+      toast({ title: "Error", description: "Failed to add leave.", variant: "destructive" });
+      return { success: false };
+    }
+  }, [user, toast, isAdmin, isSuperAdmin]);
+
   const updateLeaveStatus = useCallback(async (leaveId: string, status: 'approved' | 'rejected'): Promise<{ success: boolean }> => {
     if (!user || !(isAdmin || isSuperAdmin)) {
       toast({ title: "Permission Denied", description: "Only admins can approve or reject leave.", variant: "destructive" });
@@ -185,7 +238,8 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
         toast({ title: "Not Found", description: "The leave request could not be found.", variant: "destructive" });
         return { success: false };
     }
-    if (requestToCancel.userId !== user.id) {
+    const canCancelAsAdmin = isAdmin || isSuperAdmin;
+    if (requestToCancel.userId !== user.id && !canCancelAsAdmin) {
         toast({ title: "Permission Denied", description: "You can only cancel your own leave requests.", variant: "destructive" });
         return { success: false };
     }
@@ -202,22 +256,28 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
 
     try {
         await firebaseUpdate(ref(database, `${FIREBASE_LEAVE_REQUESTS_PATH}/${leaveId}`), updates);
-        toast({ title: "Success", description: "Your leave request has been cancelled." });
+        toast({ title: "Success", description: "Leave request has been cancelled." });
         return { success: true };
     } catch (error) {
         console.error("Firebase cancel leave request error:", error);
         toast({ title: "Error", description: "Failed to cancel leave request.", variant: "destructive" });
         return { success: false };
     }
-}, [user, toast, leaveRequests]);
+}, [user, toast, leaveRequests, isAdmin, isSuperAdmin]);
 
   const updateLeaveRequest = useCallback(async (leaveId: string, updates: Partial<LeaveRequest>): Promise<{ success: boolean }> => {
     if (!database) {
       toast({ title: "Error", description: "Database not connected.", variant: "destructive" });
       return { success: false };
     }
+
+    // Filter out undefined values to prevent Firebase error
+    const sanitizedUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([_, value]) => value !== undefined)
+    );
+
     try {
-      await firebaseUpdate(ref(database, `${FIREBASE_LEAVE_REQUESTS_PATH}/${leaveId}`), updates);
+      await firebaseUpdate(ref(database, `${FIREBASE_LEAVE_REQUESTS_PATH}/${leaveId}`), sanitizedUpdates);
       toast({ title: "Success", description: "Leave request updated successfully." });
       return { success: true };
     } catch (error) {
@@ -249,7 +309,7 @@ export const LeaveProvider: React.FC<LeaveProviderProps> = ({ children }) => {
   }, [user, toast, isSuperAdmin]);
 
   return (
-    <LeaveContext.Provider value={{ leaveRequests, isLoading, applyForLeave, adminApplyCompensatoryLeave, updateLeaveStatus, cancelLeaveRequest, updateLeaveRequest, deleteLeaveRequest }}>
+    <LeaveContext.Provider value={{ leaveRequests, isLoading, applyForLeave, adminApplyCompensatoryLeave, adminApplyLeave, updateLeaveStatus, cancelLeaveRequest, updateLeaveRequest, deleteLeaveRequest }}>
       {children}
     </LeaveContext.Provider>
   );
