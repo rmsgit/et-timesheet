@@ -31,7 +31,7 @@ import {
 import { CheckCircle, XCircle, Hourglass, Plane, Loader2, User, Ban, MoreHorizontal, Trash2 } from 'lucide-react';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableUserSelect } from '@/components/common/SearchableUserSelect';
 import { Label } from '@/components/ui/label';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import type { DateRange } from 'react-day-picker';
@@ -205,17 +205,17 @@ export default function LeaveManagementPage() {
                             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                         </div>
                     ) : (
-                        <Select value={selectedUserId} onValueChange={setSelectedUserId} disabled={isLoading}>
-                            <SelectTrigger id="user-filter" className="w-full sm:w-[280px]">
-                                <SelectValue placeholder="Select a user" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Users</SelectItem>
-                                {allUsersSorted.map(user => (
-                                    <SelectItem key={user.id} value={user.id}>{user.username}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <SearchableUserSelect
+                            id="user-filter"
+                            className="w-full sm:w-[280px]"
+                            users={allUsersSorted}
+                            value={selectedUserId}
+                            onValueChange={setSelectedUserId}
+                            disabled={isLoading}
+                            includeAllOption
+                            allOptionLabel="All Users"
+                            placeholder="Select a user"
+                        />
                     )}
                 </div>
                 <div className="space-y-2">

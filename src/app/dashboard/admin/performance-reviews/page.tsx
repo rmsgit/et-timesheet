@@ -19,7 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableUserSelect } from '@/components/common/SearchableUserSelect';
 import { Label } from '@/components/ui/label';
 import { AlertTriangle, PlusCircle, Loader2, ClipboardCheck, Edit2, Trash2 } from 'lucide-react';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
@@ -108,22 +108,14 @@ export default function PerformanceReviewsPage() {
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     </div>
                 ) : editorUsers.length > 0 ? (
-                    <Select
-                        value={selectedEditorId}
-                        onValueChange={setSelectedEditorId}
+                    <SearchableUserSelect
+                        id="editor-select"
+                        users={editorUsers}
+                        value={selectedEditorId ?? ''}
+                        onValueChange={(value) => setSelectedEditorId(value || undefined)}
                         disabled={isLoading}
-                    >
-                        <SelectTrigger id="editor-select">
-                        <SelectValue placeholder="Select an editor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                        {editorUsers.map(editor => (
-                            <SelectItem key={editor.id} value={editor.id}>
-                            {editor.fullName || editor.username}
-                            </SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
+                        placeholder="Select an editor"
+                    />
                 ) : (
                     <p className="text-sm text-muted-foreground p-2 border rounded-md">No editors found.</p>
                 )}

@@ -15,6 +15,7 @@ import { useAdminNotifications } from '@/hooks/useAdminNotifications';
 import { HolidayProvider } from '@/contexts/HolidayContext';
 import { PaysheetProvider } from '@/contexts/PaysheetContext';
 import { GlobalSettingsProvider } from '@/contexts/GlobalSettingsContext';
+import { TaskProvider } from '@/contexts/TaskContext';
 
 const AdminNotificationInitializer: React.FC = () => {
   useAdminNotifications(); // Initialize and run the hook globally for admins
@@ -36,12 +37,14 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
                 <AttendanceProvider>
                   <HolidayProvider>
                     <PaysheetProvider>
+                      <TaskProvider>
                       <TooltipProvider>
                         <AdminNotificationInitializer />
                         {children}
                         <Toaster />
                         <GlobalLoader />
                       </TooltipProvider>
+                      </TaskProvider>
                     </PaysheetProvider>
                   </HolidayProvider>
                 </AttendanceProvider>

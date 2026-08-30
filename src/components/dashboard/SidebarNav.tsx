@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useLeave } from '@/hooks/useLeave';
+import { useTasks } from '@/hooks/useTasks';
+import { useTaskStatuses } from '@/hooks/useTaskStatuses';
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -15,20 +17,34 @@ import {
   SidebarGroupLabel,
   SidebarMenuBadge,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award, Library, Star, ClipboardCheck, TrendingUp, CalendarCheck, Plane, CalendarDays, Gift, PartyPopper, Wallet, FileSpreadsheet, History, ClipboardList, CalendarPlus } from 'lucide-react';
+import { LayoutDashboard, ListChecks, Users, BarChart3, FileText, Settings, FolderKanban, UsersRound, UserCheck, Layers, Award, Library, Star, ClipboardCheck, TrendingUp, CalendarCheck, Plane, CalendarDays, Gift, PartyPopper, Wallet, FileSpreadsheet, History, ClipboardList, CalendarPlus, ListTodo } from 'lucide-react';
 
 export function SidebarNav() {
   const pathname = usePathname();
-  const { isAdmin, isEditor, isSuperAdmin } = useAuth();
+  const { isAdmin, isEditor, isSuperAdmin, user } = useAuth();
   const { leaveRequests, isLoading: isLoadingLeave } = useLeave();
+  const { tasks, isLoading: isLoadingTasks } = useTasks();
+  const { taskStatuses, isLoadingTaskStatuses } = useTaskStatuses();
 
   const pendingLeaveCount = useMemo(() => {
     if (isLoadingLeave) return 0;
     return leaveRequests.filter(req => req.status === 'pending').length;
   }, [leaveRequests, isLoadingLeave]);
 
+  const myTodoTaskCount = useMemo(() => {
+    if (!user?.id || isLoadingTasks || isLoadingTaskStatuses) return 0;
+    const defaultStatus =
+      taskStatuses.find((s) => s.isDefault) ?? taskStatuses[0];
+    if (!defaultStatus) return 0;
+    return tasks.filter(
+      (task) =>
+        task.assigneeId === user.id && task.statusId === defaultStatus.id
+    ).length;
+  }, [tasks, user?.id, taskStatuses, isLoadingTasks, isLoadingTaskStatuses]);
+
   const personalRoutes = [
     { href: '/dashboard', label: 'My Timesheet', icon: ListChecks },
+    { href: '/dashboard/task-calendar', label: 'Task Calendar', icon: ListTodo },
     { href: '/dashboard/my-report', label: 'My Report', icon: FileText },
     { href: '/dashboard/my-progress', label: 'My Progress', icon: TrendingUp },
     { href: '/dashboard/my-attendance', label: 'My Attendance', icon: CalendarDays },
@@ -62,6 +78,9 @@ export function SidebarNav() {
       { href: '/dashboard/admin/project-types', label: 'Project Types', icon: FolderKanban },
       { href: '/dashboard/admin/editor-levels', label: 'Editor Levels', icon: Award },
       { href: '/dashboard/admin/rating-categories', label: 'Rating Categories', icon: Star },
+      ...(isSuperAdmin
+        ? [{ href: '/dashboard/admin/task-statuses', label: 'Task Statuses', icon: ListTodo }]
+        : []),
     ]
   };
   
@@ -73,30 +92,40 @@ export function SidebarNav() {
 
   const isActive = (href: string) => pathname === href;
 
+  const renderPersonalRoute = (route: (typeof personalRoutes)[number]) => {
+    const isTaskCalendar = route.href === '/dashboard/task-calendar';
+    const showTodoBadge = isTaskCalendar && myTodoTaskCount > 0;
+
+    return (
+      <SidebarMenuItem key={route.href}>
+        <Link href={route.href} passHref legacyBehavior>
+          <SidebarMenuButton
+            asChild
+            variant="default"
+            size="default"
+            isActive={isActive(route.href)}
+            tooltip={{ children: route.label, side: "right", align: "center" }}
+          >
+            <a>
+              <route.icon />
+              <span>{route.label}</span>
+              {showTodoBadge && (
+                <SidebarMenuBadge>{myTodoTaskCount}</SidebarMenuBadge>
+              )}
+            </a>
+          </SidebarMenuButton>
+        </Link>
+      </SidebarMenuItem>
+    );
+  };
+
   // Editor-only view
   if (isEditor && !isAdmin) {
     return (
       <SidebarMenu>
         <SidebarGroup>
           <SidebarGroupLabel>Attendance Management</SidebarGroupLabel>
-          {personalRoutes.map((route) => (
-            <SidebarMenuItem key={route.href}>
-              <Link href={route.href} passHref legacyBehavior>
-                <SidebarMenuButton
-                  asChild
-                  variant="default"
-                  size="default"
-                  isActive={isActive(route.href)}
-                  tooltip={{ children: route.label, side: "right", align: "center" }}
-                >
-                  <a>
-                    <route.icon />
-                    <span>{route.label}</span>
-                  </a>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          ))}
+          {personalRoutes.map((route) => renderPersonalRoute(route))}
         </SidebarGroup>
       </SidebarMenu>
     );
@@ -104,7 +133,11 @@ export function SidebarNav() {
 
   // Admin view (covers super admin as well)
   if (isAdmin) {
-    const adminPersonalRoutes = personalRoutes.filter(route => route.href === '/dashboard/my-attendance' || route.href === '/dashboard/my-leave');
+    const adminPersonalRoutes = personalRoutes.filter(route =>
+      route.href === '/dashboard/my-attendance' ||
+      route.href === '/dashboard/my-leave' ||
+      route.href === '/dashboard/task-calendar'
+    );
     
     return (
       <SidebarMenu>
@@ -118,15 +151,7 @@ export function SidebarNav() {
               return (
                 <SidebarGroup key={category}>
                   <SidebarGroupLabel>{category}</SidebarGroupLabel>
-                  {adminPersonalRoutes.map((route) => (
-                    <SidebarMenuItem key={route.href}>
-                      <Link href={route.href} passHref legacyBehavior>
-                        <SidebarMenuButton asChild variant="default" size="default" isActive={isActive(route.href)} tooltip={{ children: route.label, side: "right", align: "center" }}>
-                          <a><route.icon /><span>{route.label}</span></a>
-                        </SidebarMenuButton>
-                      </Link>
-                    </SidebarMenuItem>
-                  ))}
+                  {adminPersonalRoutes.map((route) => renderPersonalRoute(route))}
                 </SidebarGroup>
               );
             }

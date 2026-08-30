@@ -18,7 +18,7 @@ import type { TimeRecord, User } from '@/lib/types';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableUserSelect } from '@/components/common/SearchableUserSelect';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -487,22 +487,17 @@ export default function AdminReportPage() {
               <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
                 <div className="w-full sm:w-48 space-y-1.5">
                   <Label htmlFor="editor-filter" className="sr-only">Filter by editor</Label>
-                  <Select
+                  <SearchableUserSelect
+                    id="editor-filter"
+                    className="h-9"
+                    users={editorUsers}
                     value={selectedEditorId}
                     onValueChange={(value) => { setSelectedEditorId(value); setCurrentPage(1); }}
                     disabled={isLoading}
-                  >
-                    <SelectTrigger id="editor-filter" className="h-9">
-                      <User className="mr-2 h-4 w-4 text-muted-foreground"/>
-                      <SelectValue placeholder="Filter by editor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Editors</SelectItem>
-                      {editorUsers.map(editor => (
-                        <SelectItem key={editor.id} value={editor.id}>{editor.username}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    includeAllOption
+                    allOptionLabel="All Editors"
+                    placeholder="Filter by editor"
+                  />
                 </div>
                 <div className="relative w-full sm:w-64">
                    <Label htmlFor="project-search" className="sr-only">Search by project name</Label>

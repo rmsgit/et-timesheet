@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableUserSelect } from '@/components/common/SearchableUserSelect';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -350,22 +351,13 @@ export default function AdminAddEditLeavesPage() {
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Editor
               </Label>
-              <Select
-                value={selectedUserId || undefined}
+              <SearchableUserSelect
+                users={editorUsers}
+                value={selectedUserId}
                 onValueChange={setSelectedUserId}
                 disabled={isLoading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an editor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {editorUsers.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.fullName || user.username}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Select an editor"
+              />
             </div>
             <div className="grid gap-2 w-full md:w-auto">
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

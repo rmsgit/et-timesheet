@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableUserSelect } from '@/components/common/SearchableUserSelect';
 import { Label } from '@/components/ui/label';
 import { UserCheck, AlertCircle, Hourglass, CheckCircle2, Briefcase, Loader2, BarChart2, Package, RefreshCw, FilePlus2, Film, Clock, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckSquare, Square, Star } from 'lucide-react';
 import { CardSkeleton } from '@/components/skeletons/CardSkeleton';
@@ -273,22 +273,14 @@ export default function AdminEditorReportPage() {
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
             ) : selectableUsers.length > 0 ? (
-                <Select
-                    value={selectedUserId}
-                    onValueChange={(value) => { setSelectedUserId(value); setCurrentPage(1); }}
+                <SearchableUserSelect
+                    id="user-select"
+                    users={selectableUsers}
+                    value={selectedUserId ?? ''}
+                    onValueChange={(value) => { setSelectedUserId(value || undefined); setCurrentPage(1); }}
                     disabled={isLoading}
-                >
-                    <SelectTrigger id="user-select">
-                    <SelectValue placeholder="Select a user" />
-                    </SelectTrigger>
-                    <SelectContent>
-                    {selectableUsers.map(user => (
-                        <SelectItem key={user.id} value={user.id}>
-                        {user.fullName || user.username}
-                        </SelectItem>
-                    ))}
-                    </SelectContent>
-                </Select>
+                    placeholder="Select a user"
+                />
             ) : (
                 <p className="text-sm text-muted-foreground p-2 border rounded-md">No users found.</p>
             )}

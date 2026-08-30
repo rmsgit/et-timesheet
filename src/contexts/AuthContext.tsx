@@ -71,8 +71,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const userRef = ref(database, `${FIREBASE_USERS_PATH}/${firebaseUser.uid}`);
             const snapshot = await get(userRef);
             if (snapshot.exists()) {
-              const dbUser = snapshot.val() as Omit<User, 'id' | 'email'>; // This type includes username, role, and editorLevelId (optional)
+              const dbUser = snapshot.val() as Omit<User, 'id' | 'email'>;
               const appUser: User = {
+                ...dbUser,
                 id: firebaseUser.uid,
                 email: firebaseUser.email,
                 username: dbUser.username || firebaseUser.email || 'User',

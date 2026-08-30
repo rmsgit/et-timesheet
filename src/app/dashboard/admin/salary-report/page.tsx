@@ -13,6 +13,7 @@ import type { User, AttendanceRecord, LeaveRequest, Paysheet } from '@/lib/types
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableUserSelect } from '@/components/common/SearchableUserSelect';
 import { Label } from '@/components/ui/label';
 import { Loader2, User as UserIcon, FileSpreadsheet, Search, AlertCircle, MinusCircle, PlusCircle, NotebookText, Briefcase, CalendarDays, Award, Save, Banknote, Landmark, RefreshCw, Mail, Download, X, History, ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -665,16 +666,14 @@ export default function SalaryReportPage() {
                                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                                 </div>
                             ) : (
-                                <Select value={selectedUserId} onValueChange={setSelectedUserId} disabled={mainLoadingState}>
-                                    <SelectTrigger id="editor-select">
-                                        <SelectValue placeholder="Select a user" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {editorUsers.map(editor => (
-                                            <SelectItem key={editor.id} value={editor.id}>{editor.fullName || editor.username}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SearchableUserSelect
+                                    id="editor-select"
+                                    users={editorUsers}
+                                    value={selectedUserId ?? ''}
+                                    onValueChange={(value) => setSelectedUserId(value || undefined)}
+                                    disabled={mainLoadingState}
+                                    placeholder="Select a user"
+                                />
                             )}
                         </div>
                         <div className="space-y-2">

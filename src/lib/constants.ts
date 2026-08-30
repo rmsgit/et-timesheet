@@ -1,5 +1,5 @@
 
-import type { ProjectType, User, EditorLevel, EditorRatingCategory } from './types';
+import type { ProjectType, User, EditorLevel, EditorRatingCategory, TaskStatus } from './types';
 
 export const PROJECT_TYPES: ProjectType[] = [
   'New Feature',
@@ -23,6 +23,8 @@ export const FIREBASE_ATTENDANCE_PATH = 'attendance';
 export const FIREBASE_HOLIDAYS_PATH = 'holidays';
 export const FIREBASE_PAYSHEETS_PATH = 'paysheets';
 export const FIREBASE_GLOBAL_SETTINGS_PATH = 'globalSettings';
+export const FIREBASE_TASK_STATUSES_PATH = 'taskStatuses';
+export const FIREBASE_TASKS_PATH = 'tasks';
 
 export const RATING_SCALE = [
   { value: 5, label: '5 - Outstanding' },
@@ -72,4 +74,11 @@ export const INITIAL_EDITOR_RATING_CATEGORIES: EditorRatingCategory[] = [
     { id: 'cat_3_communication', name: 'Communication', description: 'Clarity and timeliness of communication with team members and clients. Responsiveness to feedback.', weight: 20 },
     { id: 'cat_4_speed', name: 'Speed & Efficiency', description: 'Ability to deliver high-quality work within expected timeframes. Turnaround time.', weight: 15 },
     { id: 'cat_5_proactivity', name: 'Proactivity & Attitude', description: 'Initiative, problem-solving skills, and overall professionalism.', weight: 10 },
+];
+
+export const INITIAL_TASK_STATUSES: TaskStatus[] = [
+  { id: 'status_todo', name: 'To Do', color: '#6b7280', order: 0, isDefault: true },
+  { id: 'status_in_progress', name: 'In Progress', color: '#3b82f6', order: 1 },
+  { id: 'status_done', name: 'Done', color: '#22c55e', order: 2 },
+  { id: 'status_cancelled', name: 'Cancelled', color: '#ef4444', order: 3 },
 ];

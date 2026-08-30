@@ -49,6 +49,7 @@ import { cn } from '@/lib/utils';
 import { Checkbox } from '../ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 
 
@@ -72,6 +73,8 @@ export const UserManagementTable: React.FC = () => {
   const [newUserEditorLevelId, setNewUserEditorLevelId] = useState<string | undefined>(undefined);
   const [newUserAvailableLeaves, setNewUserAvailableLeaves] = useState<number | string>(0);
   const [newUserJoiningDate, setNewUserJoiningDate] = useState<Date | undefined>(undefined);
+  const [newUserDateOfBirth, setNewUserDateOfBirth] = useState<Date | undefined>(undefined);
+  const [newUserDateOfBirthMessage, setNewUserDateOfBirthMessage] = useState('');
   const [newUserPersonalEmail, setNewUserPersonalEmail] = useState('');
   const [newUserDepartment, setNewUserDepartment] = useState<string>('');
   const [newUserJobDesignation, setNewUserJobDesignation] = useState<string>('');
@@ -96,6 +99,8 @@ export const UserManagementTable: React.FC = () => {
     editorLevelId?: string; 
     availableLeaves?: number; 
     joiningDate?: Date;
+    dateOfBirth?: Date;
+    dateOfBirthMessage?: string;
     personalEmail?: string;
     department?: string;
     jobDesignation?: string;
@@ -107,6 +112,8 @@ export const UserManagementTable: React.FC = () => {
     editorLevelId: undefined,
     availableLeaves: 0,
     joiningDate: undefined,
+    dateOfBirth: undefined,
+    dateOfBirthMessage: '',
     personalEmail: '',
     department: '',
     jobDesignation: '',
@@ -222,6 +229,8 @@ export const UserManagementTable: React.FC = () => {
     setNewUserEditorLevelId(sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined);
     setNewUserAvailableLeaves(0);
     setNewUserJoiningDate(undefined);
+    setNewUserDateOfBirth(undefined);
+    setNewUserDateOfBirthMessage('');
     setNewUserPersonalEmail('');
     setNewUserDepartment('');
     setNewUserJobDesignation('');
@@ -267,7 +276,9 @@ export const UserManagementTable: React.FC = () => {
         undefined,
         undefined,
         newUserJoiningDate ? newUserJoiningDate.toISOString() : undefined,
-        newUserPersonalEmail
+        newUserPersonalEmail,
+        newUserDateOfBirth ? newUserDateOfBirth.toISOString() : undefined,
+        newUserDateOfBirthMessage || undefined
       );
 
       if (profileResult.success) {
@@ -440,6 +451,8 @@ export const UserManagementTable: React.FC = () => {
         editorLevelId: user.editorLevelId || (user.role === 'editor' && sortedEditorLevelsForSelect.length > 0 ? sortedEditorLevelsForSelect[0].id : undefined),
         availableLeaves: user.availableLeaves ?? 0,
         joiningDate: user.joiningDate ? new Date(user.joiningDate) : undefined,
+        dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth) : undefined,
+        dateOfBirthMessage: user.dateOfBirthMessage || '',
         personalEmail: user.personalEmail || '',
         department: user.department || '',
         jobDesignation: user.jobDesignation || '',
@@ -486,7 +499,9 @@ export const UserManagementTable: React.FC = () => {
         editingUser.conveyanceAllowance,
         editingUser.travelingAllowance,
         editUserFormState.joiningDate ? editUserFormState.joiningDate.toISOString() : undefined,
-        editUserFormState.personalEmail
+        editUserFormState.personalEmail,
+        editUserFormState.dateOfBirth ? editUserFormState.dateOfBirth.toISOString() : undefined,
+        editUserFormState.dateOfBirthMessage || undefined
     );
 
     if (result.success) {
@@ -778,6 +793,44 @@ export const UserManagementTable: React.FC = () => {
               />
             </div>
             <div className="space-y-1.5">
+              <Label htmlFor="new-user-date-of-birth">Date of Birth</Label>
+                <Popover>
+                    <PopoverTrigger asChild>
+                    <Button
+                        variant={"outline"}
+                        className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !newUserDateOfBirth && "text-muted-foreground"
+                        )}
+                        disabled={isSubmittingForm}
+                    >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {newUserDateOfBirth ? format(newUserDateOfBirth, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                    <Calendar
+                        mode="single"
+                        selected={newUserDateOfBirth}
+                        onSelect={setNewUserDateOfBirth}
+                        initialFocus
+                        disabled={isSubmittingForm}
+                    />
+                    </PopoverContent>
+                </Popover>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-user-date-of-birth-message">Birthday Message</Label>
+              <Textarea
+                id="new-user-date-of-birth-message"
+                value={newUserDateOfBirthMessage}
+                onChange={(e) => setNewUserDateOfBirthMessage(e.target.value)}
+                placeholder="Message shown when the user opens the system on their birthday"
+                disabled={isSubmittingForm}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="new-user-joining-date">Joining Date</Label>
                 <Popover>
                     <PopoverTrigger asChild>
@@ -937,6 +990,47 @@ export const UserManagementTable: React.FC = () => {
                             placeholder="personal@example.com"
                             disabled={isSubmittingForm}
                         />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="edit-date-of-birth">Date of Birth</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !editUserFormState.dateOfBirth && "text-muted-foreground"
+                                )}
+                                disabled={isSubmittingForm}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {editUserFormState.dateOfBirth ? format(editUserFormState.dateOfBirth, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={editUserFormState.dateOfBirth}
+                                onSelect={(date) => setEditUserFormState(prev => ({ ...prev, dateOfBirth: date as Date }))}
+                                initialFocus
+                                disabled={isSubmittingForm}
+                            />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="edit-date-of-birth-message">Birthday Message</Label>
+                        <Textarea
+                            id="edit-date-of-birth-message"
+                            value={editUserFormState.dateOfBirthMessage ?? ''}
+                            onChange={(e) => setEditUserFormState(prev => ({ ...prev, dateOfBirthMessage: e.target.value }))}
+                            placeholder="Message shown when the user opens the system on their birthday"
+                            disabled={isSubmittingForm}
+                            rows={3}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            This message appears once when the user opens the dashboard on their birthday.
+                        </p>
                     </div>
                     <div className="space-y-1.5">
                         <Label htmlFor="edit-joining-date">Joining Date</Label>

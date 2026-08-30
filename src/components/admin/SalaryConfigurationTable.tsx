@@ -131,7 +131,9 @@ export const SalaryConfigurationTable: React.FC = () => {
       formState.conveyanceAllowance !== '' ? Number(formState.conveyanceAllowance) : undefined,
       formState.travelingAllowance !== '' ? Number(formState.travelingAllowance) : undefined,
       editingUser.joiningDate,
-      editingUser.personalEmail
+      editingUser.personalEmail,
+      editingUser.dateOfBirth,
+      editingUser.dateOfBirthMessage
     );
 
     if (result.success) {

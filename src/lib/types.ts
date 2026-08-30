@@ -20,6 +20,8 @@ export interface User {
   conveyanceAllowance?: number;
   travelingAllowance?: number;
   joiningDate?: string; // ISO string
+  dateOfBirth?: string; // ISO string
+  dateOfBirthMessage?: string;
   personalEmail?: string;
 }
 
@@ -151,4 +153,37 @@ export interface GlobalSettings {
   epfRate: number; // percentage
   noLeaveBonusOneYearOrMore?: number;
   noLeaveBonusLessThanOneYear?: number;
+}
+
+export type TaskRecurrence = 'weekly' | 'monthly' | 'yearly';
+
+export interface TaskStatus {
+  id: string;
+  name: string;
+  color: string;
+  order: number;
+  isDefault?: boolean;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  type: 'one-time' | 'recurring';
+  assigneeId: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  dueDate?: string;
+  recurrence?: TaskRecurrence;
+  recurrenceStartDate?: string;
+  recurrenceEndDate?: string;
+  statusId: string;
+  occurrenceStatuses?: Record<string, string>;
+}
+
+export interface TaskOccurrence {
+  task: Task;
+  dateKey: string;
+  statusId: string;
 }

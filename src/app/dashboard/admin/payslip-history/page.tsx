@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableUserSelect } from '@/components/common/SearchableUserSelect';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -169,15 +170,15 @@ export default function PayslipHistoryPage() {
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     </div>
                 ) : (
-                    <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                        <SelectTrigger id="user-select"><SelectValue placeholder="All Users" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Users</SelectItem>
-                            {selectableUsers.map(user => (
-                                <SelectItem key={user.id} value={user.id}>{user.fullName || user.username}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <SearchableUserSelect
+                        id="user-select"
+                        users={selectableUsers}
+                        value={selectedUserId}
+                        onValueChange={setSelectedUserId}
+                        includeAllOption
+                        allOptionLabel="All Users"
+                        placeholder="All Users"
+                    />
                 )}
             </div>
              <div className="space-y-2">

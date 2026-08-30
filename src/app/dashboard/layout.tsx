@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { AppLogo } from '@/components/dashboard/AppLogo';
 import { UserNav } from '@/components/dashboard/UserNav';
 import { SidebarNav } from '@/components/dashboard/SidebarNav';
+import { BirthdayGreetingDialog } from '@/components/dashboard/BirthdayGreetingDialog';
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   SidebarProvider,
@@ -94,6 +95,7 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider defaultOpen>
+      <BirthdayGreetingDialog />
       <Sidebar variant="sidebar" collapsible="icon" className="border-r">
         <SidebarHeader className="p-4">
           <AppLogo />

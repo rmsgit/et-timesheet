@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { useAttendance } from '@/hooks/useAttendance';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableUserSelect } from '@/components/common/SearchableUserSelect';
 import type { AttendanceRecord, User as AppUser } from '@/lib/types';
 import { eachDayOfInterval, format, parseISO, isSameDay } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -622,22 +623,14 @@ export default function AttendancePage() {
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     </div>
                 ) : (
-                    <Select
-                        value={selectedUserId}
-                        onValueChange={setSelectedUserId}
+                    <SearchableUserSelect
+                        id="user-select"
+                        users={selectableUsers}
+                        value={selectedUserId ?? ''}
+                        onValueChange={(value) => setSelectedUserId(value || undefined)}
                         disabled={isLoading || isProcessing}
-                    >
-                        <SelectTrigger id="user-select">
-                            <SelectValue placeholder="Select a user" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {selectableUsers.map(user => (
-                                <SelectItem key={user.id} value={user.id}>
-                                    {user.fullName || user.username}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                        placeholder="Select a user"
+                    />
                 )}
             </div>
              <div className="space-y-2">
