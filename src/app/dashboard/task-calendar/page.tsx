@@ -5,10 +5,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { useTasks } from '@/hooks/useTasks';
 import { getCalendarFilterUsers } from '@/lib/taskPermissions';
+import { getBirthdaysOnDate } from '@/lib/birthdayUtils';
 import { TaskCalendar } from '@/components/tasks/TaskCalendar';
 import { TaskDayDetail } from '@/components/tasks/TaskDayDetail';
 import { TaskFormDialog } from '@/components/tasks/TaskFormDialog';
 import { TaskDetailDialog } from '@/components/tasks/TaskDetailDialog';
+import { BirthdayDetailDialog } from '@/components/tasks/BirthdayDetailDialog';
 import type { Task, TaskOccurrence } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -29,6 +31,8 @@ export default function TaskCalendarPage() {
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [selectedOccurrence, setSelectedOccurrence] = useState<TaskOccurrence | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [selectedBirthdayUserId, setSelectedBirthdayUserId] = useState<string | null>(null);
+  const [isBirthdayDetailOpen, setIsBirthdayDetailOpen] = useState(false);
 
   useEffect(() => {
     if (user?.id && filterUserId === undefined) {
@@ -52,6 +56,11 @@ export default function TaskCalendarPage() {
     return getTasksForDate(selectedDate, effectiveFilterUserId);
   }, [selectedDate, getTasksForDate, effectiveFilterUserId]);
 
+  const dayBirthdays = useMemo(() => {
+    if (!selectedDate) return [];
+    return getBirthdaysOnDate(users, selectedDate);
+  }, [selectedDate, users]);
+
   const userOptions = useMemo(() => {
     if (!user) return [];
     return getCalendarFilterUsers(user, users, isSuperAdmin).sort((a, b) =>
@@ -73,6 +82,12 @@ export default function TaskCalendarPage() {
   const handleCreateTaskForDate = (date: Date) => {
     setSelectedDate(date);
     handleOpenCreate(date);
+  };
+
+  const handleOpenBirthday = (birthdayUserId: string, date?: Date) => {
+    if (date) setSelectedDate(date);
+    setSelectedBirthdayUserId(birthdayUserId);
+    setIsBirthdayDetailOpen(true);
   };
 
   if (isAuthLoading) {
@@ -130,15 +145,18 @@ export default function TaskCalendarPage() {
               setSelectedOccurrence(occ);
               setIsDetailOpen(true);
             }}
+            onSelectBirthday={handleOpenBirthday}
             onCreateTaskForDate={handleCreateTaskForDate}
           />
           <TaskDayDetail
             date={selectedDate}
             occurrences={dayOccurrences}
+            birthdays={dayBirthdays}
             onSelectOccurrence={(occ) => {
               setSelectedOccurrence(occ);
               setIsDetailOpen(true);
             }}
+            onSelectBirthday={(birthdayUserId) => handleOpenBirthday(birthdayUserId)}
             onCreateTask={
               selectedDate ? () => handleCreateTaskForDate(selectedDate) : undefined
             }
@@ -161,6 +179,16 @@ export default function TaskCalendarPage() {
         open={isDetailOpen}
         onOpenChange={setIsDetailOpen}
         onEdit={handleEditFromDetail}
+      />
+
+      <BirthdayDetailDialog
+        userId={selectedBirthdayUserId}
+        date={selectedDate}
+        open={isBirthdayDetailOpen}
+        onOpenChange={(open) => {
+          setIsBirthdayDetailOpen(open);
+          if (!open) setSelectedBirthdayUserId(null);
+        }}
       />
     </div>
   );

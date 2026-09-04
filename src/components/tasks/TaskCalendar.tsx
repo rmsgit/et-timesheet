@@ -12,12 +12,13 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, ListTodo, Plus } from 'lucide-react';
+import { Cake, ChevronLeft, ChevronRight, ListTodo, Plus } from 'lucide-react';
 import type { TaskOccurrence } from '@/lib/types';
 import {
   groupOccurrencesByDate,
   toDateKey,
 } from '@/lib/taskCalendarUtils';
+import { groupBirthdaysByDateKey } from '@/lib/birthdayUtils';
 import { useTasks } from '@/hooks/useTasks';
 import { useMockUsers } from '@/hooks/useMockUsers';
 import { useTaskStatuses } from '@/hooks/useTaskStatuses';
@@ -27,6 +28,7 @@ import { cn } from '@/lib/utils';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MAX_VISIBLE_EVENTS = 3;
+const MAX_VISIBLE_BIRTHDAYS = 2;
 
 interface TaskCalendarProps {
   month: Date;
@@ -35,6 +37,7 @@ interface TaskCalendarProps {
   onSelectDate: (date: Date | undefined) => void;
   filterUserId?: string;
   onSelectOccurrence?: (occurrence: TaskOccurrence) => void;
+  onSelectBirthday?: (userId: string, date: Date) => void;
   onCreateTaskForDate?: (date: Date) => void;
 }
 
@@ -45,6 +48,7 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
   onSelectDate,
   filterUserId,
   onSelectOccurrence,
+  onSelectBirthday,
   onCreateTaskForDate,
 }) => {
   const { getTasksForDateRange } = useTasks();
@@ -80,6 +84,10 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
     }
     return days;
   }, [month]);
+
+  const birthdaysByDate = useMemo(() => {
+    return groupBirthdaysByDateKey(users, calendarDays);
+  }, [users, calendarDays]);
 
   const weeks = useMemo(() => {
     const result: Date[][] = [];
@@ -143,10 +151,27 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
             {week.map((day) => {
               const dateKey = toDateKey(day);
               const dayOccurrences = occurrencesByDate[dateKey] || [];
+              const dayBirthdays = birthdaysByDate[dateKey] || [];
               const inCurrentMonth = isSameMonth(day, month);
               const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
               const isTodayDate = isToday(day);
-              const hiddenCount = Math.max(0, dayOccurrences.length - MAX_VISIBLE_EVENTS);
+              const visibleBirthdayCount = Math.min(
+                dayBirthdays.length,
+                MAX_VISIBLE_BIRTHDAYS
+              );
+              const remainingEventSlots = Math.max(
+                0,
+                MAX_VISIBLE_EVENTS - visibleBirthdayCount
+              );
+              const hiddenBirthdayCount = Math.max(
+                0,
+                dayBirthdays.length - MAX_VISIBLE_BIRTHDAYS
+              );
+              const hiddenTaskCount = Math.max(
+                0,
+                dayOccurrences.length - remainingEventSlots
+              );
+              const hiddenCount = hiddenBirthdayCount + hiddenTaskCount;
 
               return (
                 <div
@@ -201,9 +226,27 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
                     </span>
                   </div>
 
-                  {/* Task events */}
+                  {/* Birthdays + task events */}
                   <div className="space-y-0.5">
-                    {dayOccurrences.slice(0, MAX_VISIBLE_EVENTS).map((occ) => {
+                    {dayBirthdays.slice(0, MAX_VISIBLE_BIRTHDAYS).map((bday) => (
+                      <button
+                        key={`bday-${bday.userId}`}
+                        type="button"
+                        title={`Birthday — ${bday.name}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectDate(day);
+                          onSelectBirthday?.(bday.userId, day);
+                        }}
+                        className="flex w-full items-center gap-1 rounded border border-rose-200 bg-rose-50 px-1.5 py-1 text-left text-rose-800 transition-opacity hover:opacity-80 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+                      >
+                        <Cake className="h-3 w-3 shrink-0 opacity-90" />
+                        <span className="min-w-0 flex-1 truncate text-[11px] font-medium leading-tight">
+                          {bday.name}
+                        </span>
+                      </button>
+                    ))}
+                    {dayOccurrences.slice(0, remainingEventSlots).map((occ) => {
                       const assigneeName = getUserShortLabel(
                         userById.get(occ.task.assigneeId)
                       );

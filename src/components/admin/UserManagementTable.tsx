@@ -815,7 +815,24 @@ export const UserManagementTable: React.FC = () => {
                         onSelect={setNewUserDateOfBirth}
                         initialFocus
                         disabled={isSubmittingForm}
+                        monthYearPicker
+                        fromYear={1920}
+                        toYear={new Date().getFullYear()}
                     />
+                    {newUserDateOfBirth && (
+                      <div className="border-t p-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full"
+                          disabled={isSubmittingForm}
+                          onClick={() => setNewUserDateOfBirth(undefined)}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    )}
                     </PopoverContent>
                 </Popover>
             </div>
@@ -853,7 +870,24 @@ export const UserManagementTable: React.FC = () => {
                         onSelect={setNewUserJoiningDate}
                         initialFocus
                         disabled={isSubmittingForm}
+                        monthYearPicker
+                        fromYear={1990}
+                        toYear={new Date().getFullYear() + 1}
                     />
+                    {newUserJoiningDate && (
+                      <div className="border-t p-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full"
+                          disabled={isSubmittingForm}
+                          onClick={() => setNewUserJoiningDate(undefined)}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    )}
                     </PopoverContent>
                 </Popover>
             </div>
@@ -1011,10 +1045,27 @@ export const UserManagementTable: React.FC = () => {
                             <Calendar
                                 mode="single"
                                 selected={editUserFormState.dateOfBirth}
-                                onSelect={(date) => setEditUserFormState(prev => ({ ...prev, dateOfBirth: date as Date }))}
+                                onSelect={(date) => setEditUserFormState(prev => ({ ...prev, dateOfBirth: date }))}
                                 initialFocus
                                 disabled={isSubmittingForm}
+                                monthYearPicker
+                                fromYear={1920}
+                                toYear={new Date().getFullYear()}
                             />
+                            {editUserFormState.dateOfBirth && (
+                              <div className="border-t p-2">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full"
+                                  disabled={isSubmittingForm}
+                                  onClick={() => setEditUserFormState(prev => ({ ...prev, dateOfBirth: undefined }))}
+                                >
+                                  Clear
+                                </Button>
+                              </div>
+                            )}
                             </PopoverContent>
                         </Popover>
                     </div>
@@ -1052,10 +1103,27 @@ export const UserManagementTable: React.FC = () => {
                             <Calendar
                                 mode="single"
                                 selected={editUserFormState.joiningDate}
-                                onSelect={(date) => setEditUserFormState(prev => ({ ...prev, joiningDate: date as Date }))}
+                                onSelect={(date) => setEditUserFormState(prev => ({ ...prev, joiningDate: date }))}
                                 initialFocus
                                 disabled={isSubmittingForm}
+                                monthYearPicker
+                                fromYear={1990}
+                                toYear={new Date().getFullYear() + 1}
                             />
+                            {editUserFormState.joiningDate && (
+                              <div className="border-t p-2">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full"
+                                  disabled={isSubmittingForm}
+                                  onClick={() => setEditUserFormState(prev => ({ ...prev, joiningDate: undefined }))}
+                                >
+                                  Clear
+                                </Button>
+                              </div>
+                            )}
                             </PopoverContent>
                         </Popover>
                     </div>
