@@ -41,10 +41,13 @@ export const TaskDayDetail: React.FC<TaskDayDetailProps> = ({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg">{format(date, 'EEEE, MMMM d, yyyy')}</CardTitle>
+      <CardHeader className="flex flex-col gap-3 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
+        <CardTitle className="text-base sm:text-lg">
+          <span className="sm:hidden">{format(date, 'EEE, MMM d')}</span>
+          <span className="hidden sm:inline">{format(date, 'EEEE, MMMM d, yyyy')}</span>
+        </CardTitle>
         {onCreateTask && (
-          <Button variant="outline" size="sm" onClick={onCreateTask}>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onCreateTask}>
             <PlusCircle className="mr-2 h-4 w-4" /> Add Task
           </Button>
         )}

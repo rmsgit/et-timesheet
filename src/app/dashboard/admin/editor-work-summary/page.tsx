@@ -197,7 +197,7 @@ export default function EditorWorkSummaryPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center text-primary">
+          <h1 className="flex items-center text-2xl font-bold tracking-tight text-primary sm:text-3xl">
             <ClipboardList className="mr-3 h-8 w-8" /> Editor Work Summary
           </h1>
           <p className="text-muted-foreground mt-1">

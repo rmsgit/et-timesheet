@@ -37,7 +37,7 @@ export default function HomePage() {
 
   // Show loading skeleton while auth state is being determined or redirection is occurring.
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-background">
+    <div className="flex h-screen w-full items-center justify-center overflow-x-hidden bg-background">
       <div className="flex flex-col items-center space-y-4">
         <Skeleton className="h-12 w-12 rounded-full bg-muted" />
         <Skeleton className="h-4 w-[250px] bg-muted" />

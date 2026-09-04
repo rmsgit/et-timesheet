@@ -57,7 +57,7 @@ export default function DashboardLayout({
   if (isAuthLoading) {
     // This skeleton is for when auth state is genuinely loading (e.g., initial app load, or onAuthStateChanged is processing)
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
+      <div className="flex h-screen w-full items-center justify-center overflow-x-hidden bg-background">
         <div className="flex flex-col items-center space-y-4">
           <Skeleton className="h-12 w-12 rounded-full bg-muted" />
           <Skeleton className="h-4 w-[250px] bg-muted" />
@@ -73,7 +73,7 @@ export default function DashboardLayout({
   // This is a fallback display while that redirect to /login happens.
   if (!user) {
     return (
-       <div className="flex h-screen w-screen items-center justify-center bg-background">
+       <div className="flex h-screen w-full items-center justify-center overflow-x-hidden bg-background">
         <div className="flex flex-col items-center space-y-4">
           <Skeleton className="h-12 w-12 rounded-full bg-muted" />
           <Skeleton className="h-4 w-[250px] bg-muted" />
@@ -106,19 +106,26 @@ export default function DashboardLayout({
         <SidebarFooter className="p-4">
           {/* Optional: Sidebar footer content */}
         </SidebarFooter>
+        <SidebarRail />
       </Sidebar>
-      <SidebarRail />
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b bg-background/80 px-4 shadow-sm backdrop-blur-md md:px-6">
-          <div className="flex items-center gap-2">
-             <SidebarTrigger className="md:hidden" /> {/* Mobile trigger */}
-             <h1 className="text-lg font-semibold">Editors Table Timesheet</h1>
+      <SidebarInset className="min-w-0 overflow-x-hidden">
+        <header className="sticky top-0 z-10 flex h-14 min-w-0 items-center justify-between gap-2 border-b bg-background/80 px-3 shadow-sm backdrop-blur-md sm:h-16 sm:gap-4 sm:px-4 md:px-6">
+          <div className="flex min-w-0 items-center gap-2">
+             <SidebarTrigger className="shrink-0 md:hidden" />
+             <h1 className="truncate text-base font-semibold sm:text-lg">
+               <span className="sm:hidden">ET Timesheet</span>
+               <span className="hidden sm:inline">Editors Table Timesheet</span>
+             </h1>
           </div>
-          <UserNav />
+          <div className="shrink-0">
+            <UserNav />
+          </div>
         </header>
-        <main className="flex-1 p-4 md:p-6">
-          {children}
-        </main>
+        <div className="min-w-0 flex-1 overflow-x-hidden p-3 sm:p-4 md:p-6">
+          <div className="mx-auto w-full min-w-0 max-w-full">
+            {children}
+          </div>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

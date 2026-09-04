@@ -119,18 +119,18 @@ function LeaveBalanceCards({
   balance: number;
 }) {
   return (
-    <div className="grid grid-cols-3 gap-3">
-      <div className="rounded-lg border bg-blue-50 dark:bg-blue-950/30 p-3 text-center">
-        <p className="text-2xl font-bold tabular-nums">{eligible}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">Eligible</p>
+    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+      <div className="rounded-lg border bg-blue-50 p-2 text-center dark:bg-blue-950/30 sm:p-3">
+        <p className="text-lg font-bold tabular-nums sm:text-2xl">{eligible}</p>
+        <p className="mt-0.5 text-[10px] text-muted-foreground sm:text-xs">Eligible</p>
       </div>
-      <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/30 p-3 text-center">
-        <p className="text-2xl font-bold tabular-nums">{taken.toFixed(2)}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">Taken</p>
+      <div className="rounded-lg border bg-amber-50 p-2 text-center dark:bg-amber-950/30 sm:p-3">
+        <p className="text-lg font-bold tabular-nums sm:text-2xl">{taken.toFixed(2)}</p>
+        <p className="mt-0.5 text-[10px] text-muted-foreground sm:text-xs">Taken</p>
       </div>
-      <div className="rounded-lg border bg-green-50 dark:bg-green-950/30 p-3 text-center">
-        <p className="text-2xl font-bold tabular-nums">{balance.toFixed(2)}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">Balance</p>
+      <div className="rounded-lg border bg-green-50 p-2 text-center dark:bg-green-950/30 sm:p-3">
+        <p className="text-lg font-bold tabular-nums sm:text-2xl">{balance.toFixed(2)}</p>
+        <p className="mt-0.5 text-[10px] text-muted-foreground sm:text-xs">Balance</p>
       </div>
     </div>
   );
@@ -332,7 +332,7 @@ export default function AdminAddEditLeavesPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center text-primary">
+          <h1 className="flex items-center text-2xl font-bold tracking-tight text-primary sm:text-3xl">
             <CalendarPlus className="mr-3 h-8 w-8" /> Add / Edit Leaves
           </h1>
           <p className="text-muted-foreground mt-1">

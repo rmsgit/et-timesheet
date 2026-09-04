@@ -234,8 +234,8 @@ export default function MyAttendancePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight flex items-center">
-        <CalendarIcon className="mr-3 h-8 w-8 text-primary" /> My Attendance Log
+      <h1 className="flex items-center text-2xl font-bold tracking-tight sm:text-3xl">
+        <CalendarIcon className="mr-2 h-6 w-6 shrink-0 text-primary sm:mr-3 sm:h-8 sm:w-8" /> My Attendance Log
       </h1>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

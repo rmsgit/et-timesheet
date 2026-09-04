@@ -344,8 +344,8 @@ export default function ProjectOverviewPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center">
-                <Layers className="mr-3 h-8 w-8 text-primary" /> Project Overview
+            <h1 className="flex items-center text-2xl font-bold tracking-tight sm:text-3xl">
+                <Layers className="mr-2 h-6 w-6 shrink-0 text-primary sm:mr-3 sm:h-8 sm:w-8" /> Project Overview
             </h1>
             <CardDescription className="mt-1">
                 Summary of all projects {dateRange?.from && dateRange.to ? `from ${format(dateRange.from, "PPP")} to ${format(dateRange.to, "PPP")}` : 'for all time'}.
@@ -555,7 +555,7 @@ export default function ProjectOverviewPage() {
       )}
 
       <Dialog open={isDetailsModalOpen} onOpenChange={(open) => { if (!open) setSelectedProjectForDetails(null); setIsDetailsModalOpen(open); }}>
-        <DialogContent className="sm:max-w-4xl max-h-[80vh] flex flex-col">
+        <DialogContent className="flex max-h-[80dvh] w-full max-w-[calc(100%-2rem)] flex-col sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>
               Time Records for: {selectedProjectForDetails?.projectName}

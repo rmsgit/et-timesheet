@@ -114,29 +114,34 @@ export default function LeaveManagementPage() {
           <Table>
               <TableHeader>
                   <TableRow>
-                      <TableHead>Editor</TableHead>
-                      <TableHead>Requested Date</TableHead>
-                      <TableHead>Leave Date</TableHead>
+                      <TableHead className="min-w-[120px]">Editor</TableHead>
+                      <TableHead className="hidden md:table-cell">Requested Date</TableHead>
+                      <TableHead className="min-w-[110px]">Leave Date</TableHead>
                       <TableHead>Type</TableHead>
-                      <TableHead>Reason</TableHead>
-                      {currentStatus === 'approved' && <TableHead>Approved By</TableHead>}
-                      {currentStatus === 'rejected' && <TableHead>Rejected By</TableHead>}
-                      {currentStatus === 'cancelled' && <TableHead>Cancelled By</TableHead>}
+                      <TableHead className="hidden lg:table-cell">Reason</TableHead>
+                      {currentStatus === 'approved' && <TableHead className="hidden md:table-cell">Approved By</TableHead>}
+                      {currentStatus === 'rejected' && <TableHead className="hidden md:table-cell">Rejected By</TableHead>}
+                      {currentStatus === 'cancelled' && <TableHead className="hidden md:table-cell">Cancelled By</TableHead>}
                       <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
               </TableHeader>
               <TableBody>
                   {requests.map(req => (
                       <TableRow key={req.id}>
-                          <TableCell className="font-medium flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground" />{req.username}</TableCell>
-                          <TableCell>{req.requestedAt ? format(parseISO(req.requestedAt), 'PPP') : 'N/A'}</TableCell>
-                          <TableCell>{req.date ? format(parseISO(req.date), 'PPP') : 'Unassigned'}</TableCell>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+                              <span className="truncate">{req.username}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden whitespace-nowrap md:table-cell">{req.requestedAt ? format(parseISO(req.requestedAt), 'PPP') : 'N/A'}</TableCell>
+                          <TableCell className="whitespace-nowrap">{req.date ? format(parseISO(req.date), 'PPP') : 'Unassigned'}</TableCell>
                           <TableCell className="capitalize">{req.leaveType.replace('-', ' ')}</TableCell>
-                          <TableCell className="max-w-xs truncate">{req.reason}</TableCell>
+                          <TableCell className="hidden max-w-xs truncate lg:table-cell">{req.reason}</TableCell>
                           
-                          {currentStatus === 'approved' && <TableCell>{req.reviewedBy ? getUsername(req.reviewedBy) : 'N/A'}</TableCell>}
-                          {currentStatus === 'rejected' && <TableCell>{req.reviewedBy ? getUsername(req.reviewedBy) : 'N/A'}</TableCell>}
-                          {currentStatus === 'cancelled' && <TableCell>{req.cancelledBy ? getUsername(req.cancelledBy) : 'N/A'}</TableCell>}
+                          {currentStatus === 'approved' && <TableCell className="hidden md:table-cell">{req.reviewedBy ? getUsername(req.reviewedBy) : 'N/A'}</TableCell>}
+                          {currentStatus === 'rejected' && <TableCell className="hidden md:table-cell">{req.reviewedBy ? getUsername(req.reviewedBy) : 'N/A'}</TableCell>}
+                          {currentStatus === 'cancelled' && <TableCell className="hidden md:table-cell">{req.cancelledBy ? getUsername(req.cancelledBy) : 'N/A'}</TableCell>}
 
                           <TableCell className="text-right">
                             <DropdownMenu>
@@ -188,8 +193,8 @@ export default function LeaveManagementPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight flex items-center">
-        <Plane className="mr-3 h-8 w-8 text-primary" /> Leave Management
+      <h1 className="flex items-center text-2xl font-bold tracking-tight sm:text-3xl">
+        <Plane className="mr-2 h-6 w-6 shrink-0 text-primary sm:mr-3 sm:h-8 sm:w-8" /> Leave Management
       </h1>
       <Card>
         <CardHeader>
@@ -230,18 +235,23 @@ export default function LeaveManagementPage() {
             </div>
 
             <Tabs defaultValue="pending">
-                <TabsList className="grid w-full grid-cols-4">
-                    <TabsTrigger value="pending">
-                        <Hourglass className="mr-2 h-4 w-4" /> Pending <Badge className="ml-2">{pendingRequests.length}</Badge>
+                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
+                    <TabsTrigger value="pending" className="gap-1 px-2 text-xs sm:text-sm">
+                        <Hourglass className="h-3.5 w-3.5 shrink-0 sm:mr-1 sm:h-4 sm:w-4" />
+                        <span>Pending</span>
+                        <Badge className="ml-1">{pendingRequests.length}</Badge>
                     </TabsTrigger>
-                    <TabsTrigger value="approved">
-                        <CheckCircle className="mr-2 h-4 w-4" /> Approved
+                    <TabsTrigger value="approved" className="gap-1 px-2 text-xs sm:text-sm">
+                        <CheckCircle className="h-3.5 w-3.5 shrink-0 sm:mr-1 sm:h-4 sm:w-4" />
+                        <span>Approved</span>
                     </TabsTrigger>
-                    <TabsTrigger value="rejected">
-                        <XCircle className="mr-2 h-4 w-4" /> Rejected
+                    <TabsTrigger value="rejected" className="gap-1 px-2 text-xs sm:text-sm">
+                        <XCircle className="h-3.5 w-3.5 shrink-0 sm:mr-1 sm:h-4 sm:w-4" />
+                        <span>Rejected</span>
                     </TabsTrigger>
-                    <TabsTrigger value="cancelled">
-                        <Ban className="mr-2 h-4 w-4" /> Cancelled
+                    <TabsTrigger value="cancelled" className="gap-1 px-2 text-xs sm:text-sm">
+                        <Ban className="h-3.5 w-3.5 shrink-0 sm:mr-1 sm:h-4 sm:w-4" />
+                        <span>Cancelled</span>
                     </TabsTrigger>
                 </TabsList>
                 <TabsContent value="pending" className="mt-4">

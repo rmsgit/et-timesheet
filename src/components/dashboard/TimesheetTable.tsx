@@ -519,23 +519,23 @@ export const TimesheetTable: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
          👋 Welcome, {user ? user.username : 'Editor'}!
         </h1>
-        <p className="text-lg text-muted-foreground mt-1">
+        <p className="mt-1 text-sm text-muted-foreground sm:text-lg">
           This is your personal timesheet dashboard. Track your work efficiently.
         </p>
         {editorLevelDisplay}
       </div>
 
       {(isAuthLoading || isTimesheetLoading) ? (
-        <div className="grid gap-4 md:grid-cols-3 mb-6">
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
           <CardSkeleton className="shadow-md" />
           <CardSkeleton className="shadow-md" />
           <CardSkeleton className="shadow-md" />
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-3 mb-6">
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
           <Card className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Logged Hours Today</CardTitle>
@@ -578,10 +578,10 @@ export const TimesheetTable: React.FC = () => {
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-semibold">
+          <h2 className="text-xl font-semibold sm:text-2xl">
             Entries for {selectedDate ? format(selectedDate, 'PPP') : 'Selected Date'}
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground sm:text-sm">
             Showing all entries for the selected day, plus all pending tasks from other dates.
           </p>
         </div>
@@ -710,7 +710,7 @@ export const TimesheetTable: React.FC = () => {
 
       {latestReview && (
           <Dialog open={isLatestReviewOpen} onOpenChange={setIsLatestReviewOpen}>
-              <DialogContent className="max-w-3xl">
+              <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-3xl">
                   <DialogHeader>
                       <DialogTitle className="flex items-center text-2xl">
                           <ClipboardCheckIcon className="mr-3 h-6 w-6 text-primary" />
@@ -794,31 +794,31 @@ export const TimesheetTable: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {renderSortableHeader("Date", "date")}
-                    {renderSortableHeader("Project Name", "projectName")}
-                    {renderSortableHeader("Category", "projectType")}
-                    {renderSortableHeader("Work Type", "workType")}
-                    {renderSortableHeader("Proj. Duration", "projectDurationSeconds")}
-                    {renderSortableHeader("Work Time", "durationHours")}
+                    {renderSortableHeader("Date", "date", "whitespace-nowrap")}
+                    {renderSortableHeader("Project Name", "projectName", "min-w-[140px]")}
+                    {renderSortableHeader("Category", "projectType", "hidden md:table-cell")}
+                    {renderSortableHeader("Work Type", "workType", "hidden lg:table-cell")}
+                    {renderSortableHeader("Proj. Duration", "projectDurationSeconds", "hidden lg:table-cell")}
+                    {renderSortableHeader("Work Time", "durationHours", "hidden sm:table-cell")}
                     {renderSortableHeader("Status", "completedAt")}
-                    {renderSortableHeader("Re-checked", "reChecked")}
-                    <TableHead className="text-right">Actions</TableHead>
+                    {renderSortableHeader("Re-checked", "reChecked", "hidden md:table-cell")}
+                    <TableHead className="text-right sticky right-0 bg-card">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedRecords.map((record) => (
                     <TableRow key={record.id}>
-                      <TableCell>{format(parseISO(record.date), 'MMM d, yyyy')}</TableCell>
-                      <TableCell className="font-medium">{record.projectName}</TableCell>
-                      <TableCell><Badge variant="secondary">{record.projectType}</Badge></TableCell>
-                      <TableCell>{getWorkTypeBadge(record.workType)}</TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">{format(parseISO(record.date), 'MMM d, yyyy')}</TableCell>
+                      <TableCell className="font-medium max-w-[160px] truncate sm:max-w-none">{record.projectName}</TableCell>
+                      <TableCell className="hidden md:table-cell"><Badge variant="secondary">{record.projectType}</Badge></TableCell>
+                      <TableCell className="hidden lg:table-cell">{getWorkTypeBadge(record.workType)}</TableCell>
+                      <TableCell className="hidden lg:table-cell">
                           <span className="flex items-center">
                               <Film className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
                               {formatDurationFromTotalSeconds(record.projectDurationSeconds)}
                           </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         {record.completedAt ? (
                           <span className="flex items-center">
                             <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
@@ -837,7 +837,7 @@ export const TimesheetTable: React.FC = () => {
                           <Badge variant="outline">Pending</Badge>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {record.reChecked ? (
                           <Badge variant="default" className="bg-green-500 hover:bg-green-600">
                             <CheckSquare className="mr-1 h-3 w-3" /> Re-checked
@@ -846,7 +846,7 @@ export const TimesheetTable: React.FC = () => {
                           <Badge variant="outline">Not Re-checked</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right sticky right-0 bg-card">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-8 w-8 p-0" disabled={isActionSubmitting || isSubmittingCompletion}>
@@ -920,16 +920,17 @@ export const TimesheetTable: React.FC = () => {
                 {fullUserRecordsForDay.length > 0 && (
                   <TableFooter>
                     <TableRow>
-                      <TableCell colSpan={6} className="font-semibold text-muted-foreground text-right">
-                        Total Completed Work Time for {selectedDate ? format(selectedDate, 'PPP') : 'selected day'}:
-                      </TableCell>
-                      <TableCell>
-                          <span className="flex items-center font-semibold">
+                      <TableCell colSpan={100} className="font-semibold text-muted-foreground">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-end sm:gap-2">
+                          <span>
+                            Total Completed Work Time for {selectedDate ? format(selectedDate, 'PPP') : 'selected day'}:
+                          </span>
+                          <span className="flex items-center font-semibold text-foreground">
                               <Clock className="mr-1.5 h-3.5 w-3.5 text-muted-foreground"/>
                               {formatDurationFromDecimalHours(dailyTotalHours)}
                           </span>
+                        </div>
                       </TableCell>
-                      <TableCell colSpan={2}></TableCell>
                     </TableRow>
                   </TableFooter>
                 )}
@@ -937,22 +938,24 @@ export const TimesheetTable: React.FC = () => {
             </div>
           </CardContent>
           {totalPages > 1 && (
-            <div className="flex items-center justify-between space-x-2 p-4 border-t">
+            <div className="flex flex-col gap-3 border-t p-4 sm:flex-row sm:items-center sm:justify-between sm:space-x-2">
               <Button
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1 || isLoading}
               >
                 <ChevronLeft className="mr-1 h-4 w-4" />
                 Previous
               </Button>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-center text-sm text-muted-foreground">
                 Page {currentPage} of {totalPages}
               </span>
               <Button
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages || isLoading}
               >

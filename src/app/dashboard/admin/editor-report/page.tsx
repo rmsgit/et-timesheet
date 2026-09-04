@@ -255,8 +255,8 @@ export default function AdminEditorReportPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-3xl font-bold tracking-tight flex items-center">
-          <UserCheck className="mr-3 h-8 w-8 text-primary" /> User Specific Report
+        <h1 className="flex items-center text-2xl font-bold tracking-tight sm:text-3xl">
+          <UserCheck className="mr-2 h-6 w-6 shrink-0 text-primary sm:mr-3 sm:h-8 sm:w-8" /> User Specific Report
         </h1>
       </div>
 

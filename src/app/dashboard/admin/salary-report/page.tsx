@@ -647,8 +647,8 @@ export default function SalaryReportPage() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold tracking-tight flex items-center">
-                <FileSpreadsheet className="mr-3 h-8 w-8 text-primary" /> Salary Report
+            <h1 className="flex items-center text-2xl font-bold tracking-tight sm:text-3xl">
+                <FileSpreadsheet className="mr-2 h-6 w-6 shrink-0 text-primary sm:mr-3 sm:h-8 sm:w-8" /> Salary Report
             </h1>
             <Card>
                 <CardHeader>
@@ -711,37 +711,37 @@ export default function SalaryReportPage() {
             {report && !isLoadingReport && (
                 <Card id="payslip-card" className="shadow-lg">
                     <CardHeader>
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <CardTitle className="text-2xl">Salary Slip for {report.payPeriod}</CardTitle>
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                                <CardTitle className="text-xl sm:text-2xl">Salary Slip for {report.payPeriod}</CardTitle>
                                 <CardDescription>
-                                    <div className="flex items-center gap-4 mt-2">
-                                        <span className="flex items-center"><UserIcon className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />{report.user.fullName || report.user.username}</span>
-                                        <span className="flex items-center"><Briefcase className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />{report.user.jobDesignation || 'N/A'}</span>
+                                    <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+                                        <span className="flex items-center"><UserIcon className="mr-2 h-4 w-4 shrink-0 text-muted-foreground inline-block align-middle" />{report.user.fullName || report.user.username}</span>
+                                        <span className="flex items-center"><Briefcase className="mr-2 h-4 w-4 shrink-0 text-muted-foreground inline-block align-middle" />{report.user.jobDesignation || 'N/A'}</span>
                                         {report.payPeriodStart && report.payPeriodEnd && (
-                                            <span className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 text-muted-foreground inline-block align-middle" />Pay Period: {report.payPeriodStart} to {report.payPeriodEnd}</span>
+                                            <span className="flex items-center"><CalendarDays className="mr-2 h-4 w-4 shrink-0 text-muted-foreground inline-block align-middle" />Pay Period: {report.payPeriodStart} to {report.payPeriodEnd}</span>
                                         )}
                                     </div>
                                 </CardDescription>
                             </div>
-                            <div className="flex items-center gap-2 payslip-actions-container">
+                            <div className="payslip-actions-container flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
                                 {isSaved && (
-                                    <Button onClick={handleGenerateReport} variant="outline" disabled={isLoadingReport || mainLoadingState}>
+                                    <Button onClick={handleGenerateReport} variant="outline" className="w-full sm:w-auto" disabled={isLoadingReport || mainLoadingState}>
                                         <RefreshCw className="mr-2 h-4 w-4" />
                                         Recalculate
                                     </Button>
                                 )}
-                                <Button onClick={handleSavePaysheet} disabled={isSaving || mainLoadingState}>
+                                <Button onClick={handleSavePaysheet} className="w-full sm:w-auto" disabled={isSaving || mainLoadingState}>
                                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                     Save Paysheet
                                 </Button>
-                                <Button onClick={handleGeneratePdfForPreview} variant="secondary" disabled={isGeneratingPdf || isSaving || mainLoadingState} title="Preview & Send Payslip">
+                                <Button onClick={handleGeneratePdfForPreview} variant="secondary" className="w-full sm:w-auto" disabled={isGeneratingPdf || isSaving || mainLoadingState} title="Preview & Send Payslip">
                                     {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
                                     {isGeneratingPdf ? 'Generating...' : 'Preview & Send'}
                                 </Button>
                             </div>
                         </div>
-                        <div className="space-y-4 pt-4">
+                        <div className="space-y-4 overflow-x-auto pt-4">
                             <h3 className="font-semibold text-lg flex items-center"><NotebookText className="mr-2 h-5 w-5 text-primary inline-block align-middle"/>Attendance Summary</h3>
                              <Table>
                                <TableHeader>
@@ -915,9 +915,9 @@ export default function SalaryReportPage() {
                     </CardContent>
                     
                     <CardFooter className="flex-col items-start gap-6 p-6">
-                        <div className="w-full bg-primary/10 p-6 rounded-lg flex justify-between items-center">
-                            <span className="text-xl font-bold text-primary">Net Salary Payable</span>
-                            <span className="text-2xl font-bold text-primary">{formatCurrency(report.netSalary)}</span>
+                        <div className="flex w-full flex-col gap-2 rounded-lg bg-primary/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                            <span className="text-lg font-bold text-primary sm:text-xl">Net Salary Payable</span>
+                            <span className="text-xl font-bold text-primary sm:text-2xl">{formatCurrency(report.netSalary)}</span>
                         </div>
                         <div className="w-full space-y-4">
                             <h3 className="font-semibold text-lg flex items-center"><Landmark className="mr-2 h-5 w-5 text-primary inline-block align-middle"/>Company Contributions (Informational)</h3>
@@ -971,28 +971,28 @@ export default function SalaryReportPage() {
                     setGeneratedPdf(null);
                 }
             }}>
-                <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+                <DialogContent className="flex h-[90dvh] max-h-[90dvh] w-full max-w-[calc(100%-2rem)] flex-col sm:max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>Payslip Preview</DialogTitle>
                         <DialogDescription>
                            Review the payslip. You can download it or send it directly to the user's personal email.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="flex-grow border rounded-md overflow-hidden bg-muted">
+                    <div className="min-h-0 flex-grow overflow-hidden rounded-md border bg-muted">
                         {payslipPdfUrl ? (
                             <iframe
                                 src={payslipPdfUrl}
-                                className="w-full h-full"
+                                className="h-full w-full"
                                 title="Payslip Preview"
                             />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center">
+                            <div className="flex h-full w-full items-center justify-center">
                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                 <p className="ml-2 text-muted-foreground">Loading Preview...</p>
                             </div>
                         )}
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="gap-2 sm:gap-0">
                         <Button variant="outline" onClick={() => setIsPayslipPreviewOpen(false)}>Cancel</Button>
                         <Button onClick={handleDownloadPdf} variant="secondary" disabled={!generatedPdf}>
                             <Download className="mr-2 h-4 w-4" /> Download PDF

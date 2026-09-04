@@ -119,7 +119,7 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-h-[90dvh] max-w-md overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ListTodo className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -135,7 +135,7 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <span className="text-sm text-muted-foreground">Status:</span>
               {canChange ? (
                 <Select
@@ -143,7 +143,7 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
                   onValueChange={setSelectedStatusId}
                   disabled={isUpdating}
                 >
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-full sm:max-w-[220px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -166,7 +166,7 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <div>
                 <Label className="text-muted-foreground">Assignee</Label>
                 <p>{assignee?.fullName || assignee?.username || 'Unknown'}</p>

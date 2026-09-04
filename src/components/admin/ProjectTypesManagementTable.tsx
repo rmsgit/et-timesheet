@@ -278,15 +278,15 @@ export const ProjectTypesManagementTable: React.FC = () => {
               <DialogTitle>{editingType ? 'Edit Project Type' : 'Add New Project Type'}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="project-type-name" className="text-right col-span-1">
+              <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-4 sm:gap-4">
+                <Label htmlFor="project-type-name" className="sm:col-span-1 sm:text-right">
                   Name
                 </Label>
                 <Input
                   id="project-type-name"
                   value={currentTypeValue}
                   onChange={(e) => setCurrentTypeValue(e.target.value)}
-                  className="col-span-3"
+                  className="sm:col-span-3"
                   placeholder="e.g., New Feature"
                   required
                   disabled={isSubmittingForm}

@@ -239,26 +239,26 @@ export const SalaryConfigurationTable: React.FC = () => {
             <DialogDescription>Update the payroll information for this user.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="baseSalary" className="text-right">Basic Salary</Label>
-              <Input id="baseSalary" name="baseSalary" type="number" value={formState.baseSalary} onChange={handleFormChange} className="col-span-3" />
+            <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-4 sm:gap-4">
+              <Label htmlFor="baseSalary" className="sm:text-right">Basic Salary</Label>
+              <Input id="baseSalary" name="baseSalary" type="number" value={formState.baseSalary} onChange={handleFormChange} className="sm:col-span-3" />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="conveyanceAllowance" className="text-right">Conv. Allowance</Label>
-              <Input id="conveyanceAllowance" name="conveyanceAllowance" type="number" value={formState.conveyanceAllowance} onChange={handleFormChange} className="col-span-3" />
+            <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-4 sm:gap-4">
+              <Label htmlFor="conveyanceAllowance" className="sm:text-right">Conv. Allowance</Label>
+              <Input id="conveyanceAllowance" name="conveyanceAllowance" type="number" value={formState.conveyanceAllowance} onChange={handleFormChange} className="sm:col-span-3" />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="travelingAllowance" className="text-right">Traveling</Label>
-              <Input id="travelingAllowance" name="travelingAllowance" type="number" value={formState.travelingAllowance} onChange={handleFormChange} className="col-span-3" />
+            <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-4 sm:gap-4">
+              <Label htmlFor="travelingAllowance" className="sm:text-right">Traveling</Label>
+              <Input id="travelingAllowance" name="travelingAllowance" type="number" value={formState.travelingAllowance} onChange={handleFormChange} className="sm:col-span-3" />
             </div>
             {editingUser?.role === 'editor' && (
-              <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="isEligibleForMorningOT" className="text-right col-span-3">Eligible for Morning OT</Label>
+              <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-4 sm:gap-4">
+                  <Label htmlFor="isEligibleForMorningOT" className="sm:col-span-3 sm:text-right">Eligible for Morning OT</Label>
                   <Checkbox
                       id="isEligibleForMorningOT"
                       checked={formState.isEligibleForMorningOT}
                       onCheckedChange={(checked) => setFormState(prev => ({...prev, isEligibleForMorningOT: checked as boolean}))}
-                      className="col-span-1 justify-self-start"
+                      className="justify-self-start"
                   />
               </div>
             )}

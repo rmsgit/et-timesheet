@@ -603,8 +603,8 @@ export default function AttendancePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight flex items-center">
-        <CalendarCheck className="mr-3 h-8 w-8 text-primary" /> User Attendance Sheet
+      <h1 className="flex items-center text-2xl font-bold tracking-tight sm:text-3xl">
+        <CalendarCheck className="mr-2 h-6 w-6 shrink-0 text-primary sm:mr-3 sm:h-8 sm:w-8" /> User Attendance Sheet
       </h1>
 
       <Card>
@@ -672,8 +672,8 @@ export default function AttendancePage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="flex gap-2 items-end max-w-md">
-                    <div className="flex-grow space-y-2">
+                <div className="flex max-w-md flex-col gap-2 sm:flex-row sm:items-end">
+                    <div className="min-w-0 flex-grow space-y-2">
                         <Label htmlFor="attendance-file">Attendance File (.xlsx, .xls, .csv)</Label>
                         <Input
                             id="attendance-file"
@@ -684,7 +684,7 @@ export default function AttendancePage() {
                             disabled={isProcessing || !selectedUserId}
                         />
                     </div>
-                    <Button onClick={() => file && handleProcessFile(file)} disabled={!file || !selectedUserId || isProcessing}>
+                    <Button className="w-full shrink-0 sm:w-auto" onClick={() => file && handleProcessFile(file)} disabled={!file || !selectedUserId || isProcessing}>
                         {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                         {isProcessing ? 'Processing...' : 'Review File'}
                     </Button>
@@ -696,7 +696,7 @@ export default function AttendancePage() {
       
       {selectedUserId && attendanceData.length > 0 && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 md:gap-6">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Monthly OT</CardTitle>
@@ -739,19 +739,22 @@ export default function AttendancePage() {
             </div>
             <Card>
               <CardHeader>
-                  <div className="flex justify-between items-start">
-                      <div>
-                          <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5" /> Reviewing Attendance for: <span className="ml-2 font-bold text-primary">{selectedUser?.fullName || selectedUser?.username}</span></CardTitle>
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                          <CardTitle className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base sm:text-lg">
+                            <span className="inline-flex items-center"><User className="mr-2 h-5 w-5 shrink-0" /> Reviewing Attendance for:</span>
+                            <span className="font-bold text-primary">{selectedUser?.fullName || selectedUser?.username}</span>
+                          </CardTitle>
                           <CardDescription className="mt-1.5">
                               Review and edit the attendance data for {format(new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1), 'MMMM yyyy')}.
                           </CardDescription>
                       </div>
-                      <div className="flex items-center gap-2">
-                          <Button onClick={handleResyncData} variant="outline" size="sm" disabled={isSaving || isProcessing || isDeleting}>
+                      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                          <Button onClick={handleResyncData} variant="outline" size="sm" className="w-full sm:w-auto" disabled={isSaving || isProcessing || isDeleting}>
                               <RefreshCw className="mr-2 h-4 w-4" />
                               Re-sync Data
                           </Button>
-                          <Button variant="destructive" size="sm" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving || isProcessing || isDeleting}>
+                          <Button variant="destructive" size="sm" className="w-full sm:w-auto" onClick={() => setIsDeleteDialogOpen(true)} disabled={isSaving || isProcessing || isDeleting}>
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete Sheet
                           </Button>
@@ -759,28 +762,29 @@ export default function AttendancePage() {
                   </div>
               </CardHeader>
               <CardContent>
+                  <div className="overflow-x-auto">
                   <Table>
                       <TableHeader>
                           <TableRow>
-                              <TableHead className="w-[180px]">Date</TableHead>
-                              <TableHead>Check-in</TableHead>
-                              <TableHead>Check-out</TableHead>
-                              <TableHead className="w-[100px]">
+                              <TableHead className="min-w-[140px] sm:w-[180px]">Date</TableHead>
+                              <TableHead className="min-w-[100px]">Check-in</TableHead>
+                              <TableHead className="min-w-[100px]">Check-out</TableHead>
+                              <TableHead className="min-w-[90px] sm:w-[100px]">
                                 <div className="flex items-center">
                                   <Hourglass className="mr-2 h-4 w-4" /> OT
                                 </div>
                               </TableHead>
-                              <TableHead className="w-[120px]">
+                              <TableHead className="min-w-[110px] sm:w-[120px]">
                                 <div className="flex items-center text-orange-600">
                                   <AlertTriangle className="mr-2 h-4 w-4" /> Early Leave
                                 </div>
                               </TableHead>
-                              <TableHead className="w-[120px]">
+                              <TableHead className="min-w-[100px] sm:w-[120px]">
                                 <div className="flex items-center">
                                     <Plane className="mr-2 h-4 w-4" /> Leave
                                 </div>
                               </TableHead>
-                              <TableHead className="w-[150px]">
+                              <TableHead className="min-w-[120px] sm:w-[150px]">
                                 <div className="flex items-center">
                                     <NotebookText className="mr-2 h-4 w-4" /> Remarks
                                 </div>
@@ -844,8 +848,9 @@ export default function AttendancePage() {
                             })}
                       </TableBody>
                   </Table>
-                   <div className="flex justify-end mt-6">
-                        <Button onClick={handleSaveAttendance} disabled={isSaving || isProcessing}>
+                  </div>
+                   <div className="mt-6 flex justify-end">
+                        <Button className="w-full sm:w-auto" onClick={handleSaveAttendance} disabled={isSaving || isProcessing}>
                             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                             Save Attendance
                         </Button>

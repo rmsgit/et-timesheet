@@ -197,8 +197,8 @@ export default function MyLeavePage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-3xl font-bold tracking-tight flex items-center">
-            <Plane className="mr-3 h-8 w-8 text-primary" /> My Leave Requests
+        <h1 className="flex items-center text-2xl font-bold tracking-tight sm:text-3xl">
+            <Plane className="mr-2 h-6 w-6 shrink-0 text-primary sm:mr-3 sm:h-8 sm:w-8" /> My Leave Requests
         </h1>
         <Button onClick={() => handleOpenForm(null)} disabled={isSubmitting}>
             <PlusCircle className="mr-2 h-4 w-4" /> Apply for Leave
@@ -342,7 +342,7 @@ export default function MyLeavePage() {
               <div className="flex items-center justify-between mb-4">
                   <h4 className="font-semibold text-foreground">Leave Balance for {selectedYear}</h4>
                   <Select value={String(selectedYear)} onValueChange={(value) => setSelectedYear(Number(value))}>
-                      <SelectTrigger className="w-[120px]">
+        <SelectTrigger className="w-full sm:w-[120px]">
                           <SelectValue placeholder="Year" />
                       </SelectTrigger>
                       <SelectContent>

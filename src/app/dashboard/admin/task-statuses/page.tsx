@@ -30,8 +30,8 @@ export default function TaskStatusesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight flex items-center">
-        <ListChecks className="mr-3 h-8 w-8 text-primary" /> Task Status Configuration
+      <h1 className="flex items-center text-2xl font-bold tracking-tight sm:text-3xl">
+        <ListChecks className="mr-2 h-6 w-6 shrink-0 text-primary sm:mr-3 sm:h-8 sm:w-8" /> Task Status Configuration
       </h1>
       <p className="text-muted-foreground">
         Manage task workflow statuses used on the task calendar.

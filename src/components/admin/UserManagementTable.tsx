@@ -576,18 +576,18 @@ export const UserManagementTable: React.FC = () => {
     <>
       <Card className="shadow-lg">
         <CardHeader>
-          <div className="flex justify-between items-center flex-wrap gap-4">
-            <div>
-              <CardTitle className="text-2xl font-semibold">User and Permissions</CardTitle>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <CardTitle className="text-xl font-semibold sm:text-2xl">User and Permissions</CardTitle>
               <CardDescription>Manage user profiles (RTDB) and associated Firebase Auth accounts.</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                 {selectedUserIds.size > 0 && (
-                    <Button variant="outline" onClick={() => setIsBulkEditDialogOpen(true)} disabled={isSubmittingForm}>
+                    <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsBulkEditDialogOpen(true)} disabled={isSubmittingForm}>
                         <Edit className="mr-2 h-4 w-4" /> Bulk Edit ({selectedUserIds.size})
                     </Button>
                 )}
-                <Button onClick={handleOpenAddUserDialog} disabled={isUsersLoading || isSubmittingForm || isLoadingEditorLevels}>
+                <Button className="w-full sm:w-auto" onClick={handleOpenAddUserDialog} disabled={isUsersLoading || isSubmittingForm || isLoadingEditorLevels}>
                 <UserPlus className="mr-2 h-4 w-4" /> Add User
                 </Button>
             </div>
@@ -613,6 +613,7 @@ export const UserManagementTable: React.FC = () => {
             </div>
           ) : (
             <>
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -622,14 +623,14 @@ export const UserManagementTable: React.FC = () => {
                             onCheckedChange={handleSelectAll}
                         />
                     </TableHead>
-                  {renderSortableHeader("User", "fullName")}
-                  {renderSortableHeader("Email", "email")}
+                  {renderSortableHeader("User", "fullName", "min-w-[140px]")}
+                  {renderSortableHeader("Email", "email", "hidden md:table-cell min-w-[160px]")}
                   {renderSortableHeader("Role", "role")}
-                  {renderSortableHeader("Editor Level", "editorLevelName")}
-                  {renderSortableHeader("Department", "department")}
-                  {renderSortableHeader("Designation", "jobDesignation")}
-                  {renderSortableHeader("Joining Date", "joiningDate")}
-                  <TableHead className="text-right">Actions</TableHead>
+                  {renderSortableHeader("Editor Level", "editorLevelName", "hidden lg:table-cell")}
+                  {renderSortableHeader("Department", "department", "hidden lg:table-cell")}
+                  {renderSortableHeader("Designation", "jobDesignation", "hidden xl:table-cell")}
+                  {renderSortableHeader("Joining Date", "joiningDate", "hidden md:table-cell")}
+                  <TableHead className="text-right sticky right-0 bg-card">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -643,17 +644,18 @@ export const UserManagementTable: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
+                        <Avatar className="h-9 w-9 shrink-0">
                           <AvatarImage src={`https://picsum.photos/seed/${user.username}/40/40`} alt={user.username} data-ai-hint="user avatar"/>
                           <AvatarFallback>{user.username.substring(0,2).toUpperCase()}</AvatarFallback>
                         </Avatar>
-                        <div>
-                            <div className="font-medium">{user.fullName || user.username}</div>
-                            <div className="text-sm text-muted-foreground">{user.username}</div>
+                        <div className="min-w-0">
+                            <div className="truncate font-medium">{user.fullName || user.username}</div>
+                            <div className="truncate text-sm text-muted-foreground">{user.username}</div>
+                            <div className="truncate text-xs text-muted-foreground md:hidden">{user.email || 'N/A'}</div>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{user.email || 'N/A'}</TableCell>
+                    <TableCell className="hidden md:table-cell">{user.email || 'N/A'}</TableCell>
                     <TableCell>
                       <Badge variant={user.role === 'admin' ? 'default' : user.role === 'super admin' ? 'destructive' : 'secondary'}>
                         {user.role === 'admin' && <Shield className="mr-1 h-3 w-3" />}
@@ -661,7 +663,7 @@ export const UserManagementTable: React.FC = () => {
                         {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'No Role'}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                         {user.role === 'editor' && user.editorLevelId ? (
                            isLoadingEditorLevels ? <div className="h-5 w-20 rounded-md bg-muted animate-pulse" /> : (
                             <Badge variant="outline" className="flex items-center gap-1.5">
@@ -673,12 +675,12 @@ export const UserManagementTable: React.FC = () => {
                             user.role === 'editor' && sortedEditorLevelsForSelect.length > 0 ? <span className="text-xs text-muted-foreground">Not Set</span> : 'N/A'
                         )}
                     </TableCell>
-                    <TableCell>{user.department || 'N/A'}</TableCell>
-                    <TableCell>{user.jobDesignation || 'N/A'}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">{user.department || 'N/A'}</TableCell>
+                    <TableCell className="hidden xl:table-cell">{user.jobDesignation || 'N/A'}</TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {user.joiningDate ? format(new Date(user.joiningDate), 'PPP') : 'N/A'}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right sticky right-0 bg-card">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" className="h-8 w-8 p-0" disabled={isSubmittingForm || isLoadingEditorLevels}>
@@ -712,13 +714,14 @@ export const UserManagementTable: React.FC = () => {
                 ))}
               </TableBody>
             </Table>
+            </div>
             {totalPages > 1 && (
-              <div className="flex items-center justify-between space-x-2 p-4 border-t">
-                <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1}>
+              <div className="flex flex-col gap-3 border-t p-4 sm:flex-row sm:items-center sm:justify-between sm:space-x-2">
+                <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1}>
                   <ChevronLeft className="mr-1 h-4 w-4" /> Previous
                 </Button>
-                <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages} (Total: {sortedUsers.length} users)</span>
-                <Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages}>
+                <span className="text-center text-sm text-muted-foreground">Page {currentPage} of {totalPages} (Total: {sortedUsers.length} users)</span>
+                <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages}>
                   Next <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               </div>

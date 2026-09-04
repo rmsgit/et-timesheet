@@ -99,23 +99,24 @@ export default function TaskCalendarPage() {
   }
 
   return (
-    <div className="container mx-auto space-y-6 py-2">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center">
-            <CalendarDays className="mr-3 h-8 w-8 text-primary" /> Task Calendar
+    <div className="mx-auto w-full max-w-[1600px] space-y-4 py-2 sm:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="flex items-center text-2xl font-bold tracking-tight sm:text-3xl">
+            <CalendarDays className="mr-2 h-6 w-6 shrink-0 text-primary sm:mr-3 sm:h-8 sm:w-8" />
+            <span className="truncate">Task Calendar</span>
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="mt-1 text-sm text-muted-foreground sm:text-base">
             View and manage one-time and recurring tasks.
           </p>
         </div>
-        <Button onClick={() => handleOpenCreate()}>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenCreate()}>
           <PlusCircle className="mr-2 h-4 w-4" /> New Task
         </Button>
       </div>
 
       {(isAdmin || isSuperAdmin) && filterUserId !== undefined && (
-        <div className="max-w-xs space-y-2">
+        <div className="w-full max-w-xs space-y-2">
           <Label>Filter by user</Label>
           <SearchableUserSelect
             users={userOptions}
@@ -134,7 +135,7 @@ export default function TaskCalendarPage() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)] lg:items-start">
           <TaskCalendar
             month={month}
             onMonthChange={setMonth}

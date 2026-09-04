@@ -148,7 +148,7 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{task ? 'Edit Task' : 'New Task'}</DialogTitle>
           <DialogDescription>

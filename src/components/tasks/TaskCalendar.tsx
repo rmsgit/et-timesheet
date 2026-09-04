@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAYS_SHORT = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const MAX_VISIBLE_EVENTS = 3;
 const MAX_VISIBLE_BIRTHDAYS = 2;
 
@@ -115,12 +116,14 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
   };
 
   return (
-    <div className="rounded-lg border bg-card shadow-sm">
+    <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between border-b px-4 py-3">
-        <h2 className="text-lg font-semibold">{format(month, 'MMMM yyyy')}</h2>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={goToToday}>
+      <div className="flex items-center justify-between gap-2 border-b px-3 py-3 sm:px-4">
+        <h2 className="min-w-0 truncate text-base font-semibold sm:text-lg">
+          {format(month, 'MMMM yyyy')}
+        </h2>
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <Button variant="outline" size="sm" className="px-2 sm:px-3" onClick={goToToday}>
             Today
           </Button>
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={goToPreviousMonth}>
@@ -134,12 +137,13 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
 
       {/* Weekday headers */}
       <div className="grid grid-cols-7 border-b">
-        {WEEKDAYS.map((day) => (
+        {WEEKDAYS.map((day, idx) => (
           <div
             key={day}
-            className="border-r px-2 py-2 text-center text-xs font-medium text-muted-foreground last:border-r-0"
+            className="border-r px-0.5 py-1.5 text-center text-[10px] font-medium text-muted-foreground last:border-r-0 sm:px-2 sm:py-2 sm:text-xs"
           >
-            {day}
+            <span className="sm:hidden">{WEEKDAYS_SHORT[idx]}</span>
+            <span className="hidden sm:inline">{day}</span>
           </div>
         ))}
       </div>
@@ -172,6 +176,7 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
                 dayOccurrences.length - remainingEventSlots
               );
               const hiddenCount = hiddenBirthdayCount + hiddenTaskCount;
+              const totalItems = dayBirthdays.length + dayOccurrences.length;
 
               return (
                 <div
@@ -186,13 +191,13 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
                     }
                   }}
                   className={cn(
-                    'group relative min-h-[8.5rem] cursor-pointer p-1.5 transition-colors hover:bg-muted/40',
+                    'group relative min-h-[3.25rem] cursor-pointer p-0.5 transition-colors hover:bg-muted/40 sm:min-h-[6rem] sm:p-1 md:min-h-[8.5rem] md:p-1.5',
                     !inCurrentMonth && 'bg-muted/20',
                     isSelected && 'bg-primary/5 ring-1 ring-inset ring-primary/30'
                   )}
                 >
                   {/* Date number + add task */}
-                  <div className="mb-1 flex items-center justify-between gap-1">
+                  <div className="mb-0.5 flex items-center justify-between gap-0.5 sm:mb-1">
                     {onCreateTaskForDate && (
                       <Button
                         type="button"
@@ -201,7 +206,7 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
                         title="Add task"
                         aria-label={`Add task on ${format(day, 'MMMM d, yyyy')}`}
                         className={cn(
-                          'h-5 w-5 shrink-0 text-muted-foreground hover:text-primary',
+                          'hidden h-5 w-5 shrink-0 text-muted-foreground hover:text-primary sm:inline-flex',
                           'opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100',
                           isSelected && 'opacity-100'
                         )}
@@ -215,7 +220,7 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
                     )}
                     <span
                       className={cn(
-                        'ml-auto inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium',
+                        'ml-auto inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-medium sm:h-6 sm:w-6 sm:text-xs',
                         !inCurrentMonth && 'text-muted-foreground/60',
                         isTodayDate &&
                           'bg-primary text-primary-foreground font-semibold',
@@ -226,8 +231,28 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
                     </span>
                   </div>
 
-                  {/* Birthdays + task events */}
-                  <div className="space-y-0.5">
+                  {/* Mobile: compact indicators */}
+                  <div className="flex flex-wrap items-center justify-center gap-0.5 px-0.5 sm:hidden">
+                    {dayBirthdays.length > 0 && (
+                      <Cake className="h-2.5 w-2.5 text-rose-500" aria-hidden />
+                    )}
+                    {dayOccurrences.slice(0, 3).map((occ) => (
+                      <span
+                        key={`${occ.task.id}-${occ.dateKey}-dot`}
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{ backgroundColor: getStatusColor(occ.statusId) }}
+                        aria-hidden
+                      />
+                    ))}
+                    {totalItems > 4 && (
+                      <span className="text-[8px] leading-none text-muted-foreground">
+                        +{totalItems - 4}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* sm+: Birthdays + task events */}
+                  <div className="hidden space-y-0.5 sm:block">
                     {dayBirthdays.slice(0, MAX_VISIBLE_BIRTHDAYS).map((bday) => (
                       <button
                         key={`bday-${bday.userId}`}
@@ -238,10 +263,10 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
                           onSelectDate(day);
                           onSelectBirthday?.(bday.userId, day);
                         }}
-                        className="flex w-full items-center gap-1 rounded border border-rose-200 bg-rose-50 px-1.5 py-1 text-left text-rose-800 transition-opacity hover:opacity-80 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200"
+                        className="flex w-full items-center gap-1 rounded border border-rose-200 bg-rose-50 px-1 py-0.5 text-left text-rose-800 transition-opacity hover:opacity-80 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200 md:px-1.5 md:py-1"
                       >
                         <Cake className="h-3 w-3 shrink-0 opacity-90" />
-                        <span className="min-w-0 flex-1 truncate text-[11px] font-medium leading-tight">
+                        <span className="min-w-0 flex-1 truncate text-[10px] font-medium leading-tight md:text-[11px]">
                           {bday.name}
                         </span>
                       </button>
@@ -261,15 +286,15 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
                           onSelectDate(day);
                           onSelectOccurrence?.(occ);
                         }}
-                        className="flex w-full items-start gap-1 rounded px-1.5 py-1 text-left text-white transition-opacity hover:opacity-80"
+                        className="flex w-full items-start gap-1 rounded px-1 py-0.5 text-left text-white transition-opacity hover:opacity-80 md:px-1.5 md:py-1"
                         style={{ backgroundColor: getStatusColor(occ.statusId) }}
                       >
                         <ListTodo className="mt-0.5 h-3 w-3 shrink-0 opacity-90" />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[11px] font-medium leading-tight">
+                          <span className="block truncate text-[10px] font-medium leading-tight md:text-[11px]">
                             {occ.task.title}
                           </span>
-                          <span className="block truncate text-[10px] leading-tight opacity-90">
+                          <span className="hidden truncate text-[10px] leading-tight opacity-90 md:block">
                             {assigneeName}
                           </span>
                         </span>
@@ -283,7 +308,7 @@ export const TaskCalendar: React.FC<TaskCalendarProps> = ({
                           e.stopPropagation();
                           onSelectDate(day);
                         }}
-                        className="w-full truncate px-1.5 text-left text-[10px] text-muted-foreground hover:text-foreground"
+                        className="w-full truncate px-1 text-left text-[10px] text-muted-foreground hover:text-foreground md:px-1.5"
                       >
                         +{hiddenCount} more
                       </button>

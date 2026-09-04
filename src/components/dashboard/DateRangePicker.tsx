@@ -1,8 +1,7 @@
-
 "use client"
 
 import * as React from "react"
-import { format, isSameDay } from "date-fns" // Added isSameDay
+import { format, isSameDay } from "date-fns"
 import type { DateRange } from "react-day-picker"
 import { Calendar as CalendarIcon } from "lucide-react"
 
@@ -14,6 +13,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface DateRangePickerProps extends React.HTMLAttributes<HTMLDivElement> {
   dateRange?: DateRange;
@@ -27,8 +27,10 @@ export function DateRangePicker({
   onDateChange,
   disabled
 }: DateRangePickerProps) {
+  const isMobile = useIsMobile()
+
   return (
-    <div className={cn("grid gap-2", className)}>
+    <div className={cn("grid w-full max-w-full gap-2", className)}>
       <Popover>
         <PopoverTrigger asChild>
           <Button
@@ -36,33 +38,35 @@ export function DateRangePicker({
             variant={"outline"}
             className={cn(
               "w-full sm:w-[300px] justify-start text-left font-normal",
-              !dateRange?.from && "text-muted-foreground" // Check dateRange.from instead of just dateRange
+              !dateRange?.from && "text-muted-foreground"
             )}
             disabled={disabled}
           >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {dateRange?.from ? (
-              dateRange.to && !isSameDay(dateRange.from, dateRange.to) ? ( // If 'to' exists and is different from 'from'
-                <>
-                  {format(dateRange.from, "LLL dd, y")} -{" "}
-                  {format(dateRange.to, "LLL dd, y")}
-                </>
-              ) : ( // If 'to' is undefined OR 'to' is the same as 'from'
-                format(dateRange.from, "LLL dd, y")
-              )
-            ) : (
-              <span>Pick a date range</span>
-            )}
+            <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+            <span className="truncate">
+              {dateRange?.from ? (
+                dateRange.to && !isSameDay(dateRange.from, dateRange.to) ? (
+                  <>
+                    {format(dateRange.from, "LLL dd, y")} -{" "}
+                    {format(dateRange.to, "LLL dd, y")}
+                  </>
+                ) : (
+                  format(dateRange.from, "LLL dd, y")
+                )
+              ) : (
+                "Pick a date range"
+              )}
+            </span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] p-0" align="start">
           <Calendar
             initialFocus
             mode="range"
             defaultMonth={dateRange?.from}
             selected={dateRange}
             onSelect={onDateChange}
-            numberOfMonths={2}
+            numberOfMonths={isMobile ? 1 : 2}
             disabled={disabled}
           />
         </PopoverContent>
