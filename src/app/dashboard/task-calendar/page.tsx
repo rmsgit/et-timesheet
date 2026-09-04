@@ -32,9 +32,9 @@ export default function TaskCalendarPage() {
 
   useEffect(() => {
     if (user?.id && filterUserId === undefined) {
-      setFilterUserId(isAdmin && !isSuperAdmin ? user.id : 'all');
+      setFilterUserId(user.id);
     }
-  }, [user?.id, isAdmin, isSuperAdmin, filterUserId]);
+  }, [user?.id, filterUserId]);
 
   const effectiveFilterUserId = useMemo(() => {
     if (!user) return undefined;
