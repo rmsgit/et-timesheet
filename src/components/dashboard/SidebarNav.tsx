@@ -7,6 +7,7 @@ import { useLeave } from '@/hooks/useLeave';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskStatuses } from '@/hooks/useTaskStatuses';
 import { useMemo } from 'react';
+import { endOfMonth, startOfMonth } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -23,7 +24,7 @@ export function SidebarNav() {
   const pathname = usePathname();
   const { isAdmin, isEditor, isSuperAdmin, user } = useAuth();
   const { leaveRequests, isLoading: isLoadingLeave } = useLeave();
-  const { tasks, isLoading: isLoadingTasks } = useTasks();
+  const { getTasksForDateRange, isLoading: isLoadingTasks } = useTasks();
   const { taskStatuses, isLoadingTaskStatuses } = useTaskStatuses();
 
   const pendingLeaveCount = useMemo(() => {
@@ -36,11 +37,21 @@ export function SidebarNav() {
     const defaultStatus =
       taskStatuses.find((s) => s.isDefault) ?? taskStatuses[0];
     if (!defaultStatus) return 0;
-    return tasks.filter(
-      (task) =>
-        task.assigneeId === user.id && task.statusId === defaultStatus.id
-    ).length;
-  }, [tasks, user?.id, taskStatuses, isLoadingTasks, isLoadingTaskStatuses]);
+
+    const now = new Date();
+    const monthOccurrences = getTasksForDateRange(
+      startOfMonth(now),
+      endOfMonth(now),
+      user.id
+    );
+    return monthOccurrences.filter((occ) => occ.statusId === defaultStatus.id).length;
+  }, [
+    getTasksForDateRange,
+    user?.id,
+    taskStatuses,
+    isLoadingTasks,
+    isLoadingTaskStatuses,
+  ]);
 
   const personalRoutes = [
     { href: '/dashboard', label: 'My Timesheet', icon: ListChecks },
