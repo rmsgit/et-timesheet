@@ -135,7 +135,7 @@ export default function TaskCalendarPage() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)] lg:items-start">
+        <div className="space-y-4">
           <TaskCalendar
             month={month}
             onMonthChange={setMonth}

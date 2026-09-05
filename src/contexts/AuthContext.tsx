@@ -82,6 +82,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 isEligibleForMorningOT: dbUser.isEligibleForMorningOT ?? false,
                 availableLeaves: dbUser.availableLeaves ?? 0,
                 compensatoryLeaves: dbUser.compensatoryLeaves ?? 0,
+                lastDailyBriefingSeenDate: dbUser.lastDailyBriefingSeenDate || undefined,
               };
               console.log('AuthContext: RTDB profile fetched. Calling setUser with:', appUser);
               setUser(appUser);

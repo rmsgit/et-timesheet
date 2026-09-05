@@ -23,6 +23,8 @@ export interface User {
   dateOfBirth?: string; // ISO string
   dateOfBirthMessage?: string;
   personalEmail?: string;
+  /** Local calendar date (YYYY-MM-DD) when the user last dismissed Today's briefing. */
+  lastDailyBriefingSeenDate?: string;
 }
 
 export interface CategoryRating {

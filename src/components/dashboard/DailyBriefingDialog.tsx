@@ -1,13 +1,16 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Cake, ListTodo } from 'lucide-react';
 import { format } from 'date-fns';
+import { get, ref, update } from 'firebase/database';
 import { useAuth } from '@/hooks/useAuth';
 import { useTasks } from '@/hooks/useTasks';
 import { useTaskStatuses } from '@/hooks/useTaskStatuses';
 import { useMockUsers } from '@/hooks/useMockUsers';
+import { database } from '@/lib/firebase';
+import { FIREBASE_USERS_PATH } from '@/lib/constants';
 import {
   getBirthdaysOnDate,
   getUserBirthdayLabel,
@@ -25,21 +28,22 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { TaskStatusBadge } from '@/components/tasks/TaskStatusBadge';
-import type { Task } from '@/lib/types';
 
-function getDailyBriefingStorageKey(userId: string): string {
-  const today = new Date();
-  const dateKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
-  // v2: reset earlier keys that may have been set when the dialog opened empty
-  return `daily-briefing-v2-shown-${userId}-${dateKey}`;
+/** Local calendar date key used for once-per-day briefing (YYYY-MM-DD). */
+function getLocalDateKey(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export const DailyBriefingDialog: React.FC = () => {
   const { user, isAuthLoading, isSuperAdmin } = useAuth();
-  const { tasks, isLoading: isLoadingTasks } = useTasks();
+  const { getTasksForDate, isLoading: isLoadingTasks } = useTasks();
   const { taskStatuses, isLoadingTaskStatuses } = useTaskStatuses();
   const { users, isUsersLoading } = useMockUsers();
   const [isOpen, setIsOpen] = useState(false);
+  const markedSeenRef = useRef(false);
 
   const isDataReady =
     !isAuthLoading &&
@@ -49,6 +53,7 @@ export const DailyBriefingDialog: React.FC = () => {
     !isUsersLoading;
 
   const today = useMemo(() => new Date(), []);
+  const todayKey = useMemo(() => getLocalDateKey(today), [today]);
   const todayLabel = format(today, 'EEEE, MMMM d');
 
   const todoStatus = useMemo(
@@ -56,14 +61,13 @@ export const DailyBriefingDialog: React.FC = () => {
     [taskStatuses]
   );
 
-  /** Same rule as the Task Calendar sidebar badge: open To Do items assigned to me. */
-  const myTodoTasks = useMemo((): Task[] => {
+  /** Only To Do occurrences scheduled for today (one-time due today or recurring on today). */
+  const myTodoOccurrences = useMemo(() => {
     if (!user?.id || !todoStatus) return [];
-    return tasks.filter(
-      (task) =>
-        task.assigneeId === user.id && task.statusId === todoStatus.id
+    return getTasksForDate(today, user.id).filter(
+      (occ) => occ.statusId === todoStatus.id
     );
-  }, [tasks, user?.id, todoStatus]);
+  }, [getTasksForDate, today, user?.id, todoStatus]);
 
   const todaysBirthdays = useMemo(() => {
     if (!users.length || !user?.id) return [];
@@ -75,38 +79,78 @@ export const DailyBriefingDialog: React.FC = () => {
     user?.dateOfBirthMessage?.trim() ||
     (user ? `Happy Birthday, ${getUserBirthdayLabel(user)}!` : '');
 
-  const hasTodos = myTodoTasks.length > 0;
+  const hasTodos = myTodoOccurrences.length > 0;
   const hasBirthdays = todaysBirthdays.length > 0;
-  const hasContent = hasTodos || hasBirthdays || isOwnBirthday;
+  // Popup open decision: only today's To Do tasks
+  const shouldShowBriefing = hasTodos;
+
+  const markBriefingSeen = useCallback(async () => {
+    if (!user?.id || !database || markedSeenRef.current) return;
+    markedSeenRef.current = true;
+    try {
+      await update(ref(database, `${FIREBASE_USERS_PATH}/${user.id}`), {
+        lastDailyBriefingSeenDate: todayKey,
+      });
+    } catch (error) {
+      markedSeenRef.current = false;
+      console.error('Failed to save daily briefing seen date:', error);
+    }
+  }, [user?.id, todayKey]);
 
   useEffect(() => {
-    if (!isDataReady || !user) return;
-    if (!hasContent) return;
+    if (!isDataReady || !user || !shouldShowBriefing) return;
+    let cancelled = false;
 
-    const storageKey = getDailyBriefingStorageKey(user.id);
-    if (typeof window !== 'undefined' && sessionStorage.getItem(storageKey)) {
-      return;
+    const maybeOpenBriefing = async () => {
+      // Fast path from auth profile
+      if (user.lastDailyBriefingSeenDate === todayKey) return;
+
+      // Source of truth: user profile in RTDB (works across browsers)
+      if (database) {
+        try {
+          const snapshot = await get(
+            ref(database, `${FIREBASE_USERS_PATH}/${user.id}/lastDailyBriefingSeenDate`)
+          );
+          if (snapshot.exists() && snapshot.val() === todayKey) {
+            return;
+          }
+        } catch (error) {
+          console.error('Failed to read daily briefing seen date:', error);
+        }
+      }
+
+      if (!cancelled) {
+        setIsOpen(true);
+      }
+    };
+
+    void maybeOpenBriefing();
+    return () => {
+      cancelled = true;
+    };
+  }, [isDataReady, user, shouldShowBriefing, todayKey]);
+
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      void markBriefingSeen();
     }
+  };
 
-    setIsOpen(true);
-    sessionStorage.setItem(storageKey, 'true');
-  }, [isDataReady, user, hasContent]);
-
-  const handleClose = () => setIsOpen(false);
+  const handleClose = () => {
+    setIsOpen(false);
+    void markBriefingSeen();
+  };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Today&apos;s briefing</DialogTitle>
           <DialogDescription>
-            {hasTodos && (hasBirthdays || isOwnBirthday)
+            {hasBirthdays || isOwnBirthday
               ? `Your to-do tasks and birthday notes for ${todayLabel}.`
-              : hasTodos
-                ? `Your open to-do tasks — ${todayLabel}.`
-                : isOwnBirthday && !hasBirthdays
-                  ? `Your birthday message for ${todayLabel}.`
-                  : `Birthdays for ${todayLabel}.`}
+              : `Your open to-do tasks for ${todayLabel}.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -129,20 +173,20 @@ export const DailyBriefingDialog: React.FC = () => {
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="flex items-center gap-2 text-sm font-semibold">
                     <ListTodo className="h-4 w-4 text-muted-foreground" />
-                    To Do tasks
+                    To Do today
                   </h3>
-                  <Badge variant="secondary">{myTodoTasks.length}</Badge>
+                  <Badge variant="secondary">{myTodoOccurrences.length}</Badge>
                 </div>
                 <ul className="space-y-2">
-                  {myTodoTasks.map((task) => (
-                    <li key={task.id} className="rounded-md border p-3">
+                  {myTodoOccurrences.map((occ) => (
+                    <li key={`${occ.task.id}-${occ.dateKey}`} className="rounded-md border p-3">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="font-medium leading-snug">{task.title}</p>
-                        <TaskStatusBadge statusId={task.statusId} />
+                        <p className="font-medium leading-snug">{occ.task.title}</p>
+                        <TaskStatusBadge statusId={occ.statusId} />
                       </div>
-                      {task.type === 'recurring' && task.recurrence && (
+                      {occ.task.type === 'recurring' && occ.task.recurrence && (
                         <p className="mt-1 text-xs capitalize text-muted-foreground">
-                          {task.recurrence}
+                          {occ.task.recurrence}
                         </p>
                       )}
                     </li>

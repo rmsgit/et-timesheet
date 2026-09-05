@@ -163,6 +163,8 @@ export const useMockUsers = () => {
       personalEmail: personalEmail ?? null,
       dateOfBirth: dateOfBirth ?? null,
       dateOfBirthMessage: dateOfBirthMessage?.trim() || null,
+      // Preserve per-user briefing dismissal so admin profile saves don't reset it
+      lastDailyBriefingSeenDate: userBeingEdited?.lastDailyBriefingSeenDate ?? null,
     };
 
     const userRef = ref(database, `${FIREBASE_USERS_PATH}/${id}`);
